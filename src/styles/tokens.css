@@ -1,14 +1,14 @@
 :root{
-  /* Refined dark palette: neutral base + violet primary + sky accent */
-  --color-bg:#0b1220;         /* deep navy */
-  --color-surface:#0f172a;     /* slate-900 */
-  --color-card:#0f172a;        /* slightly raised but cohesive */
-  --color-text:#e6eaf2;        /* soft white */
-  --color-muted:#9aa4b2;       /* neutral-muted */
-  --color-primary:#8b5cf6;     /* violet-500 */
-  --color-accent:#38bdf8;      /* sky-400 */
+  /* Light theme: white background + pastel blue accents */
+  --color-bg:#ffffff;
+  --color-surface:#ffffff;
+  --color-card:#ffffff;
+  --color-text:#0f172a;        /* slate-900 */
+  --color-muted:#667085;       /* neutral-500/600 */
+  --color-primary:#3b82f6;     /* blue-500 */
+  --color-accent:#93c5fd;      /* blue-300 (pastel) */
   --radius:12px;
-  --shadow:0 10px 30px rgba(2,6,23,0.45);
+  --shadow:0 8px 24px rgba(2,6,23,0.06);
   --gap:16px;
 }
 
