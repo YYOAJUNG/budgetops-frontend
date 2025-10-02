@@ -20,7 +20,7 @@ npm run preview
 이미지 빌드:
 
 ```
-docker build -t budgetops-fe:dev .
+docker build -f docker/Dockerfile -t budgetops-fe:dev .
 ```
 
 컨테이너 실행:
