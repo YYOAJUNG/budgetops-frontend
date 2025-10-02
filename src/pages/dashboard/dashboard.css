@@ -1,0 +1,18 @@
+.dashboard-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.dashboard-kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.dashboard-main{grid-column:span 8}
+.dashboard-side{grid-column:span 4}
+.dashboard-full{grid-column:1/-1}
+
+@media (max-width:1200px){
+  .dashboard-kpis{grid-template-columns:repeat(2,1fr)}
+  .dashboard-main{grid-column:1/-1}
+  .dashboard-side{grid-column:1/-1}
+}
+
+.placeholder{height:240px;border:1px dashed rgba(2,6,23,0.12);border-radius:12px;background:linear-gradient(135deg, rgba(147,197,253,0.15), rgba(191,219,254,0.12))}
+.list-placeholder{height:220px;border:1px dashed rgba(2,6,23,0.12);border-radius:12px;background:linear-gradient(180deg, rgba(147,197,253,0.12), rgba(191,219,254,0.1))}
+
+.list{margin:0;padding-left:18px;line-height:1.8}
+
+
