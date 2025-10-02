@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{font-synthesis-weight:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:theme(fontFamily.sans);}
+
+.card{ @apply bg-white border border-black/5 rounded-xl shadow-soft; }
+.btn{ @apply h-9 px-3 rounded-lg border border-black/10 bg-white text-slate-900 font-semibold; }
+.btn-primary{ @apply bg-brand-primary text-white border-brand-primary; }
+
