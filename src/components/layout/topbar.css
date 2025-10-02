@@ -1,5 +1,5 @@
-.topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(255,255,255,0.06);background:var(--color-surface)}
+.topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(2,6,23,0.06);background:var(--color-surface)}
 .title{font-weight:600}
-.search{height:32px;border:1px solid rgba(255,255,255,0.12);background:transparent;border-radius:8px;color:var(--color-text);padding:0 10px}
+.search{height:32px;border:1px solid rgba(2,6,23,0.12);background:#fff;border-radius:8px;color:var(--color-text);padding:0 10px}
 
 
