@@ -7,27 +7,48 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/store/auth';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { showAuthError } from '@/store/error';
+import { logAuthError } from '@/lib/error-logger';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const router = useRouter();
   const { login } = useAuthStore();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    values,
+    errors,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+    isValid,
+  } = useFormValidation(
+    { email: 'admin@budgetops.com', password: 'password' },
+    {
+      email: {
+        required: true,
+        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        message: '올바른 이메일 형식을 입력해주세요.',
+      },
+      password: {
+        required: true,
+        minLength: 6,
+        message: '비밀번호는 최소 6자 이상이어야 합니다.',
+      },
+    }
+  );
+
+  const onSubmit = async (formValues: typeof values) => {
     setIsLoading(true);
-    setError('');
 
     try {
       // 시뮬레이션된 로그인 (실제로는 API 호출)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 더미 로그인 로직
-      if (email === 'admin@budgetops.com' && password === 'password') {
+      if (formValues.email === 'admin@budgetops.com' && formValues.password === 'password') {
         login({
           id: '1',
           email: 'admin@budgetops.com',
@@ -36,10 +57,14 @@ export function LoginForm() {
         });
         router.push('/dashboard');
       } else {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+        const errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
+        showAuthError(errorMessage);
+        logAuthError(errorMessage, { email: formValues.email });
       }
-    } catch (err) {
-      setError('로그인 중 오류가 발생했습니다.');
+    } catch (error) {
+      const errorMessage = '로그인 중 오류가 발생했습니다.';
+      showAuthError(errorMessage);
+      logAuthError(errorMessage, { error: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setIsLoading(false);
     }
@@ -67,44 +92,47 @@ export function LoginForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">{error}</span>
-                </div>
-              )}
-              
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">이메일</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="admin@budgetops.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={values.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
                   className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   required
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email}</p>
+                )}
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">비밀번호</Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
                   placeholder="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={values.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  onBlur={() => handleBlur('password')}
                   className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   required
                 />
+                {errors.password && (
+                  <p className="text-sm text-red-600">{errors.password}</p>
+                )}
               </div>
               
               <Button 
                 type="submit" 
                 className="w-full h-11 bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300" 
-                disabled={isLoading}
+                disabled={isLoading || !isValid}
               >
                 {isLoading ? (
                   <>
