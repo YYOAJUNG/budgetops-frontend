@@ -15,11 +15,11 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen bg-background">
+      <div className="flex h-screen bg-gray-50">
         {sidebarOpen && <Sidebar />}
         <div className="flex-1 flex flex-col overflow-hidden">
           <Topbar />
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-6 bg-gray-50">
             {children}
           </main>
         </div>
