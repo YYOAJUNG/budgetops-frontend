@@ -41,17 +41,22 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-card border-r">
-      <div className="flex h-16 items-center px-6 border-b">
-        <h1 className="text-xl font-bold">BudgetOps</h1>
+    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
+      <div className="flex h-16 items-center px-6 border-b border-gray-200">
+        <div className="flex items-center space-x-3">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
+            <span className="text-sm font-bold text-white">B</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
+        </div>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => (
           <div key={item.name}>
             {item.children ? (
               <div className="space-y-1">
-                <div className="flex items-center px-3 py-2 text-sm font-medium text-muted-foreground">
-                  <item.icon className="mr-3 h-5 w-5" />
+                <div className="flex items-center px-3 py-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                  <item.icon className="mr-3 h-4 w-4" />
                   {item.name}
                 </div>
                 {item.children.map((child) => (
@@ -59,13 +64,16 @@ export function Sidebar() {
                     key={child.name}
                     href={child.href}
                     className={cn(
-                      'flex items-center px-6 py-2 text-sm rounded-md transition-colors',
+                      'flex items-center px-6 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                       pathname === child.href
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     )}
                   >
-                    <child.icon className="mr-3 h-4 w-4" />
+                    <child.icon className={cn(
+                      'mr-3 h-4 w-4 transition-colors',
+                      pathname === child.href ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                    )} />
                     {child.name}
                   </Link>
                 ))}
@@ -74,13 +82,16 @@ export function Sidebar() {
               <Link
                 href={item.href}
                 className={cn(
-                  'flex items-center px-3 py-2 text-sm rounded-md transition-colors',
+                  'flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                   pathname === item.href
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                 )}
               >
-                <item.icon className="mr-3 h-5 w-5" />
+                <item.icon className={cn(
+                  'mr-3 h-5 w-5 transition-colors',
+                  pathname === item.href ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                )} />
                 {item.name}
               </Link>
             )}
