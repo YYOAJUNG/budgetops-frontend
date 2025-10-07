@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Cloud, Shield, Database, Server, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 import { mockAccounts } from '@/lib/api/mock-data';
@@ -16,15 +16,14 @@ const providerIcons = {
   NCP: Server,
 };
 
-const statusConfig = {
-  CONNECTED: { label: '연결됨', variant: 'default' as const, color: 'text-green-600' },
-  ERROR: { label: '오류', variant: 'destructive' as const, color: 'text-red-600' },
-  PENDING: { label: '대기중', variant: 'secondary' as const, color: 'text-yellow-600' },
-  DISCONNECTED: { label: '연결 끊김', variant: 'outline' as const, color: 'text-gray-600' },
-};
+// StatusBadge 컴포넌트를 사용하므로 statusConfig 제거
 
-export function AccountList() {
-  const accounts = mockAccounts;
+interface AccountListProps {
+  accounts?: any[];
+}
+
+export function AccountList({ accounts: propAccounts }: AccountListProps) {
+  const accounts = propAccounts || mockAccounts;
 
   if (accounts.length === 0) {
     return (
@@ -53,7 +52,6 @@ export function AccountList() {
       <CardContent className="space-y-4">
         {accounts.map((account) => {
           const Icon = providerIcons[account.provider as CloudProvider];
-          const status = statusConfig[account.status];
           
           return (
             <div
@@ -67,9 +65,7 @@ export function AccountList() {
                 <div>
                   <div className="flex items-center space-x-2">
                     <h4 className="font-medium">{account.name}</h4>
-                    <Badge variant={status.variant} className="text-xs">
-                      {status.label}
-                    </Badge>
+                    <StatusBadge status={account.status} />
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {account.provider} • {account.connectedAt && new Date(account.connectedAt).toLocaleDateString()}

@@ -1,28 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { SuccessToast } from '@/components/ui/success-toast';
 import { Loader2, ExternalLink } from 'lucide-react';
 import type { AccountFormData, CloudProvider } from '@/types/accounts';
 import { getProviderConfig } from '@/lib/config/providers';
+import { useAccountLinking } from '@/hooks/useAccountLinking';
 
 interface AccountFormProps {
   provider: CloudProvider;
-  onSubmit: (data: AccountFormData) => Promise<void>;
-  isLoading?: boolean;
+  onAccountLinked?: (account: any) => void;
 }
 
-export function AccountForm({ provider, onSubmit, isLoading = false }: AccountFormProps) {
+export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
   const config = getProviderConfig(provider);
+  const { linkingState, linkAccount, resetLinkingState } = useAccountLinking();
   const [formData, setFormData] = useState<Partial<AccountFormData>>({
     provider,
     name: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const firstErrorFieldRef = useRef<HTMLInputElement>(null);
 
   if (!config) {
     return <div>Provider configuration not found</div>;
@@ -56,7 +60,8 @@ export function AccountForm({ provider, onSubmit, isLoading = false }: AccountFo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      await onSubmit(formData as AccountFormData);
+      resetLinkingState();
+      await linkAccount(formData as AccountFormData);
     }
   };
 
@@ -74,6 +79,26 @@ export function AccountForm({ provider, onSubmit, isLoading = false }: AccountFo
       alert(`${provider} OAuth 연동을 시작합니다. (스텁)`);
     }
   };
+
+  // 성공 시 처리
+  useEffect(() => {
+    if (linkingState.status === 'success' && linkingState.pendingAccount && onAccountLinked) {
+      onAccountLinked(linkingState.pendingAccount);
+      // 폼 초기화
+      setFormData({
+        provider,
+        name: '',
+      });
+      setErrors({});
+    }
+  }, [linkingState.status, linkingState.pendingAccount, onAccountLinked, provider]);
+
+  // 실패 시 첫 번째 에러 필드로 포커스 이동
+  useEffect(() => {
+    if (linkingState.status === 'error' && firstErrorFieldRef.current) {
+      firstErrorFieldRef.current.focus();
+    }
+  }, [linkingState.status]);
 
   const getFieldLabel = (field: string): string => {
     const labels: Record<string, string> = {
@@ -120,6 +145,24 @@ export function AccountForm({ provider, onSubmit, isLoading = false }: AccountFo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* 에러 배너 */}
+        {linkingState.status === 'error' && linkingState.error && (
+          <ErrorBanner
+            error={linkingState.error}
+            onDismiss={resetLinkingState}
+            aria-live="polite"
+          />
+        )}
+
+        {/* 성공 토스트 */}
+        {linkingState.status === 'success' && (
+          <SuccessToast
+            message={`${provider} 계정이 성공적으로 연결되었습니다!`}
+            onDismiss={resetLinkingState}
+            aria-live="polite"
+          />
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 계정 이름 */}
           <div className="space-y-2">
@@ -171,9 +214,9 @@ export function AccountForm({ provider, onSubmit, isLoading = false }: AccountFo
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={!isFormValid() || isLoading}
+            disabled={!isFormValid() || linkingState.status === 'loading'}
           >
-            {isLoading ? (
+            {linkingState.status === 'loading' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 연동 중...
