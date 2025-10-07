@@ -1,0 +1,92 @@
+'use client';
+
+import { StatCard } from '@/components/ui/stat-card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
+import { useContextStore } from '@/store/context';
+import { formatCurrency } from '@/lib/utils';
+import { DollarSign, Target, AlertTriangle, Lightbulb, Plus, Cloud, Bot } from 'lucide-react';
+
+export function Dashboard() {
+  const { tenantId, from, to, currency } = useContextStore();
+  const { data: costSeries } = useCostSeries({ tenantId, from, to });
+  const { data: budgets } = useBudgets(tenantId);
+  const { data: anomalies } = useAnomalies(tenantId);
+  const { data: recommendations } = useRecommendations(tenantId);
+
+  const currentMonthCost = costSeries?.[costSeries.length - 1]?.amount || 0;
+  const previousMonthCost = costSeries?.[costSeries.length - 2]?.amount || 0;
+  const costChange = previousMonthCost > 0 ? ((currentMonthCost - previousMonthCost) / previousMonthCost) * 100 : 0;
+
+  const totalBudget = budgets?.reduce((sum, budget) => sum + budget.amount, 0) || 0;
+  const totalSpent = budgets?.reduce((sum, budget) => sum + (budget.spendToDate || 0), 0) || 0;
+  const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  const recentAnomalies = anomalies?.filter(a => 
+    new Date(a.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  ).length || 0;
+
+  const totalSavings = recommendations?.reduce((sum, rec) => sum + rec.saving, 0) || 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">대시보드</h1>
+        <p className="text-muted-foreground">클라우드 비용 현황을 한눈에 확인하세요</p>
+      </div>
+
+      {/* 주요 지표 카드 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="이번 달 총 비용"
+          value={formatCurrency(currentMonthCost, currency)}
+          change={{
+            value: costChange,
+            label: '전월 대비'
+          }}
+          icon={<DollarSign className="h-4 w-4" />}
+        />
+        <StatCard
+          title="예산 소진률"
+          value={`${budgetUtilization.toFixed(1)}%`}
+          icon={<Target className="h-4 w-4" />}
+        />
+        <StatCard
+          title="이상징후 (7일)"
+          value={recentAnomalies}
+          icon={<AlertTriangle className="h-4 w-4" />}
+        />
+        <StatCard
+          title="예상 절감액"
+          value={formatCurrency(totalSavings, currency)}
+          icon={<Lightbulb className="h-4 w-4" />}
+        />
+      </div>
+
+      {/* 빠른 작업 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>빠른 작업</CardTitle>
+          <CardDescription>자주 사용하는 기능에 빠르게 접근하세요</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            <Button variant="outline">
+              <Cloud className="mr-2 h-4 w-4" />
+              계정 연결
+            </Button>
+            <Button variant="outline">
+              <Plus className="mr-2 h-4 w-4" />
+              예산 만들기
+            </Button>
+            <Button variant="outline">
+              <Bot className="mr-2 h-4 w-4" />
+              코파일럿 열기
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
