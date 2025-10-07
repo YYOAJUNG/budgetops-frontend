@@ -1,19 +1,31 @@
-# --- Build stage ---
-FROM node:20-alpine AS builder
+# Build stage
+FROM node:18-alpine as build
+
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
 COPY . .
+
+# Build the application
 RUN npm run build
 
-# --- Runtime stage (serve with vite preview) ---
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-EXPOSE 5173
-CMD ["npm", "run", "preview"]
+# Production stage
+FROM nginx:alpine
 
+# Copy built assets from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
 
+# Copy nginx configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

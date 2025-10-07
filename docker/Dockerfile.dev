@@ -1,0 +1,23 @@
+# Development Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy config files
+COPY config/ ./config/
+
+# Copy source code
+COPY src/ ./src/
+COPY index.html ./
+
+# Expose port 5173 for Vite dev server
+EXPOSE 5173
+
+# Start development server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
