@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { AccountFormData, AccountConnection } from '@/types/accounts';
+import { accountsLinkingService } from '@/services/accountsLinking';
 
 export type LinkingStatus = 'idle' | 'loading' | 'success' | 'error' | 'pending';
 
@@ -33,48 +34,19 @@ export function useAccountLinking(): UseAccountLinkingReturn {
     });
 
     try {
-      // 시뮬레이션된 API 호출 (2초 대기)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // 랜덤하게 성공/실패/보류 상태 결정 (테스트용)
-      const random = Math.random();
+      const result = await accountsLinkingService.linkAccount(data);
       
-      if (random < 0.6) {
-        // 60% 성공
-        const newAccount: AccountConnection = {
-          id: `acc_${Date.now()}`,
-          provider: data.provider,
-          name: data.name,
-          status: 'CONNECTED',
-          connectedAt: new Date().toISOString(),
-        };
-
+      if (result.success && result.account) {
         setLinkingState({
-          status: 'success',
+          status: result.status === 'PENDING' ? 'pending' : 'success',
           error: null,
-          pendingAccount: newAccount,
-        });
-      } else if (random < 0.8) {
-        // 20% 실패
-        setLinkingState({
-          status: 'error',
-          error: '인증 정보가 올바르지 않습니다. API 키와 시크릿을 확인해주세요.',
-          pendingAccount: null,
+          pendingAccount: result.account,
         });
       } else {
-        // 20% 보류
-        const pendingAccount: AccountConnection = {
-          id: `acc_${Date.now()}`,
-          provider: data.provider,
-          name: data.name,
-          status: 'PENDING',
-          connectedAt: new Date().toISOString(),
-        };
-
         setLinkingState({
-          status: 'pending',
-          error: null,
-          pendingAccount,
+          status: 'error',
+          error: result.error || '알 수 없는 오류가 발생했습니다.',
+          pendingAccount: null,
         });
       }
     } catch (error) {
