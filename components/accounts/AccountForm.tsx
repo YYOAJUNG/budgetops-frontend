@@ -137,10 +137,10 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{config.displayName} 계정 연동</CardTitle>
-        <CardDescription>
+    <Card className="shadow-lg border-0 bg-white">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-semibold text-gray-900">{config.displayName} 계정 연동</CardTitle>
+        <CardDescription className="text-gray-600">
           {config.displayName} 계정을 연결하여 비용 데이터를 수집합니다.
         </CardDescription>
       </CardHeader>
@@ -166,13 +166,14 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 계정 이름 */}
           <div className="space-y-2">
-            <Label htmlFor="name">계정 이름 *</Label>
+            <Label htmlFor="name" className="text-sm font-medium text-gray-700">계정 이름 *</Label>
             <Input
               id="name"
               placeholder={getFieldPlaceholder('name')}
               value={formData.name || ''}
               onChange={(e) => handleInputChange('name', e.target.value)}
               aria-invalid={!!errors.name}
+              className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
             />
             {errors.name && (
               <p className="text-sm text-red-600">{errors.name}</p>
@@ -182,7 +183,7 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
           {/* 필수 필드들 */}
           {config.requiredFields.map((field) => (
             <div key={field} className="space-y-2">
-              <Label htmlFor={field}>{getFieldLabel(field)} *</Label>
+              <Label htmlFor={field} className="text-sm font-medium text-gray-700">{getFieldLabel(field)} *</Label>
               <Input
                 id={field}
                 type={field.includes('secret') || field.includes('Secret') ? 'password' : 'text'}
@@ -190,6 +191,7 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
                 value={formData[field as keyof AccountFormData] || ''}
                 onChange={(e) => handleInputChange(field, e.target.value)}
                 aria-invalid={!!errors[field]}
+                className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
               {errors[field] && (
                 <p className="text-sm text-red-600">{errors[field]}</p>
@@ -200,20 +202,21 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
           {/* 선택적 필드들 */}
           {config.optionalFields.map((field) => (
             <div key={field} className="space-y-2">
-              <Label htmlFor={field}>{getFieldLabel(field)}</Label>
+              <Label htmlFor={field} className="text-sm font-medium text-gray-700">{getFieldLabel(field)}</Label>
               <Input
                 id={field}
                 type={field.includes('secret') || field.includes('Secret') ? 'password' : 'text'}
                 placeholder={getFieldPlaceholder(field)}
                 value={formData[field as keyof AccountFormData] || ''}
                 onChange={(e) => handleInputChange(field, e.target.value)}
+                className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
           ))}
 
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium" 
             disabled={!isFormValid() || linkingState.status === 'loading'}
           >
             {linkingState.status === 'loading' ? (
@@ -244,7 +247,7 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full h-11 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
               onClick={handleOAuth}
             >
               <ExternalLink className="mr-2 h-4 w-4" />
