@@ -8,7 +8,7 @@ export function Copilot() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">AI 코파일럿</h1>
+        <h2 className="text-2xl font-bold text-gray-900">AI 코파일럿</h2>
         <p className="text-muted-foreground">AI와 대화하며 비용 최적화 조언을 받으세요</p>
       </div>
 

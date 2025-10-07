@@ -32,7 +32,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
+        <h2 className="text-2xl font-bold text-gray-900">대시보드</h2>
         <p className="text-gray-600 mt-2">클라우드 비용 현황을 한눈에 확인하세요</p>
       </div>
 

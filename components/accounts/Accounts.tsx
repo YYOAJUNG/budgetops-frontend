@@ -25,7 +25,7 @@ export function Accounts() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">클라우드 계정</h1>
+        <h2 className="text-2xl font-bold text-gray-900">클라우드 계정</h2>
         <p className="text-gray-600 mt-2">AWS, GCP, Azure, NCP 계정을 연결하여 비용 데이터를 수집하세요</p>
       </div>
 

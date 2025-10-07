@@ -8,7 +8,7 @@ export function DBBillingSimulator() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">DB Billing 시뮬레이터</h1>
+        <h2 className="text-2xl font-bold text-gray-900">DB Billing 시뮬레이터</h2>
         <p className="text-muted-foreground">데이터베이스 비용을 미리 계산해보세요</p>
       </div>
 

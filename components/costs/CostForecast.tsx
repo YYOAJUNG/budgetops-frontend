@@ -8,7 +8,7 @@ export function CostForecast() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">비용 예측</h1>
+        <h2 className="text-2xl font-bold text-gray-900">비용 예측</h2>
         <p className="text-muted-foreground">향후 비용 트렌드를 예측하고 예산 계획을 세우세요</p>
       </div>
 

@@ -8,7 +8,7 @@ export function CostAnalyze() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">비용 분석</h1>
+        <h2 className="text-2xl font-bold text-gray-900">비용 분석</h2>
         <p className="text-gray-600 mt-2">기간별, 서비스별 비용을 상세히 분석하세요</p>
       </div>
 
