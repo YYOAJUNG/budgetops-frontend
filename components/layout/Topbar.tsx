@@ -16,7 +16,7 @@ export function Topbar() {
   const { data: tenants } = useTenants();
 
   return (
-    <div className="flex h-16 items-center justify-between border-b bg-background px-6">
+    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
       <div className="flex items-center space-x-4">
         <TenantSwitcher tenants={tenants || []} />
         <DateRangePicker />
@@ -24,7 +24,7 @@ export function Topbar() {
       </div>
       
       <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
           <Settings className="h-4 w-4" />
         </Button>
         <UserMenu user={user} />
