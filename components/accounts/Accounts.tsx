@@ -16,21 +16,10 @@ const providerIcons = {
 
 export function Accounts() {
   const [activeTab, setActiveTab] = useState<CloudProvider>('AWS');
-  const [isLoading, setIsLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
 
-  const handleAccountSubmit = async (data: AccountFormData) => {
-    setIsLoading(true);
-    try {
-      // 시뮬레이션된 API 호출
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Account connection data:', data);
-      alert(`${data.provider} 계정이 성공적으로 연결되었습니다! (스텁)`);
-    } catch (error) {
-      console.error('Account connection failed:', error);
-      alert('계정 연결에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleAccountLinked = (newAccount: any) => {
+    setAccounts(prev => [...prev, newAccount]);
   };
 
   return (
@@ -60,8 +49,7 @@ export function Accounts() {
               <TabsContent key={provider} value={provider}>
                 <AccountForm
                   provider={provider}
-                  onSubmit={handleAccountSubmit}
-                  isLoading={isLoading}
+                  onAccountLinked={handleAccountLinked}
                 />
               </TabsContent>
             ))}
@@ -70,7 +58,7 @@ export function Accounts() {
 
         {/* 연결된 계정 목록 */}
         <div>
-          <AccountList />
+          <AccountList accounts={accounts} />
         </div>
       </div>
     </div>
