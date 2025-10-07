@@ -103,3 +103,10 @@ dist
 # Temporary folders
 tmp/
 temp/
+
+# Next.js
+.next/
+next-env.d.ts
+
+# Vercel
+.vercel
