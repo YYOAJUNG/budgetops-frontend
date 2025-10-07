@@ -39,8 +39,8 @@ export function UserMenu({ user }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-12 rounded-lg hover:bg-gray-50 transition-colors duration-200">
-          <div className="flex h-9 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-sky-50 to-sky-100 text-sky-400 border border-sky-100 hover:from-sky-100 hover:to-sky-150 transition-all duration-200">
-            <User className="h-4 w-4" />
+          <div className="flex h-9 w-12 items-center justify-center rounded-lg bg-[#eef2f9] text-slate-600 border border-slate-200 hover:bg-[#e2e8f0] transition-all duration-200">
+            <User className="h-4 w-8" />
           </div>
         </Button>
       </DropdownMenuTrigger>

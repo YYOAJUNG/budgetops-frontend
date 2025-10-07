@@ -21,7 +21,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         {action && (
           <Button 
             onClick={action.onClick}
-            className="bg-gradient-to-r from-sky-100 to-sky-200 hover:from-sky-200 hover:to-sky-300 text-sky-600 font-medium border border-sky-200 hover:border-sky-300"
+            className="bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300"
           >
             {action.label}
           </Button>
