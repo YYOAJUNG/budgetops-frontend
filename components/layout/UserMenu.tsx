@@ -29,7 +29,7 @@ export function UserMenu({ user }: UserMenuProps) {
 
   if (!user) {
     return (
-      <Button variant="ghost" onClick={() => router.push('/login')}>
+      <Button variant="ghost" onClick={() => router.push('/login')} className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
         로그인
       </Button>
     );
@@ -38,33 +38,42 @@ export function UserMenu({ user }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full hover:bg-gray-100">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
             <User className="h-4 w-4" />
           </div>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
+      <DropdownMenuContent className="w-56 bg-white border border-gray-200 shadow-lg rounded-lg" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal px-3 py-2">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
+            <p className="text-sm font-semibold leading-none text-gray-900">{user.name}</p>
+            <p className="text-xs leading-none text-gray-500">
               {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push('/profile')}>
-          <User className="mr-2 h-4 w-4" />
+        <DropdownMenuSeparator className="bg-gray-100" />
+        <DropdownMenuItem 
+          onClick={() => router.push('/profile')}
+          className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+        >
+          <User className="mr-2 h-4 w-4 text-gray-500" />
           <span>프로필</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/settings')}>
-          <Settings className="mr-2 h-4 w-4" />
+        <DropdownMenuItem 
+          onClick={() => router.push('/settings')}
+          className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+        >
+          <Settings className="mr-2 h-4 w-4 text-gray-500" />
           <span>설정</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
+        <DropdownMenuSeparator className="bg-gray-100" />
+        <DropdownMenuItem 
+          onClick={handleLogout}
+          className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 cursor-pointer"
+        >
+          <LogOut className="mr-2 h-4 w-4 text-red-500" />
           <span>로그아웃</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

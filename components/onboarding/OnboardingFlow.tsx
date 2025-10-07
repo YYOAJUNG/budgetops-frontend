@@ -22,50 +22,65 @@ export function OnboardingFlow() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">BudgetOps 설정</CardTitle>
-          <CardDescription>단계 {step}/2</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {step === 1 ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="tenant">프로젝트/테넌트 이름</Label>
-                <Input
-                  id="tenant"
-                  placeholder="예: 메인 프로젝트"
-                  value={tenantName}
-                  onChange={(e) => setTenantName(e.target.value)}
-                />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-4">
+      <div className="w-full max-w-md space-y-8">
+        {/* 로고 및 제목 */}
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center mb-4">
+            <span className="text-2xl font-bold text-white">B</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900">BudgetOps</h1>
+          <p className="mt-2 text-sm text-gray-600">Multi-Cloud Cost Management Platform</p>
+        </div>
+
+        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 pb-6">
+            <CardTitle className="text-2xl font-semibold text-center">설정</CardTitle>
+            <CardDescription className="text-center text-gray-600">
+              단계 {step}/2
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {step === 1 ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tenant" className="text-sm font-medium text-gray-700">프로젝트/테넌트 이름</Label>
+                  <Input
+                    id="tenant"
+                    placeholder="예: 메인 프로젝트"
+                    value={tenantName}
+                    onChange={(e) => setTenantName(e.target.value)}
+                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <Button 
+                  onClick={handleNext} 
+                  disabled={!tenantName.trim()}
+                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+                >
+                  다음 단계
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
-              <Button 
-                onClick={handleNext} 
-                disabled={!tenantName.trim()}
-                className="w-full"
-              >
-                다음 단계
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 text-green-600">
-                <CheckCircle className="h-5 w-5" />
-                <span>테넌트가 생성되었습니다</span>
+            ) : (
+              <div className="space-y-4 text-center">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                <h3 className="text-lg font-semibold text-gray-900">프로젝트가 생성되었습니다!</h3>
+                <p className="text-gray-600">
+                  이제 클라우드 계정을 연결하여 비용 데이터를 수집할 수 있습니다.
+                </p>
+                <Button 
+                  onClick={handleNext} 
+                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+                >
+                  계정 연결하기
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                이제 클라우드 계정을 연결하여 비용 데이터를 수집할 수 있습니다.
-              </p>
-              <Button onClick={handleNext} className="w-full">
-                계정 연결하기
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

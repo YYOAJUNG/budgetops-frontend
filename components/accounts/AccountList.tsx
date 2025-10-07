@@ -44,10 +44,10 @@ export function AccountList({ accounts: propAccounts }: AccountListProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>연결된 계정</CardTitle>
-        <CardDescription>{accounts.length}개의 계정이 연결되어 있습니다</CardDescription>
+    <Card className="shadow-lg border-0 bg-white">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-semibold text-gray-900">연결된 계정</CardTitle>
+        <CardDescription className="text-gray-600">{accounts.length}개의 계정이 연결되어 있습니다</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {accounts.map((account) => {
@@ -56,33 +56,33 @@ export function AccountList({ accounts: propAccounts }: AccountListProps) {
           return (
             <div
               key={account.id}
-              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                  <Icon className="h-5 w-5" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+                  <Icon className="h-5 w-5 text-gray-600" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h4 className="font-medium">{account.name}</h4>
+                    <h4 className="font-medium text-gray-900">{account.name}</h4>
                     <StatusBadge status={account.status} />
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-gray-500">
                     {account.provider} • {account.connectedAt && new Date(account.connectedAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 {account.status === 'ERROR' && (
-                  <Button variant="ghost" size="sm" title="오류 확인">
-                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  <Button variant="ghost" size="sm" title="오류 확인" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    <AlertCircle className="h-4 w-4" />
                   </Button>
                 )}
-                <Button variant="ghost" size="sm" title="동기화">
+                <Button variant="ghost" size="sm" title="동기화" className="text-gray-600 hover:text-gray-700 hover:bg-gray-100">
                   <RefreshCw className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" title="삭제">
+                <Button variant="ghost" size="sm" title="삭제" className="text-gray-600 hover:text-red-600 hover:bg-red-50">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

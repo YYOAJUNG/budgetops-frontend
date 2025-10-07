@@ -32,8 +32,8 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">대시보드</h1>
-        <p className="text-muted-foreground">클라우드 비용 현황을 한눈에 확인하세요</p>
+        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
+        <p className="text-gray-600 mt-2">클라우드 비용 현황을 한눈에 확인하세요</p>
       </div>
 
       {/* 주요 지표 카드 */}
@@ -65,22 +65,22 @@ export function Dashboard() {
       </div>
 
       {/* 빠른 작업 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>빠른 작업</CardTitle>
-          <CardDescription>자주 사용하는 기능에 빠르게 접근하세요</CardDescription>
+      <Card className="shadow-lg border-0 bg-white">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl font-semibold text-gray-900">빠른 작업</CardTitle>
+          <CardDescription className="text-gray-600">자주 사용하는 기능에 빠르게 접근하세요</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
-            <Button variant="outline">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400">
               <Cloud className="mr-2 h-4 w-4" />
               계정 연결
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400">
               <Plus className="mr-2 h-4 w-4" />
               예산 만들기
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400">
               <Bot className="mr-2 h-4 w-4" />
               코파일럿 열기
             </Button>
