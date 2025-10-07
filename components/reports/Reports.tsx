@@ -8,7 +8,7 @@ export function Reports() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">리포트</h1>
+        <h1 className="text-2xl font-bold text-gray-900">리포트</h1>
         <p className="text-muted-foreground">월간, 주간 리포트를 생성하고 다운로드하세요</p>
       </div>
 

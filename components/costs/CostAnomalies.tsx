@@ -8,7 +8,7 @@ export function CostAnomalies() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">비용 이상징후</h1>
+        <h1 className="text-2xl font-bold text-gray-900">비용 이상징후</h1>
         <p className="text-muted-foreground">비정상적인 비용 급등/급락을 탐지합니다</p>
       </div>
 

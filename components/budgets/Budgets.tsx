@@ -8,7 +8,7 @@ export function Budgets() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">예산 관리</h1>
+        <h1 className="text-2xl font-bold text-gray-900">예산 관리</h1>
         <p className="text-muted-foreground">월간, 분기, 연간 예산을 설정하고 관리하세요</p>
       </div>
 

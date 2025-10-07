@@ -8,7 +8,7 @@ export function Recommendations() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">최적화 권고</h1>
+        <h1 className="text-2xl font-bold text-gray-900">최적화 권고</h1>
         <p className="text-muted-foreground">비용 절감을 위한 맞춤형 권고사항을 확인하세요</p>
       </div>
 
