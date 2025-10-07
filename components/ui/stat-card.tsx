@@ -14,16 +14,16 @@ interface StatCardProps {
 
 export function StatCard({ title, value, change, icon, className }: StatCardProps) {
   return (
-    <Card className={cn('', className)}>
+    <Card className={cn('shadow-lg border-0 bg-white', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon && <div className="text-muted-foreground">{icon}</div>}
+        <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
+        {icon && <div className="text-gray-400">{icon}</div>}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
         {change && (
           <p className={cn(
-            'text-xs',
+            'text-xs mt-1',
             change.value >= 0 ? 'text-green-600' : 'text-red-600'
           )}>
             {change.value >= 0 ? '+' : ''}{change.value}% {change.label}
