@@ -1,8 +1,32 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuthStore } from '@/store/auth';
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p>대시보드로 이동 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
@@ -15,14 +39,14 @@ export default function Home() {
             AWS, GCP, Azure, NCP의 비용을 한 곳에서 관리하고 최적화하세요.
           </p>
           <div className="flex flex-col gap-2">
-            <Link href="/onboarding">
+            <Link href="/login">
               <Button className="w-full" size="lg">
-                시작하기
+                로그인
               </Button>
             </Link>
-            <Link href="/dashboard">
+            <Link href="/onboarding">
               <Button className="w-full" variant="outline" size="lg">
-                대시보드로 이동
+                시작하기
               </Button>
             </Link>
           </div>

@@ -1,15 +1,18 @@
 'use client';
 
 import { useContextStore } from '@/store/context';
+import { useAuthStore } from '@/store/auth';
 import { useTenants } from '@/lib/api/queries';
 import { TenantSwitcher } from './TenantSwitcher';
 import { DateRangePicker } from './DateRangePicker';
 import { CurrencySelect } from './CurrencySelect';
+import { UserMenu } from './UserMenu';
 import { Button } from '@/components/ui/button';
-import { User, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 export function Topbar() {
   const { tenantId, currency } = useContextStore();
+  const { user } = useAuthStore();
   const { data: tenants } = useTenants();
 
   return (
@@ -24,9 +27,7 @@ export function Topbar() {
         <Button variant="ghost" size="icon">
           <Settings className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon">
-          <User className="h-4 w-4" />
-        </Button>
+        <UserMenu user={user} />
       </div>
     </div>
   );
