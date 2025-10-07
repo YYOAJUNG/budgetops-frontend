@@ -26,8 +26,8 @@ export function OnboardingFlow() {
       <div className="w-full max-w-md space-y-8">
         {/* 로고 및 제목 */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center mb-4">
-            <span className="text-2xl font-bold text-white">B</span>
+          <div className="mx-auto h-16 w-16 rounded-full bg-[#eef2f9] border border-slate-200 flex items-center justify-center mb-4">
+            <span className="text-2xl font-bold text-slate-600">B</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">BudgetOps</h1>
           <p className="mt-2 text-sm text-gray-600">Multi-Cloud Cost Management Platform</p>
