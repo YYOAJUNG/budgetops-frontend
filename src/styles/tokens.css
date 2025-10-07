@@ -1,14 +1,13 @@
 :root{
-  /* Light theme: white background + pastel blue accents */
-  --color-bg:#ffffff;
-  --color-surface:#ffffff;
-  --color-card:#ffffff;
-  --color-text:#0f172a;        /* slate-900 */
-  --color-muted:#667085;       /* neutral-500/600 */
-  --color-primary:#3b82f6;     /* blue-500 */
-  --color-accent:#93c5fd;      /* blue-300 (pastel) */
+  --color-bg:#0f172a;
+  --color-surface:#111827;
+  --color-card:#111827;
+  --color-text:#e5e7eb;
+  --color-muted:#94a3b8;
+  --color-primary:#22c55e;
+  --color-accent:#60a5fa;
   --radius:12px;
-  --shadow:0 8px 24px rgba(2,6,23,0.06);
+  --shadow:0 6px 20px rgba(0,0,0,0.25);
   --gap:16px;
 }
 
