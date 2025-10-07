@@ -216,7 +216,7 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
 
           <Button 
             type="submit" 
-            className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium" 
+            className="w-full h-11 bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300" 
             disabled={!isFormValid() || linkingState.status === 'loading'}
           >
             {linkingState.status === 'loading' ? (

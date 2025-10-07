@@ -56,7 +56,7 @@ export function OnboardingFlow() {
                 <Button 
                   onClick={handleNext} 
                   disabled={!tenantName.trim()}
-                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+                  className="w-full h-11 bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300"
                 >
                   다음 단계
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -71,7 +71,7 @@ export function OnboardingFlow() {
                 </p>
                 <Button 
                   onClick={handleNext} 
-                  className="w-full h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+                  className="w-full h-11 bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300"
                 >
                   계정 연결하기
                   <ArrowRight className="ml-2 h-4 w-4" />
