@@ -6,7 +6,7 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
+ 
 // Mock mode interceptor
 if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
   api.interceptors.request.use((config) => {

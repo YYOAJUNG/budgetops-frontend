@@ -82,7 +82,7 @@ class AccountsLinkingServiceImpl implements AccountsLinkingService {
     // 랜덤 결과 생성 (테스트용)
     const random = Math.random();
     
-    const baseAccount: AccountConnection = {
+    const baseAccount: Omit<AccountConnection, 'status'> = {
       id: `acc_${Date.now()}`,
       provider: data.provider,
       name: data.name,
