@@ -12,6 +12,9 @@ import { Loader2, ExternalLink } from 'lucide-react';
 import type { AccountFormData, CloudProvider } from '@/types/accounts';
 import { getProviderConfig } from '@/lib/config/providers';
 import { useAccountLinking } from '@/hooks/useAccountLinking';
+import { useFormValidation } from '@/hooks/useFormValidation';
+import { showApiError } from '@/store/error';
+import { logApiError } from '@/lib/error-logger';
 
 interface AccountFormProps {
   provider: CloudProvider;
@@ -21,55 +24,59 @@ interface AccountFormProps {
 export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
   const config = getProviderConfig(provider);
   const { linkingState, linkAccount, resetLinkingState } = useAccountLinking();
-  const [formData, setFormData] = useState<Partial<AccountFormData>>({
-    provider,
-    name: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const firstErrorFieldRef = useRef<HTMLInputElement>(null);
+
+  // 폼 유효성 검사 설정
+  const validationRules = {
+    name: {
+      required: true,
+      message: '계정 이름은 필수입니다',
+    },
+    ...config.requiredFields.reduce((rules, field) => {
+      rules[field] = {
+        required: true,
+        message: `${getFieldLabel(field)}은(는) 필수입니다`,
+      };
+      return rules;
+    }, {} as Record<string, any>),
+  };
+
+  const {
+    values: formData,
+    errors,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+    isValid,
+    setFieldError,
+  } = useFormValidation(
+    {
+      provider,
+      name: '',
+      ...config.requiredFields.reduce((fields, field) => {
+        fields[field] = '';
+        return fields;
+      }, {} as Record<string, string>),
+    },
+    validationRules
+  );
 
   if (!config) {
     return <div>Provider configuration not found</div>;
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!formData.name?.trim()) {
-      newErrors.name = '계정 이름은 필수입니다';
-    }
-
-    config.requiredFields.forEach(field => {
-      if (!formData[field as keyof AccountFormData]?.trim()) {
-        newErrors[field] = '이 필드는 필수입니다';
-      }
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
+  const onSubmit = async (values: typeof formData) => {
+    try {
       resetLinkingState();
-      await linkAccount(formData as AccountFormData);
+      await linkAccount(values as AccountFormData);
+    } catch (error) {
+      const errorMessage = '계정 연결 중 오류가 발생했습니다.';
+      showApiError(errorMessage);
+      logApiError(errorMessage, { 
+        provider, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
-  };
-
-  const isFormValid = () => {
-    if (!formData.name?.trim()) return false;
-    return config.requiredFields.every(field => 
-      formData[field as keyof AccountFormData]?.trim()
-    );
   };
 
   const handleOAuth = () => {
@@ -163,15 +170,17 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
           />
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* 계정 이름 */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium text-gray-700">계정 이름 *</Label>
             <Input
               id="name"
+              name="name"
               placeholder={getFieldPlaceholder('name')}
               value={formData.name || ''}
-              onChange={(e) => handleInputChange('name', e.target.value)}
+              onChange={(e) => handleChange('name', e.target.value)}
+              onBlur={() => handleBlur('name')}
               aria-invalid={!!errors.name}
               className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
             />
@@ -186,10 +195,12 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
               <Label htmlFor={field} className="text-sm font-medium text-gray-700">{getFieldLabel(field)} *</Label>
               <Input
                 id={field}
+                name={field}
                 type={field.includes('secret') || field.includes('Secret') ? 'password' : 'text'}
                 placeholder={getFieldPlaceholder(field)}
                 value={formData[field as keyof AccountFormData] || ''}
-                onChange={(e) => handleInputChange(field, e.target.value)}
+                onChange={(e) => handleChange(field, e.target.value)}
+                onBlur={() => handleBlur(field)}
                 aria-invalid={!!errors[field]}
                 className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
@@ -205,10 +216,12 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
               <Label htmlFor={field} className="text-sm font-medium text-gray-700">{getFieldLabel(field)}</Label>
               <Input
                 id={field}
+                name={field}
                 type={field.includes('secret') || field.includes('Secret') ? 'password' : 'text'}
                 placeholder={getFieldPlaceholder(field)}
                 value={formData[field as keyof AccountFormData] || ''}
-                onChange={(e) => handleInputChange(field, e.target.value)}
+                onChange={(e) => handleChange(field, e.target.value)}
+                onBlur={() => handleBlur(field)}
                 className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
@@ -217,7 +230,7 @@ export function AccountForm({ provider, onAccountLinked }: AccountFormProps) {
           <Button 
             type="submit" 
             className="w-full h-11 bg-[#eef2f9] hover:bg-[#e2e8f0] text-slate-600 font-medium border border-slate-200 hover:border-slate-300" 
-            disabled={!isFormValid() || linkingState.status === 'loading'}
+            disabled={!isValid || linkingState.status === 'loading'}
           >
             {linkingState.status === 'loading' ? (
               <>
