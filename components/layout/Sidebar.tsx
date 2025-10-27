@@ -43,10 +43,7 @@ export function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
       <div className="flex h-16 items-center px-6 border-b border-gray-200">
-        <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-          <div className="h-8 w-8 rounded-lg bg-[#eef2f9] border border-slate-200 flex items-center justify-center">
-            <span className="text-sm font-bold text-slate-600">B</span>
-          </div>
+        <Link href="/" className="hover:opacity-80 transition-opacity">
           <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
         </Link>
       </div>
