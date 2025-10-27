@@ -17,18 +17,25 @@ import {
   BarChart3,
   Activity
 } from 'lucide-react';
-import { Grid, DollarSquare, User, Sparkles } from '@mynaui/icons-react';
+import { Grid } from '@mynaui/icons-react';
 
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: Grid },
-  { name: '리소스 관리', href: '/accounts', icon: Cloud },
-  { name: '비용 분석', href: '/costs', icon: DollarSquare },
-  { name: 'AI 어시스턴트', href: '/copilot', icon: Sparkles },
-  { name: '마이 페이지', href: '/mypage', icon: User },
+  {
+    name: 'Costs',
+    icon: DollarSign,
+    children: [
+      { name: 'Analyze', href: '/costs/analyze', icon: BarChart3 },
+      { name: 'Anomalies', href: '/costs/anomalies', icon: AlertTriangle },
+      { name: 'Forecast', href: '/costs/forecast', icon: TrendingUp },
+    ]
+  },
   { name: 'Budgets', href: '/budgets', icon: Target },
+  { name: '리소스 관리', href: '/accounts', icon: Cloud },
   { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
   { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
   { name: 'Reports', href: '/reports', icon: FileText },
+  { name: 'Copilot', href: '/copilot', icon: Bot },
 ];
 
 export function Sidebar() {

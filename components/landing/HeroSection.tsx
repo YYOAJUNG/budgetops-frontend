@@ -13,7 +13,12 @@ export function HeroSection({ onGoogleLogin }: HeroSectionProps) {
       <div className="w-full max-w-md lg:max-w-sm">
         {/* Logo */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">BudgetOps</h1>
+          <div className="flex items-center space-x-3 mb-8">
+            <div className="h-10 w-10 rounded-lg bg-[#eef2f9] border border-slate-200 flex items-center justify-center">
+              <span className="text-lg font-bold text-slate-600">B</span>
+            </div>
+            <span className="text-2xl font-semibold text-gray-900">BudgetOps</span>
+          </div>
         </div>
 
         {/* Main CTA */}
@@ -23,7 +28,7 @@ export function HeroSection({ onGoogleLogin }: HeroSectionProps) {
               클라우드 비용을 오늘부터 최적화하세요!
             </h1>
             <p className="mt-4 text-lg text-gray-600">
-              토이 프로젝트부터 스타트업까지, 학생 개발자의<br />클라우드 비용을 똑똑하게 관리하세요
+              클라우드 비용을 $100M 이상 절약한 4,000개 이상의 기업과 함께하세요.
             </p>
           </div>
 
