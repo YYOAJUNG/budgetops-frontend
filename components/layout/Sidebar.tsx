@@ -17,7 +17,7 @@ import {
   BarChart3,
   Activity
 } from 'lucide-react';
-import { Grid, DollarSquare, User, Sparkles } from '@mynaui/icons-react';
+import { Grid, DollarSquare, User, Sparkles, InboxArchive } from '@mynaui/icons-react';
 
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: Grid },
@@ -89,6 +89,17 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+      <div className="p-4 border-t border-gray-200">
+        <a
+          href="https://forms.google.com/your-form-url"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+        >
+          <InboxArchive className="mr-3 h-5 w-5 text-blue-600" />
+          피드백 남기기
+        </a>
+      </div>
     </div>
   );
 }
