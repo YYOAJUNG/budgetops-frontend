@@ -23,7 +23,7 @@ export function HeroSection({ onGoogleLogin }: HeroSectionProps) {
               클라우드 비용을 오늘부터 최적화하세요!
             </h1>
             <p className="mt-4 text-lg text-gray-600">
-              클라우드 비용을 $100M 이상 절약한 4,000개 이상의 기업과 함께하세요.
+              토이 프로젝트부터 스타트업까지, 학생 개발자의<br />클라우드 비용을 똑똑하게 관리하세요
             </p>
           </div>
 
