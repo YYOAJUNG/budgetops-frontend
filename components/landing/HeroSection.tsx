@@ -13,12 +13,7 @@ export function HeroSection({ onGoogleLogin }: HeroSectionProps) {
       <div className="w-full max-w-md lg:max-w-sm">
         {/* Logo */}
         <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-8">
-            <div className="h-10 w-10 rounded-lg bg-[#eef2f9] border border-slate-200 flex items-center justify-center">
-              <span className="text-lg font-bold text-slate-600">B</span>
-            </div>
-            <span className="text-2xl font-semibold text-gray-900">BudgetOps</span>
-          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">BudgetOps</h1>
         </div>
 
         {/* Main CTA */}

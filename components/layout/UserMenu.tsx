@@ -24,12 +24,12 @@ export function UserMenu({ user }: UserMenuProps) {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.push('/');
   };
 
   if (!user) {
     return (
-      <Button variant="ghost" onClick={() => router.push('/login')} className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+      <Button variant="ghost" onClick={() => router.push('/')} className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
         로그인
       </Button>
     );
