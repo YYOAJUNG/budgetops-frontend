@@ -7,50 +7,38 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AddCloudAccountDialog } from './AddCloudAccountDialog';
 import { getCurrentUser } from '@/lib/api/user';
-import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
+import { getAwsAccounts, AwsAccountSummary } from '@/lib/api/aws';
 
-const mockAccounts: CloudAccount[] = [
-  {
-    id: '1',
-    provider: 'AWS',
-    accountName: 'Production AWS',
-    accountId: '123456789012',
-    status: 'connected',
-    lastSync: '2024-10-30 14:30',
-    monthlyCost: 2134,
-  },
-  {
-    id: '2',
-    provider: 'GCP',
-    accountName: 'Staging GCP',
-    accountId: 'my-project-123',
-    status: 'connected',
-    lastSync: '2024-10-30 14:25',
-    monthlyCost: 456,
-  },
-  {
-    id: '3',
-    provider: 'Azure',
-    accountName: 'Dev Azure',
-    accountId: 'subscription-abc-123',
-    status: 'error',
-    lastSync: '2024-10-29 10:15',
-    monthlyCost: 443,
-  },
-];
+function mapToUi(account: AwsAccountSummary) {
+  return {
+    id: String(account.id),
+    provider: 'AWS' as const,
+    accountName: account.name,
+    accountId: account.accessKeyId,
+    status: account.active ? 'connected' : 'error',
+    lastSync: '-',
+    monthlyCost: 0,
+  };
+}
 
 export function CloudAccountConnection() {
-  const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
+  const { data: awsAccounts, refetch } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+  });
+
+  const accounts = (awsAccounts || []).map(mapToUi);
 
   const handleDeleteAccount = (id: string) => {
-    // TODO: API 호출로 계정 삭제
-    setAccounts(accounts.filter(acc => acc.id !== id));
+    // TODO: 삭제 API 추가 시 적용
+    console.log('delete not implemented', id);
   };
 
   const handleAddAccount = () => {
@@ -173,7 +161,12 @@ export function CloudAccountConnection() {
 
       <AddCloudAccountDialog
         open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+        onOpenChange={(o) => {
+          setShowAddDialog(o);
+          if (!o) {
+            refetch();
+          }
+        }}
         userName={user?.name || '사용자'}
       />
     </div>

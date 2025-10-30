@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, ReactNode } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { createAwsAccount } from '@/lib/api/aws';
 
 interface AddCloudAccountDialogProps {
   open: boolean;
@@ -22,6 +26,20 @@ interface ProviderOption {
 
 export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자' }: AddCloudAccountDialogProps) {
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider | null>(null);
+  const [step, setStep] = useState<'select' | 'form'>('select');
+  const [name, setName] = useState('');
+  const [defaultRegion, setDefaultRegion] = useState('ap-northeast-2');
+  const [accessKeyId, setAccessKeyId] = useState('');
+  const [secretAccessKey, setSecretAccessKey] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: createAwsAccount,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+    }
+  });
 
   const providers: ProviderOption[] = [
     {
@@ -49,9 +67,39 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   ];
 
   const handleNext = () => {
-    if (selectedProvider) {
-      // TODO: 다음 단계로 진행 (자격증명 입력)
-      console.log('Selected provider:', selectedProvider);
+    if (selectedProvider === 'AWS') {
+      setStep('form');
+    }
+  };
+
+  const validate = (): string | null => {
+    if (!name.trim()) return 'name은 필수입니다.';
+    if (!defaultRegion.trim()) return 'defaultRegion은 필수입니다.';
+    if (!/^[A-Z0-9]{16,24}$/.test(accessKeyId)) return 'accessKeyId 형식이 올바르지 않습니다.';
+    if (secretAccessKey.length < 32 || secretAccessKey.length > 128) return 'secretAccessKey 길이가 올바르지 않습니다.';
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    const msg = validate();
+    if (msg) {
+      setError(msg);
+      return;
+    }
+    setError(null);
+    try {
+      await mutateAsync({ name, defaultRegion, accessKeyId, secretAccessKey });
+      onOpenChange(false);
+      // reset
+      setSelectedProvider(null);
+      setStep('select');
+      setName('');
+      setDefaultRegion('ap-northeast-2');
+      setAccessKeyId('');
+      setSecretAccessKey('');
+    } catch (e: any) {
+      const apiMsg = e?.response?.data?.message;
+      setError(apiMsg || '계정 등록 중 오류가 발생했습니다.');
     }
   };
 
@@ -76,54 +124,99 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
 
         {/* 본문 */}
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {providers.map((provider) => (
-              <button
-                key={provider.id}
-                onClick={() => setSelectedProvider(provider.id)}
-                className={cn(
-                  'p-8 border-2 rounded-lg transition-all hover:border-blue-300 hover:shadow-md',
-                  selectedProvider === provider.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 bg-white'
-                )}
-              >
-                <div className="flex flex-col items-center gap-4">
-                  <div>{provider.logo}</div>
-                  <p className="font-medium text-gray-900">{provider.name}</p>
+          {step === 'select' && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {providers.map((provider) => (
+                  <button
+                    key={provider.id}
+                    onClick={() => setSelectedProvider(provider.id)}
+                    className={cn(
+                      'p-8 border-2 rounded-lg transition-all hover:border-blue-300 hover:shadow-md',
+                      selectedProvider === provider.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-white'
+                    )}
+                  >
+                    <div className="flex flex-col items-center gap-4">
+                      <div>{provider.logo}</div>
+                      <p className="font-medium text-gray-900">{provider.name}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-start gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs text-gray-600">?</span>
                 </div>
-              </button>
-            ))}
-          </div>
+                <p className="text-sm text-gray-600">
+                  원하는 클라우드 서비스가 없으신가요?{' '}
+                  <a href="#" className="text-blue-600 hover:underline">BudgetOps에게 알려 주세요.</a>
+                </p>
+              </div>
+            </>
+          )}
 
-          {/* 도움말 */}
-          <div className="flex items-start gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="w-5 h-5 rounded-full border-2 border-gray-400 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-xs text-gray-600">?</span>
-            </div>
-            <p className="text-sm text-gray-600">
-              원하는 클라우드 서비스가 없으신가요?{' '}
-              <a href="#" className="text-blue-600 hover:underline">
-                BudgetOps에게 알려 주세요.
-              </a>
-            </p>
-          </div>
+          {step === 'form' && selectedProvider === 'AWS' && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">AWS 자격 증명 입력</h3>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">이름</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="team-prod" />
+                </div>
+                <div>
+                  <Label htmlFor="region">기본 리전</Label>
+                  <Input id="region" value={defaultRegion} onChange={(e) => setDefaultRegion(e.target.value)} placeholder="ap-northeast-2" />
+                </div>
+                <div>
+                  <Label htmlFor="accessKeyId">Access Key ID</Label>
+                  <Input id="accessKeyId" value={accessKeyId} onChange={(e) => setAccessKeyId(e.target.value)} placeholder="AKIA..." />
+                </div>
+                <div>
+                  <Label htmlFor="secretAccessKey">Secret Access Key</Label>
+                  <Input id="secretAccessKey" type="password" value={secretAccessKey} onChange={(e) => setSecretAccessKey(e.target.value)} placeholder="wJalrXUt..." />
+                </div>
+                {error && (
+                  <div className="text-sm text-red-600">{error}</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* 하단 버튼 */}
-        <div className="flex justify-end p-6 border-t border-gray-200">
-          <Button
-            onClick={handleNext}
-            disabled={!selectedProvider}
-            className={cn(
-              'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
-              !selectedProvider && 'opacity-50 cursor-not-allowed'
-            )}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
+        <div className="flex justify-end gap-2 p-6 border-t border-gray-200">
+          {step === 'form' ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setStep('select')}
+                className="px-4"
+              >
+                이전
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+              >
+                {isPending ? '등록 중...' : '등록'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleNext}
+              disabled={!selectedProvider}
+              className={cn(
+                'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
+                !selectedProvider && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
