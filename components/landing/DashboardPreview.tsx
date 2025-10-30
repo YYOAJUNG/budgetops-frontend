@@ -2,193 +2,141 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Home, 
-  Cloud, 
-  DollarSign, 
-  Target, 
-  AlertTriangle, 
-  Lightbulb,
-  BarChart3, 
-  Settings, 
-  HelpCircle, 
-  User,
-  ChevronDown,
-  Clock,
-  FileText,
-  Bot,
-  PieChart,
-  Zap
-} from 'lucide-react';
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
+import { ChevronDown, Clock, User } from 'lucide-react';
+import { InboxArchive } from '@mynaui/icons-react';
+import { DashboardContent } from './preview/DashboardContent';
+import { AccountsContent } from './preview/AccountsContent';
+import { CostsContent } from './preview/CostsContent';
+import { BudgetsContent } from './preview/BudgetsContent';
+import { RecommendationsContent } from './preview/RecommendationsContent';
+import { CopilotContent } from './preview/CopilotContent';
 
-// Mock data for the cost chart
-const costChartData = [
-  { date: '21 Jan', cost: 945 },
-  { date: '22 Jan', cost: 1123 },
-  { date: '23 Jan', cost: 1089 },
-  { date: '24 Jan', cost: 1234 },
-  { date: '25 Jan', cost: 1145 },
-  { date: '26 Jan', cost: 1290 },
-  { date: '27 Jan', cost: 1456 },
-  { date: '28 Jan', cost: 1389 },
-  { date: '29 Jan', cost: 1567 },
-  { date: '30 Jan', cost: 1489 },
-  { date: '31 Jan', cost: 1623 },
-  { date: '1 Feb', cost: 1578 },
-  { date: '2 Feb', cost: 1689 },
-  { date: '3 Feb', cost: 1534 },
-  { date: '4 Feb', cost: 1789 },
-  { date: '5 Feb', cost: 1834 },
-  { date: '6 Feb', cost: 1923 },
-  { date: '7 Feb', cost: 1856 },
-  { date: '8 Feb', cost: 1978 },
-  { date: '9 Feb', cost: 1890 },
-  { date: '10 Feb', cost: 2034 },
-  { date: '11 Feb', cost: 1967 },
-  { date: '12 Feb', cost: 2123 },
-  { date: '13 Feb', cost: 2089 },
-  { date: '14 Feb', cost: 2234 },
-];
-
-// Mock data for top cloud services
-const topServices = [
-  { rank: 1, service: 'AWS EC2', cost: 610, change: '4.7%', icon: '☁️' },
-  { rank: 2, service: 'AWS S3', cost: 543, change: '0.0%', icon: '📦' },
-  { rank: 3, service: 'AWS RDS', cost: 443, change: '8.43%', icon: '🗄️' },
-  { rank: 4, service: 'AWS Lambda', cost: 321, change: '3.91%', icon: '⚡' },
-  { rank: 5, service: 'AWS CloudFront', cost: 289, change: '2.89%', icon: '🌐' },
-  { rank: 6, service: 'GCP Compute', cost: 246, change: '4%', icon: '🔧' },
-  { rank: 7, service: 'Azure VM', cost: 238, change: '6%', icon: '💻' },
-  { rank: 8, service: 'AWS EKS', cost: 232, change: '9%', icon: '🐳' },
-];
-
-const topAccounts = [
-  { account: 'Production AWS', cost: 2133, change: '4.7%' },
-  { account: 'Staging GCP', cost: 456, change: '4.56%' },
-  { account: 'Dev Azure', cost: 443, change: '4.43%' },
-  { account: 'Analytics AWS', cost: 391, change: '3.91%' },
-  { account: 'Backup GCP', cost: 289, change: '2.89%' },
-  { account: 'Testing Azure', cost: 216, change: '2.16%' },
-  { account: 'Monitoring AWS', cost: 146, change: '1.46%' },
-  { account: 'CDN GCP', cost: 138, change: '1.38%' },
-];
+type MenuType = 'dashboard' | 'accounts' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
 
 export function DashboardPreview() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('Last 30 Days');
+  const [selectedMenu, setSelectedMenu] = useState<MenuType>('dashboard');
+  const [clickCount, setClickCount] = useState(0);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  const handleMenuClick = (menu: MenuType) => {
+    const newClickCount = clickCount + 1;
+    setClickCount(newClickCount);
+
+    if (newClickCount >= 3) {
+      setShowLoginPrompt(true);
+    } else {
+      setSelectedMenu(menu);
+    }
+  };
+
+  const renderContent = () => {
+    switch (selectedMenu) {
+      case 'dashboard':
+        return <DashboardContent />;
+      case 'accounts':
+        return <AccountsContent />;
+      case 'costs':
+        return <CostsContent />;
+      case 'copilot':
+        return <CopilotContent />;
+      case 'budgets':
+        return <BudgetsContent />;
+      case 'recommendations':
+        return <RecommendationsContent />;
+      case 'simulators':
+        return <div className="text-center text-gray-500">Simulators</div>;
+      case 'reports':
+        return <div className="text-center text-gray-500">Reports</div>;
+      default:
+        return <DashboardContent />;
+    }
+  };
+
+  const getTitle = () => {
+    switch (selectedMenu) {
+      case 'dashboard':
+        return '대시보드';
+      case 'accounts':
+        return '리소스 관리';
+      case 'costs':
+        return '비용 분석';
+      case 'copilot':
+        return 'AI 어시스턴트';
+      case 'budgets':
+        return 'Budgets';
+      case 'recommendations':
+        return 'Recommendations';
+      case 'simulators':
+        return 'Simulators';
+      case 'reports':
+        return 'Reports';
+      default:
+        return '대시보드';
+    }
+  };
 
   return (
     <div className="flex-1 overflow-hidden relative hidden lg:block">
       {/* Dashboard Preview Container */}
-      <div className="absolute inset-0 overflow-auto flex justify-center items-center">
-        <div className="w-[90%] h-[90%] bg-gray-50 rounded-lg shadow-lg">
-          <div className="flex h-full bg-gray-50 rounded-lg">
+      <div className="absolute inset-0 overflow-auto flex justify-center items-center pointer-events-none">
+        <div className="w-[90%] h-[90%] bg-gray-50 rounded-lg shadow-lg pointer-events-auto">
+          <div className="flex h-full bg-gray-50 rounded-lg overflow-hidden">
             {/* Mini Sidebar */}
-            <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div className="w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col">
               {/* Logo */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <div className="h-8 w-8 rounded-lg bg-[#eef2f9] border border-slate-200 flex items-center justify-center">
-                    <span className="text-sm font-bold text-slate-600">B</span>
-                  </div>
-                  <span className="text-lg font-semibold text-gray-900">BudgetOps</span>
-                </div>
+              <div className="h-16 flex items-center px-6 border-b border-gray-200">
+                <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
               </div>
 
               {/* Navigation */}
-              <nav className="flex-1 p-3">
+              <nav className="flex-1 p-4 overflow-auto">
                 <div className="space-y-1">
-                  <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700">
-                    <Home className="h-4 w-4" />
-                    <span className="text-sm font-medium">대시보드</span>
-                  </div>
-                  <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                    <Cloud className="h-4 w-4" />
-                    <span className="text-sm">클라우드 계정</span>
-                  </div>
-                  <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                    <DollarSign className="h-4 w-4" />
-                    <span className="text-sm">비용 분석</span>
-                  </div>
-                  <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                    <Target className="h-4 w-4" />
-                    <span className="text-sm">예산</span>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="px-3 text-xs font-semibold text-gray-500 uppercase">분석</p>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm">이상 징후 탐지</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <BarChart3 className="h-4 w-4" />
-                      <span className="text-sm">비용 예측</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <Lightbulb className="h-4 w-4" />
-                      <span className="text-sm">최적화</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <FileText className="h-4 w-4" />
-                      <span className="text-sm">보고서</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="px-3 text-xs font-semibold text-gray-500 uppercase">도구</p>
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <Bot className="h-4 w-4" />
-                      <span className="text-sm">AI 코파일럿</span>
-                    </div>
-                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                      <PieChart className="h-4 w-4" />
-                      <span className="text-sm">시뮬레이터</span>
-                    </div>
-                  </div>
+                  {NAVIGATION_ITEMS.filter(item => !item.children).map((item) => {
+                    const menuKey = item.href.split('/')[1].split('-')[0] as MenuType;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.name}
+                        onClick={() => handleMenuClick(menuKey)}
+                        className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
+                          selectedMenu === menuKey ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        <Icon className={`mr-3 h-5 w-5 transition-colors ${
+                          selectedMenu === menuKey ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                        }`} />
+                        <span className="text-sm">{item.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </nav>
 
-              {/* Bottom section */}
-              <div className="p-3 border-t border-gray-200">
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                  <Settings className="h-4 w-4" />
-                  <span className="text-sm">설정</span>
-                </div>
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700">
-                  <HelpCircle className="h-4 w-4" />
-                  <span className="text-sm">도움말 및 지원</span>
-                </div>
-              </div>
-
-              {/* User profile */}
-              <div className="p-3 border-t border-gray-200">
-                <div className="flex items-center space-x-3 px-3 py-2">
-                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <User className="h-4 w-4 text-gray-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">관리자</p>
-                  </div>
-                </div>
+              {/* Bottom section - 피드백 링크 */}
+              <div className="p-4 border-t border-gray-200">
+                <a
+                  href={FEEDBACK_LINK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                >
+                  <InboxArchive className="mr-3 h-5 w-5 text-blue-600" />
+                  피드백 보내기
+                </a>
               </div>
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto bg-gray-50">
               {/* Header */}
-              <div className="bg-white border-b border-gray-200 px-8 py-4">
+              <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
-                  <h1 className="text-2xl font-bold text-gray-900">클라우드 비용 대시보드</h1>
-                  <Button 
+                  <h1 className="text-2xl font-bold text-gray-900">{getTitle()}</h1>
+                  <Button
                     variant="outline"
-                    className="border-gray-300 text-gray-700"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     size="sm"
                   >
                     <Clock className="h-4 w-4 mr-2" />
@@ -198,177 +146,55 @@ export function DashboardPreview() {
                 </div>
               </div>
 
-              {/* Stats Cards */}
+              {/* Dynamic Content */}
               <div className="p-8">
-                <div className="grid grid-cols-4 gap-6 mb-8">
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <div className="flex items-center mb-2">
-                        <DollarSign className="h-4 w-4 text-green-500 mr-2" />
-                        <p className="text-sm text-gray-600">월간 총 비용</p>
-                      </div>
-                      <div className="flex items-baseline">
-                        <span className="text-3xl font-bold text-gray-900">$4,365</span>
-                        <Badge variant="outline" className="ml-2 text-xs text-red-500 border-red-200 bg-red-50">
-                          +5.6%
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <div className="flex items-center mb-2">
-                        <Target className="h-4 w-4 text-blue-500 mr-2" />
-                        <p className="text-sm text-gray-600">예산 소진률</p>
-                      </div>
-                      <div className="flex items-baseline">
-                        <span className="text-3xl font-bold text-gray-900">78%</span>
-                        <Badge variant="outline" className="ml-2 text-xs text-green-500 border-green-200 bg-green-50">
-                          +2.1%
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <div className="flex items-center mb-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-500 mr-2" />
-                        <p className="text-sm text-gray-600">탐지된 이상 징후</p>
-                      </div>
-                      <div className="flex items-baseline">
-                        <span className="text-3xl font-bold text-gray-900">12</span>
-                        <Badge variant="outline" className="ml-2 text-xs text-red-500 border-red-200 bg-red-50">
-                          +3
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <div className="flex items-center mb-2">
-                        <Zap className="h-4 w-4 text-purple-500 mr-2" />
-                        <p className="text-sm text-gray-600">예상 절감액</p>
-                      </div>
-                      <div className="flex items-baseline">
-                        <span className="text-3xl font-bold text-gray-900">$1,234</span>
-                        <Badge variant="outline" className="ml-2 text-xs text-green-500 border-green-200 bg-green-50">
-                          +8.34%
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Chart */}
-                <Card className="bg-white border-gray-200 mb-8">
-                  <CardContent className="p-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">일일 클라우드 비용</h3>
-                      <p className="text-sm text-gray-600">시간에 따른 지출 트렌드를 추적하세요</p>
-                    </div>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={costChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis 
-                            dataKey="date" 
-                            stroke="#9ca3af"
-                            fontSize={12}
-                            tickLine={false}
-                          />
-                          <YAxis 
-                            stroke="#9ca3af"
-                            fontSize={12}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) => `$${value}`}
-                          />
-                          <Tooltip 
-                            formatter={(value: number) => [`$${value}`, '비용']}
-                            labelStyle={{ color: '#374151' }}
-                          />
-                          <Line 
-                            type="monotone" 
-                            dataKey="cost" 
-                            stroke="#3b82f6" 
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Tables */}
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Top Services */}
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">상위 클라우드 서비스</h3>
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm text-gray-600 pb-2 border-b border-gray-100">
-                          <span className="w-12">서비스</span>
-                          <span className="flex-1 ml-4">이름</span>
-                          <span className="w-20 text-right">비용</span>
-                          <span className="w-16 text-right">변화</span>
-                        </div>
-                        {topServices.slice(0, 8).map((service) => (
-                          <div key={service.rank} className="flex items-center text-sm py-1.5">
-                            <span className="w-12 text-gray-600">{service.icon}</span>
-                            <span className="flex-1 ml-4 text-gray-900">{service.service}</span>
-                            <span className="w-20 text-right text-gray-900">${service.cost}</span>
-                            <span className="w-16 text-right">
-                              <Badge variant="outline" className="text-xs">
-                                {service.change}
-                              </Badge>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Top Accounts */}
-                  <Card className="bg-white border-gray-200">
-                    <CardContent className="p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">상위 클라우드 계정</h3>
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm text-gray-600 pb-2 border-b border-gray-100">
-                          <span className="flex-1">계정</span>
-                          <span className="w-20 text-right">비용</span>
-                          <span className="w-16 text-right">변화</span>
-                        </div>
-                        {topAccounts.slice(0, 8).map((account) => (
-                          <div key={account.account} className="flex items-center text-sm py-1.5">
-                            <span className="flex-1 text-gray-900">{account.account}</span>
-                            <span className="w-20 text-right text-gray-900">${account.cost.toLocaleString()}</span>
-                            <span className="w-16 text-right">
-                              <Badge variant="outline" className="text-xs">
-                                {account.change}
-                              </Badge>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                {renderContent()}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Overlay to prevent interaction */}
-      <div className="absolute inset-0 bg-transparent" style={{ pointerEvents: 'none' }}></div>
-      
       {/* Subtle gradient overlay at edges */}
       <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none"></div>
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 pointer-events-auto">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 animate-in fade-in zoom-in duration-300">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                <User className="h-8 w-8 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">더 많은 기능을 경험하세요</h2>
+              <p className="text-gray-600">
+                모든 기능을 사용하려면 로그인이 필요합니다.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => window.location.href = '/api/auth/google'}
+              size="lg"
+              className="w-full bg-white hover:bg-gray-50 text-gray-900 text-base font-medium py-6 border border-gray-300 shadow-sm"
+            >
+              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Google로 계속하기
+            </Button>
+
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-500 text-center">
+                무료로 시작하고 클라우드 비용을 최적화하세요
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
