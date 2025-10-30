@@ -28,7 +28,7 @@ export interface PaymentHistory {
 // Mock 구독 데이터
 export const mockSubscription: Subscription = {
   planId: 'pro',
-  planName: '프로 플랜',
+  planName: 'Pro 플랜',
   price: 4900,
   nextPaymentDate: '2024-11-01',
   status: 'active',
