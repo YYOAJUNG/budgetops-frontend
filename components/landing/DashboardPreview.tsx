@@ -3,16 +3,22 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  Home,
   Cloud,
+  DollarSign,
   Target,
+  AlertTriangle,
   Lightbulb,
-  Calculator,
-  FileText,
+  BarChart3,
+  Settings,
+  HelpCircle,
+  User,
   ChevronDown,
   Clock,
-  User
+  FileText,
+  Bot,
+  PieChart
 } from 'lucide-react';
-import { Grid, DollarSquare, Sparkles, InboxArchive } from '@mynaui/icons-react';
 import { DashboardContent } from './preview/DashboardContent';
 import { AccountsContent } from './preview/AccountsContent';
 import { CostsContent } from './preview/CostsContent';
@@ -22,7 +28,7 @@ import { ForecastContent } from './preview/ForecastContent';
 import { RecommendationsContent } from './preview/RecommendationsContent';
 import { CopilotContent } from './preview/CopilotContent';
 
-type MenuType = 'dashboard' | 'accounts' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
+type MenuType = 'dashboard' | 'accounts' | 'costs' | 'budgets' | 'anomalies' | 'forecast' | 'recommendations' | 'copilot';
 
 export function DashboardPreview() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('Last 30 Days');
@@ -49,16 +55,16 @@ export function DashboardPreview() {
         return <AccountsContent />;
       case 'costs':
         return <CostsContent />;
-      case 'copilot':
-        return <CopilotContent />;
       case 'budgets':
         return <BudgetsContent />;
+      case 'anomalies':
+        return <AnomaliesContent />;
+      case 'forecast':
+        return <ForecastContent />;
       case 'recommendations':
         return <RecommendationsContent />;
-      case 'simulators':
-        return <div className="text-center text-gray-500">Simulators</div>;
-      case 'reports':
-        return <div className="text-center text-gray-500">Reports</div>;
+      case 'copilot':
+        return <CopilotContent />;
       default:
         return <DashboardContent />;
     }
@@ -67,23 +73,23 @@ export function DashboardPreview() {
   const getTitle = () => {
     switch (selectedMenu) {
       case 'dashboard':
-        return '대시보드';
+        return '클라우드 비용 대시보드';
       case 'accounts':
-        return '리소스 관리';
+        return '클라우드 계정 관리';
       case 'costs':
         return '비용 분석';
-      case 'copilot':
-        return 'AI 어시스턴트';
       case 'budgets':
-        return 'Budgets';
+        return '예산 관리';
+      case 'anomalies':
+        return '이상 징후 탐지';
+      case 'forecast':
+        return '비용 예측';
       case 'recommendations':
-        return 'Recommendations';
-      case 'simulators':
-        return 'Simulators';
-      case 'reports':
-        return 'Reports';
+        return '최적화 권장사항';
+      case 'copilot':
+        return 'AI 코파일럿';
       default:
-        return '대시보드';
+        return '클라우드 비용 대시보드';
     }
   };
 
@@ -94,134 +100,144 @@ export function DashboardPreview() {
         <div className="w-[90%] h-[90%] bg-gray-50 rounded-lg shadow-lg pointer-events-auto">
           <div className="flex h-full bg-gray-50 rounded-lg overflow-hidden">
             {/* Mini Sidebar */}
-            <div className="w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col">
+            <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
               {/* Logo */}
-              <div className="h-16 flex items-center px-6 border-b border-gray-200">
-                <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
+              <div className="p-4 border-b border-gray-200">
+                <span className="text-lg font-semibold text-gray-900">BudgetOps</span>
               </div>
 
               {/* Navigation */}
-              <nav className="flex-1 p-4 overflow-auto">
+              <nav className="flex-1 p-3 overflow-auto">
                 <div className="space-y-1">
                   <button
                     onClick={() => handleMenuClick('dashboard')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                      selectedMenu === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <Grid className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'dashboard' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">대시보드</span>
+                    <Home className="h-4 w-4" />
+                    <span className="text-sm font-medium">대시보드</span>
                   </button>
-
                   <button
                     onClick={() => handleMenuClick('accounts')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'accounts' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                      selectedMenu === 'accounts' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <Cloud className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'accounts' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">리소스 관리</span>
+                    <Cloud className="h-4 w-4" />
+                    <span className="text-sm">클라우드 계정</span>
                   </button>
-
                   <button
                     onClick={() => handleMenuClick('costs')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'costs' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                      selectedMenu === 'costs' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <DollarSquare className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'costs' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
+                    <DollarSign className="h-4 w-4" />
                     <span className="text-sm">비용 분석</span>
                   </button>
-
-                  <button
-                    onClick={() => handleMenuClick('copilot')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'copilot' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <Sparkles className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'copilot' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">AI 어시스턴트</span>
-                  </button>
-
                   <button
                     onClick={() => handleMenuClick('budgets')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'budgets' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                      selectedMenu === 'budgets' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <Target className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'budgets' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">Budgets</span>
+                    <Target className="h-4 w-4" />
+                    <span className="text-sm">예산</span>
                   </button>
+                </div>
 
-                  <button
-                    onClick={() => handleMenuClick('recommendations')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'recommendations' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <Lightbulb className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'recommendations' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">Recommendations</span>
-                  </button>
+                <div className="mt-6">
+                  <p className="px-3 text-xs font-semibold text-gray-500 uppercase">분석</p>
+                  <div className="mt-2 space-y-1">
+                    <button
+                      onClick={() => handleMenuClick('anomalies')}
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                        selectedMenu === 'anomalies' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm">이상 징후 탐지</span>
+                    </button>
+                    <button
+                      onClick={() => handleMenuClick('forecast')}
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                        selectedMenu === 'forecast' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      <span className="text-sm">비용 예측</span>
+                    </button>
+                    <button
+                      onClick={() => handleMenuClick('recommendations')}
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                        selectedMenu === 'recommendations' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      <span className="text-sm">최적화</span>
+                    </button>
+                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 opacity-50">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm">보고서</span>
+                    </div>
+                  </div>
+                </div>
 
-                  <button
-                    onClick={() => handleMenuClick('simulators')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'simulators' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <Calculator className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'simulators' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">Simulators</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleMenuClick('reports')}
-                    className={`flex items-center px-3 py-2.5 rounded-lg w-full transition-all duration-200 group ${
-                      selectedMenu === 'reports' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    <FileText className={`mr-3 h-5 w-5 transition-colors ${
-                      selectedMenu === 'reports' ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }`} />
-                    <span className="text-sm">Reports</span>
-                  </button>
+                <div className="mt-6">
+                  <p className="px-3 text-xs font-semibold text-gray-500 uppercase">도구</p>
+                  <div className="mt-2 space-y-1">
+                    <button
+                      onClick={() => handleMenuClick('copilot')}
+                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg w-full transition-colors ${
+                        selectedMenu === 'copilot' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Bot className="h-4 w-4" />
+                      <span className="text-sm">AI 코파일럿</span>
+                    </button>
+                    <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 opacity-50">
+                      <PieChart className="h-4 w-4" />
+                      <span className="text-sm">시뮬레이터</span>
+                    </div>
+                  </div>
                 </div>
               </nav>
 
-              {/* Bottom section - 피드백 링크 */}
-              <div className="p-4 border-t border-gray-200">
-                <a
-                  href="#"
-                  className="flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                >
-                  <InboxArchive className="mr-3 h-5 w-5 text-blue-600" />
-                  피드백 보내기
-                </a>
+              {/* Bottom section */}
+              <div className="p-3 border-t border-gray-200">
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 opacity-50">
+                  <Settings className="h-4 w-4" />
+                  <span className="text-sm">설정</span>
+                </div>
+                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-700 opacity-50">
+                  <HelpCircle className="h-4 w-4" />
+                  <span className="text-sm">도움말 및 지원</span>
+                </div>
+              </div>
+
+              {/* User profile */}
+              <div className="p-3 border-t border-gray-200">
+                <div className="flex items-center space-x-3 px-3 py-2">
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">관리자</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-auto bg-gray-50">
+            <div className="flex-1 overflow-auto">
               {/* Header */}
-              <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10">
+              <div className="bg-white border-b border-gray-200 px-8 py-4">
                 <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-bold text-gray-900">{getTitle()}</h1>
                   <Button
                     variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    className="border-gray-300 text-gray-700"
                     size="sm"
                   >
                     <Clock className="h-4 w-4 mr-2" />
