@@ -2,6 +2,7 @@
 
 import { useContextStore } from '@/store/context';
 import { useAuthStore } from '@/store/auth';
+import { useUIStore } from '@/store/ui';
 import { useTenants } from '@/lib/api/queries';
 import { TenantSwitcher } from './TenantSwitcher';
 import { DateRangePicker } from './DateRangePicker';
@@ -9,6 +10,7 @@ import { CurrencySelect } from './CurrencySelect';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
 import { Button } from '@/components/ui/button';
+import { Menu, X } from 'lucide-react';
 
 // TODO: Replace with API call
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -38,6 +40,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 export function Topbar() {
   const { tenantId, currency } = useContextStore();
   const { user } = useAuthStore();
+  const { sidebarOpen, setSidebarOpen } = useUIStore();
   const { data: tenants } = useTenants();
 
   // TODO: Replace with actual API calls
@@ -56,15 +59,26 @@ export function Topbar() {
   const unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.isRead).length;
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
-      <div className="flex items-center space-x-4">
-        <TenantSwitcher tenants={tenants || []} />
-        <DateRangePicker />
-        <CurrencySelect />
+    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6 shadow-sm">
+      <div className="flex items-center space-x-2 md:space-x-4">
+        {/* Mobile Hamburger Menu Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors lg:hidden"
+          aria-label="Toggle sidebar"
+        >
+          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+
+        <div className="hidden md:flex items-center space-x-4">
+          <TenantSwitcher tenants={tenants || []} />
+          <DateRangePicker />
+          <CurrencySelect />
+        </div>
       </div>
-      
+
       <div className="flex items-center space-x-2">
-        <Button className="bg-blue-600 text-white hover:bg-blue-700">
+        <Button className="hidden sm:flex bg-blue-600 text-white hover:bg-blue-700">
           + 클라우드 계정 연동
         </Button>
         <NotificationMenu

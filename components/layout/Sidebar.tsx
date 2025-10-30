@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/ui';
 import {
   LayoutDashboard,
   DollarSign,
@@ -19,6 +20,7 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   CreditCard,
   Settings as SettingsIcon
 } from 'lucide-react';
@@ -49,6 +51,10 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const { setSidebarOpen } = useUIStore();
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
@@ -58,8 +64,53 @@ export function Sidebar() {
     );
   };
 
+  const handleLinkClick = () => {
+    // 모바일에서 링크 클릭 시 사이드바 닫기
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
+
+  // 드래그 핸들러
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (window.innerWidth < 1024) return; // 모바일에서는 드래그 비활성화
+    setIsDragging(true);
+    dragStartX.current = e.clientX;
+  };
+
+  useEffect(() => {
+    const handleDragMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      const deltaX = e.clientX - dragStartX.current;
+
+      // 드래그 거리가 50px 이상이면 토글
+      if (Math.abs(deltaX) > 50) {
+        if (deltaX < 0) {
+          // 왼쪽으로 드래그 -> 닫기
+          setSidebarOpen(false);
+        }
+        setIsDragging(false);
+      }
+    };
+
+    const handleDragEnd = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleDragMove);
+      document.addEventListener('mouseup', handleDragEnd);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('mouseup', handleDragEnd);
+    };
+  }, [isDragging, setSidebarOpen]);
+
   return (
-    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
+    <div ref={sidebarRef} className="relative flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
       <div className="flex h-16 items-center px-6 border-b border-gray-200">
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
@@ -73,6 +124,7 @@ export function Sidebar() {
                 <div className="flex items-center gap-1">
                   <Link
                     href={item.href}
+                    onClick={handleLinkClick}
                     className={cn(
                       'flex-1 flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                       pathname?.startsWith('/mypage')
@@ -123,6 +175,7 @@ export function Sidebar() {
             ) : (
               <Link
                 href={item.href}
+                onClick={handleLinkClick}
                 className={cn(
                   'flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                   pathname === item.href
@@ -150,6 +203,14 @@ export function Sidebar() {
           <InboxArchive className="mr-3 h-5 w-5 text-blue-600" />
           피드백 남기기
         </a>
+      </div>
+
+      {/* Drag Handle - 데스크톱에서만 표시 */}
+      <div
+        className="hidden lg:block absolute right-0 top-0 h-full w-1 cursor-ew-resize hover:bg-blue-500 transition-colors group"
+        onMouseDown={handleDragStart}
+      >
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gray-300 group-hover:bg-blue-500 transition-colors rounded-l" />
       </div>
     </div>
   );
