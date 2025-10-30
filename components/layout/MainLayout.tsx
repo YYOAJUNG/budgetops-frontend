@@ -49,11 +49,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - 데스크톱에서도 fixed */}
         <div
           className={cn(
-            'fixed lg:static inset-y-0 left-0 z-50 lg:z-auto transition-transform duration-300 ease-in-out',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-translate-x-full'
+            'fixed inset-y-0 left-0 z-50 lg:z-auto transition-transform duration-300 ease-in-out',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
         >
           <Sidebar />
@@ -69,8 +69,14 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden w-full">
+        {/* Main Content - 사이드바 너비만큼 왼쪽 여백 */}
+        <div
+          className={cn(
+            "flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
+            // 데스크톱에서 사이드바 열림/닫힘에 따라 전체 레이아웃 조정
+            sidebarOpen ? "lg:ml-64" : "lg:ml-0"
+          )}
+        >
           <Topbar />
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
             {children}

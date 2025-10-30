@@ -2,6 +2,7 @@
 
 import { useContextStore } from '@/store/context';
 import { useAuthStore } from '@/store/auth';
+import { useUIStore } from '@/store/ui';
 import { useTenants } from '@/lib/api/queries';
 import { TenantSwitcher } from './TenantSwitcher';
 import { DateRangePicker } from './DateRangePicker';
@@ -9,6 +10,7 @@ import { CurrencySelect } from './CurrencySelect';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
 import { Button } from '@/components/ui/button';
+import { Menu } from 'lucide-react';
 
 // TODO: Replace with API call
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -38,6 +40,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 export function Topbar() {
   const { tenantId, currency } = useContextStore();
   const { user } = useAuthStore();
+  const { sidebarOpen, setSidebarOpen } = useUIStore();
   const { data: tenants } = useTenants();
 
   // TODO: Replace with actual API calls
@@ -58,6 +61,15 @@ export function Topbar() {
   return (
     <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
       <div className="flex items-center space-x-4">
+        {/* Mobile: Hamburger Menu */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="h-6 w-6 text-gray-600" />
+        </button>
+
         <TenantSwitcher tenants={tenants || []} />
         <DateRangePicker />
         <CurrencySelect />
