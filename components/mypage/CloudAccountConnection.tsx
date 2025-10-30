@@ -24,7 +24,6 @@ function mapToUi(account: AwsAccountSummary) {
 
 export function CloudAccountConnection() {
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
