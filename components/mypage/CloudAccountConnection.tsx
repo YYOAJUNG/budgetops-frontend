@@ -29,15 +29,6 @@ const mockAccounts: CloudAccount[] = [
     lastSync: '2024-10-30 14:25',
     monthlyCost: 456,
   },
-  {
-    id: '3',
-    provider: 'Azure',
-    accountName: 'Dev Azure',
-    accountId: 'subscription-abc-123',
-    status: 'error',
-    lastSync: '2024-10-29 10:15',
-    monthlyCost: 443,
-  },
 ];
 
 export function CloudAccountConnection() {
