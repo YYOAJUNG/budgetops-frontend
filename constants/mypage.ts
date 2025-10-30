@@ -1,10 +1,49 @@
-import { SubscriptionPlan, CloudProvider } from '@/types/mypage';
+import { SubscriptionPlan, CloudProvider, AccountStatus, PaymentStatus } from '@/types/mypage';
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 // Provider color mappings
 export const PROVIDER_COLORS: Record<CloudProvider, string> = {
   AWS: 'bg-orange-100 text-orange-700 border-orange-200',
   GCP: 'bg-blue-100 text-blue-700 border-blue-200',
   Azure: 'bg-sky-100 text-sky-700 border-sky-200',
+} as const;
+
+// Account status configuration
+export const ACCOUNT_STATUS_CONFIG: Record<
+  AccountStatus,
+  { label: string; icon: typeof CheckCircle; color: string }
+> = {
+  connected: {
+    label: '연결됨',
+    icon: CheckCircle,
+    color: 'text-green-600 bg-green-50 border-green-200',
+  },
+  error: {
+    label: '오류',
+    icon: XCircle,
+    color: 'text-red-600 bg-red-50 border-red-200',
+  },
+  pending: {
+    label: '대기 중',
+    icon: AlertCircle,
+    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  },
+} as const;
+
+// Payment status configuration
+export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, { label: string; color: string }> = {
+  paid: {
+    label: '결제 완료',
+    color: 'bg-green-50 text-green-700 border-green-200',
+  },
+  pending: {
+    label: '대기 중',
+    color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  },
+  failed: {
+    label: '실패',
+    color: 'bg-red-50 text-red-700 border-red-200',
+  },
 } as const;
 
 // Subscription plans

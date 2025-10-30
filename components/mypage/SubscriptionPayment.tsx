@@ -1,106 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-interface PaymentHistory {
-  id: string;
-  date: string;
-  amount: number;
-  status: 'paid' | 'pending' | 'failed';
-  invoiceUrl: string;
-}
-
-const mockPaymentHistory: PaymentHistory[] = [
-  {
-    id: 'INV-2024-10',
-    date: '2024-10-01',
-    amount: 4900,
-    status: 'paid',
-    invoiceUrl: '#',
-  },
-  {
-    id: 'INV-2024-09',
-    date: '2024-09-01',
-    amount: 4900,
-    status: 'paid',
-    invoiceUrl: '#',
-  },
-  {
-    id: 'INV-2024-08',
-    date: '2024-08-01',
-    amount: 4900,
-    status: 'paid',
-    invoiceUrl: '#',
-  },
-];
-
-const plans = [
-  {
-    id: 'free',
-    name: '무료',
-    price: 0,
-    period: '월',
-    features: [
-      '클라우드 계정 1개',
-      '월 100만원 이하 비용 추적',
-      '기본 리포트',
-      '이메일 지원',
-    ],
-  },
-  {
-    id: 'pro',
-    name: '프로',
-    price: 4900,
-    period: '월',
-    popular: true,
-    features: [
-      '무제한 클라우드 계정',
-      '무제한 비용 추적',
-      '고급 분석 및 리포트',
-      '이상징후 탐지',
-      '비용 예측',
-      '최적화 권장사항',
-      '우선 지원',
-    ],
-  },
-  {
-    id: 'enterprise',
-    name: '엔터프라이즈',
-    price: null,
-    period: '문의',
-    features: [
-      '프로 플랜의 모든 기능',
-      '전담 계정 관리자',
-      '맞춤형 대시보드',
-      'SSO 통합',
-      '온프레미스 배포 옵션',
-      'SLA 보장',
-      '24/7 전화 지원',
-    ],
-  },
-];
+import {
+  getCurrentSubscription,
+  getPaymentMethod,
+  getPaymentHistory,
+} from '@/lib/api/subscription';
+import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 
 export function SubscriptionPayment() {
-  const [currentPlan] = useState('pro');
+  const { data: subscription } = useQuery({
+    queryKey: ['currentSubscription'],
+    queryFn: getCurrentSubscription,
+  });
 
-  const statusConfig = {
-    paid: {
-      label: '결제 완료',
-      color: 'bg-green-50 text-green-700 border-green-200',
-    },
-    pending: {
-      label: '대기 중',
-      color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    },
-    failed: {
-      label: '실패',
-      color: 'bg-red-50 text-red-700 border-red-200',
-    },
-  };
+  const { data: paymentMethod } = useQuery({
+    queryKey: ['paymentMethod'],
+    queryFn: getPaymentMethod,
+  });
+
+  const { data: paymentHistory } = useQuery({
+    queryKey: ['paymentHistory'],
+    queryFn: getPaymentHistory,
+  });
 
   return (
     <div className="p-8">
@@ -120,12 +46,26 @@ export function SubscriptionPayment() {
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">프로 플랜</h3>
-              <p className="text-gray-600">월 49,000원</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                {subscription?.planName || '로딩 중...'}
+              </h3>
+              <p className="text-gray-600">
+                {subscription?.price !== null && subscription?.price !== undefined
+                  ? `월 ${subscription.price.toLocaleString()}원`
+                  : '문의'}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-600 mb-1">다음 결제일</p>
-              <p className="font-semibold text-gray-900">2024년 11월 1일</p>
+              <p className="font-semibold text-gray-900">
+                {subscription?.nextPaymentDate
+                  ? new Date(subscription.nextPaymentDate).toLocaleDateString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : '-'}
+              </p>
             </div>
           </div>
           <div className="mt-4 flex gap-2">
@@ -143,7 +83,7 @@ export function SubscriptionPayment() {
       <div className="mb-8">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">사용 가능한 플랜</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan) => (
+          {SUBSCRIPTION_PLANS.map((plan) => (
             <Card
               key={plan.id}
               className={`relative ${
@@ -179,15 +119,15 @@ export function SubscriptionPayment() {
                 </ul>
                 <Button
                   className={`w-full ${
-                    currentPlan === plan.id
+                    subscription?.planId === plan.id
                       ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
                       : plan.popular
                       ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-gray-900 hover:bg-gray-800 text-white'
                   }`}
-                  disabled={currentPlan === plan.id}
+                  disabled={subscription?.planId === plan.id}
                 >
-                  {currentPlan === plan.id
+                  {subscription?.planId === plan.id
                     ? '현재 플랜'
                     : plan.price !== null
                     ? '플랜 선택'
@@ -210,8 +150,12 @@ export function SubscriptionPayment() {
                   <CreditCard className="h-6 w-6 text-gray-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">Visa •••• 1234</p>
-                  <p className="text-sm text-gray-600">만료: 12/25</p>
+                  <p className="font-medium text-gray-900">
+                    {paymentMethod?.brand || '카드'} •••• {paymentMethod?.last4 || '****'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    만료: {paymentMethod?.expiryMonth || '--'}/{paymentMethod?.expiryYear || '--'}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -233,45 +177,49 @@ export function SubscriptionPayment() {
         <Card>
           <CardContent className="p-6">
             <div className="space-y-4">
-              {mockPaymentHistory.map((payment) => (
-                <div
-                  key={payment.id}
-                  className="flex items-center justify-between py-3 border-b last:border-b-0 border-gray-100"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Receipt className="h-5 w-5 text-gray-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{payment.id}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Calendar className="h-3 w-3 text-gray-500" />
-                        <p className="text-sm text-gray-600">{payment.date}</p>
+              {paymentHistory && paymentHistory.length > 0 ? (
+                paymentHistory.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between py-3 border-b last:border-b-0 border-gray-100"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Receipt className="h-5 w-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{payment.id}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Calendar className="h-3 w-3 text-gray-500" />
+                          <p className="text-sm text-gray-600">{payment.date}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        ₩{payment.amount.toLocaleString()}
-                      </p>
-                      <Badge
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">
+                          ₩{payment.amount.toLocaleString()}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className={PAYMENT_STATUS_CONFIG[payment.status].color}
+                        >
+                          {PAYMENT_STATUS_CONFIG[payment.status].label}
+                        </Badge>
+                      </div>
+                      <Button
                         variant="outline"
-                        className={statusConfig[payment.status].color}
+                        size="sm"
+                        className="border-gray-300 text-gray-700"
                       >
-                        {statusConfig[payment.status].label}
-                      </Badge>
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-300 text-gray-700"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-8">결제 내역이 없습니다</p>
+              )}
             </div>
           </CardContent>
         </Card>

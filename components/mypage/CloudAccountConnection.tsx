@@ -1,19 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Cloud, Plus, Trash2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-
-interface CloudAccount {
-  id: string;
-  provider: 'AWS' | 'GCP' | 'Azure';
-  accountName: string;
-  accountId: string;
-  status: 'connected' | 'error' | 'pending';
-  lastSync: string;
-  monthlyCost: number;
-}
+import { AddCloudAccountDialog } from './AddCloudAccountDialog';
+import { getCurrentUser } from '@/lib/api/user';
+import { CloudAccount } from '@/types/mypage';
+import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 
 const mockAccounts: CloudAccount[] = [
   {
@@ -45,33 +40,13 @@ const mockAccounts: CloudAccount[] = [
   },
 ];
 
-const providerColors = {
-  AWS: 'bg-orange-100 text-orange-700 border-orange-200',
-  GCP: 'bg-blue-100 text-blue-700 border-blue-200',
-  Azure: 'bg-sky-100 text-sky-700 border-sky-200',
-};
-
-const statusConfig = {
-  connected: {
-    label: '연결됨',
-    icon: CheckCircle,
-    color: 'text-green-600 bg-green-50 border-green-200',
-  },
-  error: {
-    label: '오류',
-    icon: XCircle,
-    color: 'text-red-600 bg-red-50 border-red-200',
-  },
-  pending: {
-    label: '대기 중',
-    icon: AlertCircle,
-    color: 'text-yellow-600 bg-yellow-50 border-yellow-200',
-  },
-};
-
 export function CloudAccountConnection() {
   const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { data: user } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: getCurrentUser,
+  });
 
   const handleDeleteAccount = (id: string) => {
     // TODO: API 호출로 계정 삭제
@@ -80,7 +55,6 @@ export function CloudAccountConnection() {
 
   const handleAddAccount = () => {
     setShowAddDialog(true);
-    // TODO: 계정 추가 다이얼로그 구현
   };
 
   return (
@@ -120,7 +94,7 @@ export function CloudAccountConnection() {
           </div>
         ) : (
           accounts.map((account) => {
-            const StatusIcon = statusConfig[account.status].icon;
+            const StatusIcon = ACCOUNT_STATUS_CONFIG[account.status].icon;
             return (
               <div
                 key={account.id}
@@ -131,16 +105,16 @@ export function CloudAccountConnection() {
                     <div className="flex items-center gap-3 mb-3">
                       <Badge
                         variant="outline"
-                        className={`${providerColors[account.provider]} font-semibold`}
+                        className={`${PROVIDER_COLORS[account.provider]} font-semibold`}
                       >
                         {account.provider}
                       </Badge>
                       <Badge
                         variant="outline"
-                        className={statusConfig[account.status].color}
+                        className={ACCOUNT_STATUS_CONFIG[account.status].color}
                       >
                         <StatusIcon className="h-3 w-3 mr-1" />
-                        {statusConfig[account.status].label}
+                        {ACCOUNT_STATUS_CONFIG[account.status].label}
                       </Badge>
                     </div>
 
@@ -196,6 +170,12 @@ export function CloudAccountConnection() {
           })
         )}
       </div>
+
+      <AddCloudAccountDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        userName={user?.name || '사용자'}
+      />
     </div>
   );
 }

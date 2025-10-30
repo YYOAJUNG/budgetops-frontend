@@ -1,19 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { User, Mail, Building, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getCurrentUser } from '@/lib/api/user';
 
 export function MyInfo() {
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '홍길동',
-    email: 'hong@example.com',
-    company: 'BudgetOps',
-    phone: '010-1234-5678',
-    department: '개발팀',
-    position: '시니어 엔지니어',
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: getCurrentUser,
   });
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+    department: '',
+    position: '',
+  });
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        company: user.company || '',
+        phone: user.phone || '',
+        department: user.department || '',
+        position: user.position || '',
+      });
+    }
+  }, [user]);
 
   const handleSave = () => {
     // TODO: API 호출로 사용자 정보 업데이트
@@ -181,13 +201,31 @@ export function MyInfo() {
             <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
               <div>
                 <p className="text-sm font-medium text-gray-900">가입일</p>
-                <p className="text-sm text-gray-600">2024년 1월 15일</p>
+                <p className="text-sm text-gray-600">
+                  {user?.joinDate
+                    ? new Date(user.joinDate).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : '-'}
+                </p>
               </div>
             </div>
             <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
               <div>
                 <p className="text-sm font-medium text-gray-900">마지막 로그인</p>
-                <p className="text-sm text-gray-600">2024년 10월 30일 오후 2:30</p>
+                <p className="text-sm text-gray-600">
+                  {user?.lastLogin
+                    ? new Date(user.lastLogin).toLocaleDateString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : '-'}
+                </p>
               </div>
             </div>
           </div>

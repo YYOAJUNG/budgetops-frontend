@@ -90,15 +90,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">예산 알림</p>
                 <p className="text-sm text-gray-600">예산 임계값 도달 시 알림</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.budgetAlerts}
-                  onChange={() => handleToggle('notifications', 'budgetAlerts')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.notifications.budgetAlerts}
+                onChange={() => handleToggle('notifications', 'budgetAlerts')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -106,15 +101,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">이상징후 탐지</p>
                 <p className="text-sm text-gray-600">비정상적인 지출 패턴 감지 시 알림</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.anomalyDetection}
-                  onChange={() => handleToggle('notifications', 'anomalyDetection')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.notifications.anomalyDetection}
+                onChange={() => handleToggle('notifications', 'anomalyDetection')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -122,15 +112,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">주간 리포트</p>
                 <p className="text-sm text-gray-600">매주 비용 요약 리포트</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.weeklyReport}
-                  onChange={() => handleToggle('notifications', 'weeklyReport')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.notifications.weeklyReport}
+                onChange={() => handleToggle('notifications', 'weeklyReport')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -138,15 +123,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">월간 리포트</p>
                 <p className="text-sm text-gray-600">매월 상세 비용 리포트</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.notifications.monthlyReport}
-                  onChange={() => handleToggle('notifications', 'monthlyReport')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.notifications.monthlyReport}
+                onChange={() => handleToggle('notifications', 'monthlyReport')}
+              />
             </div>
           </CardContent>
         </Card>
@@ -168,15 +148,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">마케팅 이메일</p>
                 <p className="text-sm text-gray-600">프로모션 및 뉴스레터</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.email.marketing}
-                  onChange={() => handleToggle('email', 'marketing')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.email.marketing}
+                onChange={() => handleToggle('email', 'marketing')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -184,15 +159,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">제품 업데이트</p>
                 <p className="text-sm text-gray-600">새로운 기능 및 개선사항</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.email.productUpdates}
-                  onChange={() => handleToggle('email', 'productUpdates')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.email.productUpdates}
+                onChange={() => handleToggle('email', 'productUpdates')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -200,15 +170,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">보안 알림</p>
                 <p className="text-sm text-gray-600">계정 보안 관련 중요 알림</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.email.securityAlerts}
-                  onChange={() => handleToggle('email', 'securityAlerts')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.email.securityAlerts}
+                onChange={() => handleToggle('email', 'securityAlerts')}
+              />
             </div>
           </CardContent>
         </Card>
@@ -309,15 +274,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">2단계 인증</p>
                 <p className="text-sm text-gray-600">추가 보안 계층 활성화</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.twoFactorAuth}
-                  onChange={() => handleToggle('privacy', 'twoFactorAuth')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.privacy.twoFactorAuth}
+                onChange={() => handleToggle('privacy', 'twoFactorAuth')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -325,15 +285,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">데이터 공유</p>
                 <p className="text-sm text-gray-600">제품 개선을 위한 익명 데이터 공유</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.dataSharing}
-                  onChange={() => handleToggle('privacy', 'dataSharing')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.privacy.dataSharing}
+                onChange={() => handleToggle('privacy', 'dataSharing')}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -341,15 +296,10 @@ export function Settings() {
                 <p className="font-medium text-gray-900">사용 분석</p>
                 <p className="text-sm text-gray-600">앱 사용 통계 수집</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.privacy.analytics}
-                  onChange={() => handleToggle('privacy', 'analytics')}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
+              <Toggle
+                checked={settings.privacy.analytics}
+                onChange={() => handleToggle('privacy', 'analytics')}
+              />
             </div>
 
             <div className="pt-4 border-t border-gray-200">
