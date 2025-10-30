@@ -4,51 +4,22 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import {
-  LayoutDashboard,
-  DollarSign,
-  TrendingUp,
-  AlertTriangle,
-  Target,
-  Cloud,
-  Lightbulb,
-  Calculator,
-  FileText,
-  Bot,
-  BarChart3,
-  Activity,
-  ChevronDown,
-  ChevronRight,
-  CreditCard,
-  Settings as SettingsIcon
-} from 'lucide-react';
-import { Grid, DollarSquare, User, Sparkles, InboxArchive } from '@mynaui/icons-react';
-
-const navigation = [
-  { name: '대시보드', href: '/dashboard', icon: Grid },
-  { name: '리소스 관리', href: '/accounts', icon: Cloud },
-  { name: '비용 분석', href: '/costs', icon: DollarSquare },
-  { name: 'AI 어시스턴트', href: '/copilot', icon: Sparkles },
-  {
-    name: '마이 페이지',
-    href: '/mypage',
-    icon: User,
-    children: [
-      { name: '내 정보', href: '/mypage#info' },
-      { name: '클라우드 계정 연동', href: '/mypage#accounts' },
-      { name: '구독 및 결제', href: '/mypage#subscription' },
-      { name: '설정', href: '/mypage#settings' },
-    ]
-  },
-  { name: 'Budgets', href: '/budgets', icon: Target },
-  { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
-  { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
-  { name: 'Reports', href: '/reports', icon: FileText },
-];
+import { useUIStore } from '@/store/ui';
+import { useDragToToggleSidebar } from '@/hooks/useDragToToggleSidebar';
+import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
+import { UI_CONFIG } from '@/constants/ui';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { InboxArchive } from '@mynaui/icons-react';
 
 export function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const { setSidebarOpen } = useUIStore();
+
+  const { handleDragStart } = useDragToToggleSidebar({
+    direction: 'left',
+    onToggle: (shouldOpen) => setSidebarOpen(shouldOpen),
+  });
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
@@ -58,21 +29,29 @@ export function Sidebar() {
     );
   };
 
+  const handleLinkClick = () => {
+    // 모바일에서 링크 클릭 시 사이드바 닫기
+    if (window.innerWidth < UI_CONFIG.SIDEBAR.MOBILE_BREAKPOINT) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
-    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
+    <div className="relative flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
       <div className="flex h-16 items-center px-6 border-b border-gray-200">
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <h1 className="text-xl font-bold text-gray-900">BudgetOps</h1>
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-4">
-        {navigation.map((item) => (
+        {NAVIGATION_ITEMS.map((item) => (
           <div key={item.name}>
             {item.children ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-1">
                   <Link
                     href={item.href}
+                    onClick={handleLinkClick}
                     className={cn(
                       'flex-1 flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                       pathname?.startsWith('/mypage')
@@ -123,6 +102,7 @@ export function Sidebar() {
             ) : (
               <Link
                 href={item.href}
+                onClick={handleLinkClick}
                 className={cn(
                   'flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
                   pathname === item.href
@@ -142,7 +122,7 @@ export function Sidebar() {
       </nav>
       <div className="p-4 border-t border-gray-200">
         <a
-          href="https://forms.google.com/your-form-url"
+          href={FEEDBACK_LINK}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
@@ -150,6 +130,14 @@ export function Sidebar() {
           <InboxArchive className="mr-3 h-5 w-5 text-blue-600" />
           피드백 남기기
         </a>
+      </div>
+
+      {/* Drag Handle - 데스크톱에서만 표시 */}
+      <div
+        className="hidden lg:block absolute right-0 top-0 h-full w-1 cursor-ew-resize hover:bg-blue-500 transition-colors group"
+        onMouseDown={handleDragStart}
+      >
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gray-300 group-hover:bg-blue-500 transition-colors rounded-l" />
       </div>
     </div>
   );
