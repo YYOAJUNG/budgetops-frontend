@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,11 @@ import {
   FileText,
   Bot,
   BarChart3,
-  Activity
+  Activity,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { Grid, DollarSquare, User, Sparkles, InboxArchive } from '@mynaui/icons-react';
 
@@ -24,7 +29,17 @@ const navigation = [
   { name: '리소스 관리', href: '/accounts', icon: Cloud },
   { name: '비용 분석', href: '/costs', icon: DollarSquare },
   { name: 'AI 어시스턴트', href: '/copilot', icon: Sparkles },
-  { name: '마이 페이지', href: '/mypage', icon: User },
+  {
+    name: '마이 페이지',
+    href: '/mypage',
+    icon: User,
+    children: [
+      { name: '내 정보', href: '/mypage#info' },
+      { name: '클라우드 계정 연동', href: '/mypage#accounts' },
+      { name: '구독 및 결제', href: '/mypage#subscription' },
+      { name: '설정', href: '/mypage#settings' },
+    ]
+  },
   { name: 'Budgets', href: '/budgets', icon: Target },
   { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
   { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
@@ -33,6 +48,15 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+
+  const toggleMenu = (menuName: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(menuName)
+        ? prev.filter(name => name !== menuName)
+        : [...prev, menuName]
+    );
+  };
 
   return (
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 shadow-sm">
@@ -46,28 +70,55 @@ export function Sidebar() {
           <div key={item.name}>
             {item.children ? (
               <div className="space-y-1">
-                <div className="flex items-center px-3 py-2 text-sm font-semibold text-gray-500 uppercase tracking-wide">
-                  <item.icon className="mr-3 h-4 w-4" />
-                  {item.name}
-                </div>
-                {item.children.map((child) => (
+                <div className="flex items-center gap-1">
                   <Link
-                    key={child.name}
-                    href={child.href}
+                    href={item.href}
                     className={cn(
-                      'flex items-center px-6 py-2.5 text-sm rounded-lg transition-all duration-200 group',
-                      pathname === child.href
-                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                      'flex-1 flex items-center px-3 py-2.5 text-sm rounded-lg transition-all duration-200 group',
+                      pathname?.startsWith('/mypage')
+                        ? 'bg-blue-50 text-blue-700'
                         : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     )}
                   >
-                    <child.icon className={cn(
-                      'mr-3 h-4 w-4 transition-colors',
-                      pathname === child.href ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                    <item.icon className={cn(
+                      'mr-3 h-5 w-5 transition-colors',
+                      pathname?.startsWith('/mypage') ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
                     )} />
-                    {child.name}
+                    {item.name}
                   </Link>
-                ))}
+                  <button
+                    onClick={() => toggleMenu(item.name)}
+                    className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    {expandedMenus.includes(item.name) ? (
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                {expandedMenus.includes(item.name) && (
+                  <div className="space-y-1 pl-4">
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.name}
+                        href={child.href}
+                        className="block px-3 py-2 text-sm rounded-lg transition-all duration-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        onClick={(e) => {
+                          // 같은 페이지 내 앵커로 스크롤
+                          if (pathname === '/mypage' && child.href.includes('#')) {
+                            e.preventDefault();
+                            const id = child.href.split('#')[1];
+                            const element = document.getElementById(id);
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <Link
