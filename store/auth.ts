@@ -11,22 +11,27 @@ export interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  token: string | null;
   login: (user: User) => void;
   logout: () => void;
+  setToken: (token: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
-      user: {
-        id: '1',
-        email: 'admin@budgetops.com',
-        name: '관리자',
-        role: 'admin'
-      },
-      isAuthenticated: true,
+    (set, get) => ({
+      user: null,
+      isAuthenticated: false,
+      token: null,
       login: (user) => set({ user, isAuthenticated: true }),
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: () => {
+        // localStorage에서 토큰도 제거
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('accessToken');
+        }
+        set({ user: null, isAuthenticated: false, token: null });
+      },
+      setToken: (token) => set({ token }),
     }),
     {
       name: 'budgetops-auth',
