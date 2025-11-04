@@ -29,7 +29,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       name: 'Amazon Web Services',
       logo: (
         <img
-          src="https://blog.kakaocdn.net/dna/bHtI0M/btrlXwcnV06/AAAAAAAAAAAAAAAAAAAAAAZeZ2xLFHF6EuB7ZsymLFrqydE24S0HvnrrYq6xZb4T/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1761922799&allow_ip=&allow_referer=&signature=%2BqZecBZgEEEji%2BtxE07jfvLgA0o%3D"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/1024px-Amazon_Web_Services_Logo.svg.png"
           alt="AWS"
           className="w-24 h-24 object-contain"
         />
@@ -40,7 +40,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       name: 'Google Cloud Platform',
       logo: (
         <img
-          src="https://img.icons8.com/?size=1200&id=WHRLQdbEXQ16&format=jpg"
+          src="https://media.licdn.com/dms/image/v2/D4D12AQGfCXrXtM974A/article-cover_image-shrink_720_1280/article-cover_image-shrink_720_1280/0/1711743896544?e=2147483647&v=beta&t=KhpXKzuoiv2wJyVVNP9WZ4msnz6tVVCJnWNtHSLwFJw"
           alt="GCP"
           className="w-24 h-24 object-contain"
         />

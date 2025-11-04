@@ -1,19 +1,13 @@
-// 구독 및 결제 API 및 Mock 데이터
+/**
+ * 구독 및 결제 API
+ */
 import { api } from './client';
+import { TEMP_USER_ID } from '../constants/payment';
 
 // ========== Helper Functions ==========
 
-/**
- * 현재 사용자 ID 가져오기
- * TODO: 인증 시스템 구현 후 실제 사용자 정보 가져오기
- */
-const getUserId = (): number => {
-  return 1; // 임시 하드코딩
-};
+const getUserId = (): number => TEMP_USER_ID;
 
-/**
- * Backend BillingResponse를 Frontend Subscription으로 변환
- */
 const transformBillingResponse = (data: any): Subscription => ({
   planId: data.planId,
   planName: data.planName,
@@ -25,21 +19,11 @@ const transformBillingResponse = (data: any): Subscription => ({
   tokenResetDate: data.tokenResetDate,
 });
 
-/**
- * 패키지 ID로 보너스 토큰 계산
- */
 const calculateBonusTokens = (packageId: string): number => {
-  const bonusMap: Record<string, number> = {
-    small: 0,
-    medium: 50,
-    large: 150,
-  };
+  const bonusMap: Record<string, number> = { small: 0, medium: 50, large: 150 };
   return bonusMap[packageId] || 0;
 };
 
-/**
- * Mock 모드 여부 확인
- */
 const isMockMode = (): boolean => process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
 // ========== Type Definitions ==========
@@ -138,67 +122,110 @@ export const mockPaymentHistory: PaymentHistory[] = [
 
 // ========== API Functions ==========
 
-// 현재 구독 정보 가져오기
 export async function getCurrentSubscription(): Promise<Subscription> {
   if (isMockMode()) return mockSubscription;
 
+  const userId = getUserId();
+  const response = await api.get(`/v1/users/${userId}/billing`);
+  return transformBillingResponse(response.data);
+}
+
+export async function getPaymentMethod(): Promise<PaymentMethod & { isRegistered: boolean }> {
+  if (isMockMode()) {
+    // Mock 모드: localStorage만 확인
+    if (typeof window !== 'undefined') {
+      const savedCardInfo = localStorage.getItem('paymentMethod');
+      if (savedCardInfo) {
+        const cardInfo = JSON.parse(savedCardInfo);
+        return { ...cardInfo, isRegistered: true };
+      }
+    }
+    return {
+      id: '',
+      type: 'card',
+      last4: '',
+      brand: '',
+      expiryMonth: undefined,
+      expiryYear: undefined,
+      isRegistered: false,
+    };
+  }
+
+  // 실제 모드: 백엔드 API로 등록 여부 확인
+  const userId = getUserId();
   try {
-    const userId = getUserId();
-    const response = await api.get(`/v1/users/${userId}/billing`);
-    return transformBillingResponse(response.data);
+    const response = await api.get(`/v1/users/${userId}/payment/status`);
+    const isRegistered = response.data;
+
+    if (isRegistered && typeof window !== 'undefined') {
+      // 등록되어 있으면 localStorage의 카드 정보 반환
+      const savedCardInfo = localStorage.getItem('paymentMethod');
+      if (savedCardInfo) {
+        const cardInfo = JSON.parse(savedCardInfo);
+        return { ...cardInfo, isRegistered: true };
+      }
+    }
+
+    // 등록되어 있지 않으면 localStorage도 삭제
+    if (!isRegistered && typeof window !== 'undefined') {
+      localStorage.removeItem('paymentMethod');
+    }
+
+    return {
+      id: '',
+      type: 'card',
+      last4: '',
+      brand: '',
+      expiryMonth: undefined,
+      expiryYear: undefined,
+      isRegistered: false,
+    };
   } catch (error) {
-    console.error('Failed to fetch subscription:', error);
-    throw error;
+    console.error('[getPaymentMethod] API 오류:', error);
+    // API 오류 시 등록되지 않은 것으로 간주
+    return {
+      id: '',
+      type: 'card',
+      last4: '',
+      brand: '',
+      expiryMonth: undefined,
+      expiryYear: undefined,
+      isRegistered: false,
+    };
   }
 }
 
-// 결제 수단 가져오기
-export async function getPaymentMethod(): Promise<PaymentMethod> {
-  // TODO: 실제 API 호출
-  // const response = await fetch('/api/payment/method');
-  // return response.json();
-
-  return mockPaymentMethod;
+export async function savePaymentMethod(cardInfo: PaymentMethod): Promise<void> {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('paymentMethod', JSON.stringify(cardInfo));
+  }
 }
 
-// 결제 내역 가져오기
 export async function getPaymentHistory(): Promise<PaymentHistory[]> {
   if (isMockMode()) return mockPaymentHistory;
 
-  try {
-    const userId = getUserId();
-    const response = await api.get(`/v1/users/${userId}/payment/history`);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to fetch payment history:', error);
-    throw error;
-  }
+  const userId = getUserId();
+  const response = await api.get(`/v1/users/${userId}/payment/history`);
+  return response.data;
 }
 
-// 구독 플랜 변경
 export async function updateSubscription(planId: string): Promise<Subscription> {
+  console.log('[updateSubscription] 시작 - planId:', planId);
+  console.log('[updateSubscription] Mock 모드:', isMockMode());
+
   if (isMockMode()) {
+    console.log('[updateSubscription] Mock 데이터 반환');
     return { ...mockSubscription, planId: planId as Subscription['planId'] };
   }
 
-  try {
-    const userId = getUserId();
-    const planName = planId.toUpperCase();
-    const response = await api.put(`/v1/users/${userId}/billing/plan/${planName}`);
-    return transformBillingResponse(response.data);
-  } catch (error) {
-    console.error('Failed to update subscription:', error);
-    throw error;
-  }
+  console.log('[updateSubscription] API 호출');
+  const userId = getUserId();
+  const planName = planId.toUpperCase();
+  const response = await api.put(`/v1/users/${userId}/billing/plan/${planName}`);
+  console.log('[updateSubscription] API 응답:', response.data);
+  return transformBillingResponse(response.data);
 }
 
-// 구독 취소
-export async function cancelSubscription(): Promise<void> {
-  // TODO: 실제 API 호출
-  // await fetch('/api/subscription', { method: 'DELETE' });
-}
-
-// 토큰 구매 (Pro 플랜 전용)
 export async function purchaseTokens(
   request: TokenPurchaseRequest
 ): Promise<TokenPurchaseResponse> {
@@ -214,12 +241,7 @@ export async function purchaseTokens(
     };
   }
 
-  try {
-    const userId = getUserId();
-    const response = await api.post(`/v1/users/${userId}/payment/purchase-tokens`, request);
-    return response.data;
-  } catch (error) {
-    console.error('Failed to purchase tokens:', error);
-    throw error;
-  }
+  const userId = getUserId();
+  const response = await api.post(`/v1/users/${userId}/payment/purchase-tokens`, request);
+  return response.data;
 }

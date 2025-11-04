@@ -51,7 +51,8 @@ export function PurchaseTokenDialog({
   const handlePurchase = () => {
     const pkg = TOKEN_PACKAGES.find((p) => p.id === selectedPackage);
     if (pkg) {
-      onPurchase?.(pkg.id, pkg.amount + (pkg.bonus || 0), pkg.price);
+      // 백엔드는 기본 토큰 수량만 검증 (보너스 제외)
+      onPurchase?.(pkg.id, pkg.amount, pkg.price);
       onOpenChange(false);
     }
   };
