@@ -79,10 +79,15 @@ export function CloudAccountConnection() {
                     <Badge variant="outline" className={`${PROVIDER_COLORS['AWS']} font-semibold`}>
                       AWS
                     </Badge>
-                    <Badge variant="outline" className={ACCOUNT_STATUS_CONFIG['connected'].color}>
-                      <ACCOUNT_STATUS_CONFIG['connected'].icon className="h-3 w-3 mr-1" />
-                      {ACCOUNT_STATUS_CONFIG['connected'].label}
-                    </Badge>
+                    {(() => {
+                      const StatusIcon = ACCOUNT_STATUS_CONFIG['connected'].icon;
+                      return (
+                        <Badge variant="outline" className={ACCOUNT_STATUS_CONFIG['connected'].color}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {ACCOUNT_STATUS_CONFIG['connected'].label}
+                        </Badge>
+                      );
+                    })()}
                   </div>
 
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">{account.name}</h3>
