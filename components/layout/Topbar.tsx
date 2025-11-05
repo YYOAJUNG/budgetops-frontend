@@ -1,15 +1,9 @@
 'use client';
 
-import { useContextStore } from '@/store/context';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
-import { useTenants } from '@/lib/api/queries';
-import { TenantSwitcher } from './TenantSwitcher';
-import { DateRangePicker } from './DateRangePicker';
-import { CurrencySelect } from './CurrencySelect';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 
 // TODO: Replace with API call
@@ -38,10 +32,8 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 ];
 
 export function Topbar() {
-  const { tenantId, currency } = useContextStore();
   const { user } = useAuthStore();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
-  const { data: tenants } = useTenants();
 
   // TODO: Replace with actual API calls
   const handleMarkAllRead = () => {
@@ -59,26 +51,21 @@ export function Topbar() {
   const unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.isRead).length;
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
-      <div className="flex items-center space-x-4">
-        {/* Mobile: Hamburger Menu */}
+    <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="lg:hidden p-2 rounded-lg transition-colors hover:bg-slate-100"
           aria-label="Toggle sidebar"
         >
-          <Menu className="h-6 w-6 text-gray-600" />
+          <Menu className="h-6 w-6 text-slate-600" />
         </button>
-
-        <TenantSwitcher tenants={tenants || []} />
-        <DateRangePicker />
-        <CurrencySelect />
+        <span className="text-sm font-medium uppercase tracking-wide text-slate-500">
+          BudgetOps Console
+        </span>
       </div>
-      
+
       <div className="flex items-center space-x-2">
-        <Button className="bg-blue-600 text-white hover:bg-blue-700">
-          + 클라우드 계정 연동
-        </Button>
         <NotificationMenu
           notifications={MOCK_NOTIFICATIONS}
           unreadCount={unreadCount}
