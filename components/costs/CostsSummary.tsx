@@ -1,17 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatCard } from '@/components/ui/stat-card';
-// import { DateRangePicker } from '@/components/layout/DateRangePicker';
+import { DateRangePicker } from '@/components/layout/DateRangePicker';
 import { useQuery } from '@tanstack/react-query';
-
-type CSP = string; // 동적 CSP 대응 (AWS/GCP/Azure 외 확장 가능)
+import { useContextStore } from '@/store/context';
 
 type CostsResponse = {
   total: number;
-  byProvider: Record<string, number>; // 동적 키
+  byProvider: Record<string, number>;
   byService: Array<{ service: string; amount: number }>;
 };
 
@@ -34,124 +32,158 @@ function mockFetchCosts(from: string, to: string): Promise<CostsResponse> {
   });
 }
 
-function formatCurrencyKRW(amount: number): string {
+function formatCurrency(amount: number): string {
   return `₩${amount.toLocaleString()}`;
-}
-
-function RangeSwitch({ value, onChange }: { value: '7d' | '30d' | '90d'; onChange: (v: '7d' | '30d' | '90d') => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      {(['7d', '30d', '90d'] as const).map((r) => (
-        <button
-          key={r}
-          className={`px-3 py-1 rounded border ${value===r?'bg-gray-900 text-white':'bg-white'}`}
-          onClick={() => onChange(r)}
-        >
-          {r.replace('d','일')}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function CostsSummary() {
   const router = useRouter();
-  const [range, setRange] = useState<'7d' | '30d' | '90d'>('30d');
-  const [from, to] = useMemo(() => {
-    const now = Date.now();
-    const days = range === '7d' ? 6 : range === '30d' ? 29 : 89;
-    return [new Date(now - days * 86400000).toISOString(), new Date(now).toISOString()];
-  }, [range]);
+  const { from, to } = useContextStore();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['costsSummary', { from, to }],
     queryFn: () => mockFetchCosts(from, to),
   });
 
-  const byService = useMemo(() => data?.byService ?? [], [data]);
+  const totalAmount = data?.total ?? 0;
+  const providers = Object.entries(data?.byProvider ?? {});
+  const services = useMemo(() => data?.byService ?? [], [data]);
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">비용 요약</h2>
-          <p className="text-gray-600 mt-1">선택한 기간의 총액, CSP별, 서비스별 비용</p>
+          <h2 className="text-2xl font-semibold text-slate-900">비용 요약</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            선택한 기간의 총액, 클라우드 사업자별, 서비스별 비용을 한눈에 확인하세요.
+          </p>
         </div>
-        <RangeSwitch value={range} onChange={setRange} />
+        <DateRangePicker />
       </div>
 
-      {/* 상태 처리 */}
       {isLoading && (
         <Card>
-          <CardContent className="p-6 text-gray-600">불러오는 중...</CardContent>
+          <CardContent className="p-6 text-slate-600">불러오는 중...</CardContent>
         </Card>
       )}
+
       {isError && (
         <Card>
-          <CardContent className="p-6 text-red-600">
-            비용 데이터를 불러오지 못했습니다.
-          </CardContent>
+          <CardContent className="p-6 text-red-600">비용 데이터를 불러오지 못했습니다.</CardContent>
         </Card>
       )}
+
       {!isLoading && !isError && data && (
-        <>
-          {/* 총액 카드 */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard title="총 비용" value={formatCurrencyKRW(data.total)} />
-            {Object.entries(data.byProvider).map(([provider, amount]) => (
-              <StatCard key={provider} title={provider} value={formatCurrencyKRW(amount || 0)} />
-            ))}
-          </div>
+        <div className="space-y-6">
+          <Card className="overflow-hidden border border-sky-100 shadow-sm bg-gradient-to-br from-sky-100 via-sky-50 to-indigo-100 text-slate-900">
+            <CardContent className="p-8">
+              <div className="text-sm font-medium uppercase tracking-wide text-slate-500">총 비용</div>
+              <div className="mt-4 text-4xl font-semibold">{formatCurrency(totalAmount)}</div>
+              <div className="mt-2 text-xs text-slate-500">선택한 기간 동안 발생한 전체 비용</div>
+            </CardContent>
+          </Card>
 
-          {/* CSP별/서비스별 카드 레이아웃 */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base font-semibold text-slate-800">CSP별 비용</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {providers.length === 0 ? (
+                <div className="text-sm text-slate-600">
+                  연결된 클라우드 계정이 없습니다.{' '}
+                  <button className="underline" onClick={() => router.push('/accounts')}>
+                    계정 연동
+                  </button>{' '}
+                  후 확인해 주세요.
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {providers.map(([provider, amount]) => (
+                    <div key={provider} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{provider}</div>
+                      <div className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(amount)}</div>
+                      <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                          style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {Math.round((amount / Math.max(1, totalAmount)) * 100)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="border border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle>CSP별 비용</CardTitle>
+                <CardTitle className="text-base font-semibold text-slate-800">CSP별 비용 Top</CardTitle>
               </CardHeader>
               <CardContent>
-                {Object.keys(data.byProvider).length === 0 ? (
-                  <div className="text-sm text-gray-600">
-                    연결된 클라우드 계정이 없습니다.{' '}
-                    <button className="underline" onClick={() => router.push('/accounts')}>계정 연동</button> 후 확인해 주세요.
+                {providers.length === 0 ? (
+                  <div className="text-sm text-slate-600">
+                    연결된 클라우드 계정이 없습니다.
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {Object.entries(data.byProvider).map(([p, amt]) => (
-                      <div key={p} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{p}</span>
-                        <span className="font-semibold text-gray-900">{formatCurrencyKRW(amt || 0)}</span>
+                    {providers
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([provider, amount]) => (
+                        <div key={provider} className="text-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-slate-600 font-medium">{provider}</span>
+                            <span className="font-semibold text-slate-900">{formatCurrency(amount)}</span>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                              style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {Math.round((amount / Math.max(1, totalAmount)) * 100)}%
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold text-slate-800">서비스별 비용 Top</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {services.length === 0 ? (
+                  <div className="text-sm text-slate-600">데이터가 없습니다.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {services.map((s) => (
+                      <div key={s.service} className="text-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-slate-600 font-medium">{s.service}</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(s.amount)}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                            style={{ width: `${Math.min(100, (s.amount / Math.max(1, totalAmount)) * 100)}%` }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>서비스별 비용 Top</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {byService.length === 0 ? (
-                  <div className="text-sm text-gray-600">데이터가 없습니다.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {byService.map((s) => (
-                      <div key={s.service} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{s.service}</span>
-                        <span className="font-semibold text-gray-900">{formatCurrencyKRW(s.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
-
-
