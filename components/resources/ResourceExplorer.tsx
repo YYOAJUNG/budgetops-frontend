@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
+import { FreeTierCard } from './FreeTierCard';
 import { ArrowUpDown, Filter, RefreshCw } from 'lucide-react';
 
 const SORT_OPTIONS = [
@@ -103,6 +104,8 @@ export function ResourceExplorer() {
 
   return (
     <div className="space-y-6">
+      <FreeTierCard />
+
       <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-slate-800">필터 및 정렬</CardTitle>
