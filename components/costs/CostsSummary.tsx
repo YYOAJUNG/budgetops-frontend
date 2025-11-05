@@ -1,22 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
 // import { DateRangePicker } from '@/components/layout/DateRangePicker';
 import { useQuery } from '@tanstack/react-query';
 
-type CSP = 'AWS' | 'GCP' | 'Azure';
-
-type CostsSummaryItem = {
-  provider: CSP;
-  service: string;
-  amount: number;
-};
+type CSP = string; // 동적 CSP 대응 (AWS/GCP/Azure 외 확장 가능)
 
 type CostsResponse = {
   total: number;
-  byProvider: Record<CSP, number>;
+  byProvider: Record<string, number>; // 동적 키
   byService: Array<{ service: string; amount: number }>;
 };
 
@@ -60,6 +55,7 @@ function RangeSwitch({ value, onChange }: { value: '7d' | '30d' | '90d'; onChang
 }
 
 export function CostsSummary() {
+  const router = useRouter();
   const [range, setRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [from, to] = useMemo(() => {
     const now = Date.now();
@@ -102,8 +98,9 @@ export function CostsSummary() {
           {/* 총액 카드 */}
           <div className="grid gap-4 md:grid-cols-3">
             <StatCard title="총 비용" value={formatCurrencyKRW(data.total)} />
-            <StatCard title="AWS" value={formatCurrencyKRW(data.byProvider.AWS)} />
-            <StatCard title="GCP" value={formatCurrencyKRW(data.byProvider.GCP)} />
+            {Object.entries(data.byProvider).map(([provider, amount]) => (
+              <StatCard key={provider} title={provider} value={formatCurrencyKRW(amount || 0)} />
+            ))}
           </div>
 
           {/* CSP별/서비스별 카드 레이아웃 */}
@@ -113,14 +110,21 @@ export function CostsSummary() {
                 <CardTitle>CSP별 비용</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {(['AWS', 'GCP', 'Azure'] as CSP[]).map((p) => (
-                    <div key={p} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">{p}</span>
-                      <span className="font-semibold text-gray-900">{formatCurrencyKRW(data.byProvider[p] || 0)}</span>
-                    </div>
-                  ))}
-                </div>
+                {Object.keys(data.byProvider).length === 0 ? (
+                  <div className="text-sm text-gray-600">
+                    연결된 클라우드 계정이 없습니다.{' '}
+                    <button className="underline" onClick={() => router.push('/accounts')}>계정 연동</button> 후 확인해 주세요.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Object.entries(data.byProvider).map(([p, amt]) => (
+                      <div key={p} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{p}</span>
+                        <span className="font-semibold text-gray-900">{formatCurrencyKRW(amt || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
