@@ -62,7 +62,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
   {
     id: 'pro',
-    name: '프로',
+    name: 'Pro',
     price: 4900,
     period: '월',
     popular: true,
@@ -82,7 +82,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     price: null,
     period: '문의',
     features: [
-      '프로 플랜의 모든 기능',
+      'Pro 플랜의 모든 기능',
       '전담 계정 관리자',
       '맞춤형 대시보드',
       'SSO 통합',

@@ -1,4 +1,4 @@
-import { Cloud, Target, Lightbulb, Calculator, FileText } from 'lucide-react';
+import { Cloud } from 'lucide-react';
 import { Grid, DollarSquare, Sparkles } from '@mynaui/icons-react';
 
 export interface NavigationItem {
@@ -13,10 +13,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { name: '리소스 관리', href: '/accounts', icon: Cloud },
   { name: '비용 분석', href: '/costs', icon: DollarSquare },
   { name: 'AI 어시스턴트', href: '/copilot', icon: Sparkles },
-  { name: 'Budgets', href: '/budgets', icon: Target },
-  { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
-  { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
-  { name: 'Reports', href: '/reports', icon: FileText },
 ];
 
 export const FEEDBACK_LINK = 'https://forms.google.com/your-form-url';
