@@ -57,7 +57,7 @@ export function FreeTierCard() {
                         className={
                           variant === 'danger'
                             ? 'border-red-200 bg-red-50 text-red-700'
-                            : 'border-sky-200 bg-sky-50 text-sky-700'
+                            : 'border-orange-200 bg-orange-50 text-orange-700'
                         }
                       >
                         {variant === 'danger' ? '임계치 초과' : '주의'}
@@ -75,4 +75,3 @@ export function FreeTierCard() {
     </Card>
   );
 }
-
