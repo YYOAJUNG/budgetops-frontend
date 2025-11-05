@@ -90,7 +90,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
     try {
       await mutateAsync({ name, defaultRegion, accessKeyId, secretAccessKey });
       onOpenChange(false);
-      // reset
+      // reset state
       setSelectedProvider(null);
       setStep('select');
       setName('');
