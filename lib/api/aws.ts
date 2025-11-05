@@ -39,6 +39,9 @@ export async function getAwsAccountInfo(accountId: number): Promise<AwsAccountSu
   return (await api.get(`/aws/accounts/${accountId}/info`)).data;
 }
 
+export async function deleteAwsAccount(accountId: number): Promise<void> {
+  await api.delete(`/aws/accounts/${accountId}`);
+}
 export async function getAwsResourcesByAccount(accountId: number): Promise<AwsResourceItem[]> {
   return (await api.get(`/aws/accounts/${accountId}/resources`)).data;
 }
