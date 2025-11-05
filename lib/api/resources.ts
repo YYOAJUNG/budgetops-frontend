@@ -117,3 +117,21 @@ const MOCK_RESOURCES: ResourceItem[] = [
 export async function getResources(): Promise<ResourceItem[]> {
   return new Promise((resolve) => setTimeout(() => resolve(MOCK_RESOURCES), 250));
 }
+
+export type FreeTierUsage = {
+  provider: CloudProvider;
+  quota: number;
+  used: number;
+  unit: string;
+};
+
+const MOCK_FREETIERS: FreeTierUsage[] = [
+  { provider: 'AWS', quota: 750, used: 620, unit: '시간' },
+  { provider: 'GCP', quota: 300, used: 180, unit: '시간' },
+  { provider: 'Azure', quota: 200, used: 90, unit: '시간' },
+  { provider: 'Oracle', quota: 400, used: 350, unit: '크레딧' },
+];
+
+export async function getFreeTierUsage(): Promise<FreeTierUsage[]> {
+  return new Promise((resolve) => setTimeout(() => resolve(MOCK_FREETIERS), 200));
+}
