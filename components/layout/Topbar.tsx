@@ -11,6 +11,7 @@ import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 // TODO: Replace with API call
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -42,6 +43,8 @@ export function Topbar() {
   const { user } = useAuthStore();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
   const { data: tenants } = useTenants();
+  const router = useRouter();
+  const setTargetSection = useUIStore((s) => s.setTargetSection);
 
   // TODO: Replace with actual API calls
   const handleMarkAllRead = () => {
@@ -76,7 +79,7 @@ export function Topbar() {
       </div>
       
       <div className="flex items-center space-x-2">
-        <Button className="bg-blue-600 text-white hover:bg-blue-700">
+        <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => { setTargetSection('accounts'); router.push('/mypage'); }}>
           + 클라우드 계정 연동
         </Button>
         <NotificationMenu
