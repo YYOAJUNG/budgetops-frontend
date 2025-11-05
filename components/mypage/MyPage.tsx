@@ -4,8 +4,25 @@ import { MyInfo } from './MyInfo';
 import { CloudAccountConnection } from './CloudAccountConnection';
 import { SubscriptionPayment } from './SubscriptionPayment';
 import { Settings } from './Settings';
+import { useEffect } from 'react';
+import { useUIStore } from '@/store/ui';
 
 export function MyPage() {
+  const { targetSection, setTargetSection } = useUIStore((s) => ({
+    targetSection: s.targetSection,
+    setTargetSection: s.setTargetSection,
+  }));
+
+  useEffect(() => {
+    if (targetSection) {
+      const el = document.getElementById(targetSection);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setTargetSection(null);
+    }
+  }, [targetSection, setTargetSection]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
