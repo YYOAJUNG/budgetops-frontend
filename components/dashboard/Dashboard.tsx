@@ -99,6 +99,8 @@ import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/l
 import { useContextStore } from '@/store/context';
 import { formatCurrency } from '@/lib/utils';
 import { DollarSign, Target, AlertTriangle, Lightbulb, Plus, Cloud, Bot } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useUIStore } from '@/store/ui';
 
 /** 최소한의 로컬 타입 (API 타입이 있으면 그걸 import 해도 됨) */
 type CostPoint = { amount: number };
@@ -108,6 +110,8 @@ type Recommendation = { saving: number };
 
 export function Dashboard() {
   const { tenantId, from, to, currency } = useContextStore();
+  const router = useRouter();
+  const setTargetSection = useUIStore((s) => s.setTargetSection);
 
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
@@ -196,6 +200,7 @@ export function Dashboard() {
             <Button
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              onClick={() => { setTargetSection('accounts'); router.push('/mypage'); }}
             >
               <Cloud className="mr-2 h-4 w-4" />
               계정 연결
