@@ -99,7 +99,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       setSecretAccessKey('');
     } catch (e: any) {
       const apiMsg = e?.response?.data?.message;
-      setError(apiMsg || '계정 등록 중 오류가 발생했습니다.');
+      const plainMsg = typeof e?.message === 'string' ? e.message : undefined;
+      setError(apiMsg || plainMsg || '계정 등록 중 오류가 발생했습니다.');
     }
   };
 
@@ -172,7 +173,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 </div>
                 <div>
                   <Label htmlFor="accessKeyId">Access Key ID</Label>
-                  <Input id="accessKeyId" value={accessKeyId} onChange={(e) => setAccessKeyId(e.target.value)} placeholder="AKIA..." />
+                  <Input id="accessKeyId" value={accessKeyId} onChange={(e) => setAccessKeyId(e.target.value)} placeholder="AKIA1234567890ABCD" />
                 </div>
                 <div>
                   <Label htmlFor="secretAccessKey">Secret Access Key</Label>
