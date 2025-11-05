@@ -11,9 +11,10 @@ import { UI_CONFIG } from '@/constants/ui';
 
 interface MainLayoutProps {
   children: React.ReactNode;
+  showTopbar?: boolean;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
   const { handleDragStart } = useDragToToggleSidebar({
@@ -77,7 +78,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             sidebarOpen ? "lg:ml-64" : "lg:ml-0"
           )}
         >
-          <Topbar />
+          {showTopbar && <Topbar />}
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
             {children}
           </main>
