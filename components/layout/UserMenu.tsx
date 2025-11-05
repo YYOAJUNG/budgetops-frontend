@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { User, LogOut, Settings, CreditCard, Cloud } from 'lucide-react';
 import type { User as UserType } from '@/store/auth';
+import { useUIStore } from '@/store/ui';
 
 interface UserMenuProps {
   user: UserType | null;
@@ -23,6 +24,7 @@ export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter();
   const { logout } = useAuthStore();
   const [open, setOpen] = useState(false);
+  const setTargetSection = useUIStore((s) => s.setTargetSection);
 
   const handleLogout = () => {
     logout();
@@ -79,7 +81,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <span>내 정보</span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => router.push('/accounts')}
+            onClick={() => { setTargetSection('accounts'); router.push('/mypage'); }}
             className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
           >
             <Cloud className="mr-3 h-4 w-4 text-gray-500" />
