@@ -53,8 +53,8 @@ export function CostsSummary() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">비용 요약</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-xl font-semibold text-slate-900 md:text-2xl">비용 요약</h2>
+          <p className="mt-1 text-xs text-slate-600 md:text-sm">
             선택한 기간의 총액, 클라우드 사업자별, 서비스별 비용을 한눈에 확인하세요.
           </p>
         </div>
