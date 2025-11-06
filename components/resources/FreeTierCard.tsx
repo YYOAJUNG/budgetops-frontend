@@ -6,21 +6,28 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { getFreeTierUsage, FreeTierUsage } from '@/lib/api/resources';
 
-const WARNING_THRESHOLD = 0.8;
+const DANGER_THRESHOLD = 0.85;  // 15% 미만 남음 (85% 이상 사용)
+const WARNING_THRESHOLD = 0.7;  // 30% 미만 남음 (70% 이상 사용)
 
 function usageRatio(usage: FreeTierUsage): number {
   if (!usage.quota) return 0;
   return usage.used / usage.quota;
 }
 
+function remainingPercent(usage: FreeTierUsage): number {
+  const ratio = usageRatio(usage);
+  return Math.round((1 - ratio) * 100);
+}
+
 function usageLabel(usage: FreeTierUsage): string {
   const ratioPercent = Math.round(usageRatio(usage) * 100);
-  return `${usage.used}/${usage.quota} ${usage.unit} (${ratioPercent}%)`;
+  const remaining = remainingPercent(usage);
+  return `${usage.used}/${usage.quota} ${usage.unit} (${ratioPercent}% 사용, ${remaining}% 남음)`;
 }
 
 function progressColor(ratio: number): 'default' | 'warning' | 'danger' {
-  if (ratio >= 0.95) return 'danger';
-  if (ratio >= WARNING_THRESHOLD) return 'warning';
+  if (ratio >= DANGER_THRESHOLD) return 'danger';  // 15% 미만 남음
+  if (ratio >= WARNING_THRESHOLD) return 'warning'; // 30% 미만 남음
   return 'default';
 }
 
@@ -57,10 +64,10 @@ export function FreeTierCard() {
                         className={
                           variant === 'danger'
                             ? 'border-red-200 bg-red-50 text-red-700'
-                            : 'border-orange-200 bg-orange-50 text-orange-700'
+                            : 'border-yellow-200 bg-yellow-50 text-yellow-700'
                         }
                       >
-                        {variant === 'danger' ? '임계치 초과' : '주의'}
+                        {variant === 'danger' ? '위험 (15% 미만)' : '주의'}
                       </Badge>
                     )}
                   </div>

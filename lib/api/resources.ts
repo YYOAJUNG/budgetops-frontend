@@ -1,3 +1,5 @@
+import { getAllEc2Instances, AwsEc2Instance } from './aws';
+
 export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba';
 
 export type ResourceItem = {
@@ -114,8 +116,44 @@ const MOCK_RESOURCES: ResourceItem[] = [
   },
 ];
 
+/**
+ * EC2 인스턴스를 ResourceItem으로 변환
+ */
+function convertEc2ToResource(instance: AwsEc2Instance): ResourceItem {
+  // 상태 매핑
+  const statusMap: Record<string, 'running' | 'stopped' | 'idle'> = {
+    running: 'running',
+    stopped: 'stopped',
+    stopping: 'stopped',
+    pending: 'idle',
+    'shutting-down': 'stopped',
+    terminated: 'stopped',
+  };
+
+  return {
+    id: instance.instanceId,
+    name: instance.name || instance.instanceId,
+    provider: 'AWS',
+    service: 'EC2',
+    cost: 0, // 비용 정보는 별도 API에서 가져와야 함
+    region: instance.availabilityZone.slice(0, -1), // us-east-1a -> us-east-1
+    updatedAt: instance.launchTime,
+    status: statusMap[instance.state] || 'idle',
+  };
+}
+
 export async function getResources(): Promise<ResourceItem[]> {
-  return new Promise((resolve) => setTimeout(() => resolve(MOCK_RESOURCES), 250));
+  try {
+    // 실제 EC2 데이터만 조회
+    const ec2Instances = await getAllEc2Instances();
+    const ec2Resources = ec2Instances.map(convertEc2ToResource);
+    
+    return ec2Resources;
+  } catch (error) {
+    console.error('Failed to fetch resources:', error);
+    // 에러 시 빈 배열 반환
+    return [];
+  }
 }
 
 export type FreeTierUsage = {
