@@ -8,8 +8,8 @@ export default function ResourcesPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">리소스 관리</h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">리소스 관리</h1>
+          <p className="mt-1 text-xs text-slate-600 md:text-sm">
             클라우드 사업자와 서비스 기준으로 필터하고, 원하는 기준으로 정렬하여 리소스를 탐색하세요.
           </p>
         </div>

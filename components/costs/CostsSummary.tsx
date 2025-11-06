@@ -53,8 +53,8 @@ export function CostsSummary() {
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">비용 요약</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-xl font-semibold text-slate-900 md:text-2xl">비용 요약</h2>
+          <p className="mt-1 text-xs text-slate-600 md:text-sm">
             선택한 기간의 총액, 클라우드 사업자별, 서비스별 비용을 한눈에 확인하세요.
           </p>
         </div>
@@ -75,7 +75,7 @@ export function CostsSummary() {
 
       {!isLoading && !isError && data && (
         <div className="space-y-6">
-          <Card className="overflow-hidden border border-sky-100 shadow-sm bg-gradient-to-br from-sky-100 via-sky-50 to-indigo-100 text-slate-900">
+          <Card className="overflow-hidden border border-sky-100 shadow-sm bg-gradient-to-br from-sky-50 via-sky-100 to-indigo-100 text-slate-900">
             <CardContent className="p-8">
               <div className="text-sm font-medium uppercase tracking-wide text-slate-500">총 비용</div>
               <div className="mt-4 text-4xl font-semibold">{formatCurrency(totalAmount)}</div>
@@ -104,7 +104,7 @@ export function CostsSummary() {
                       <div className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(amount)}</div>
                       <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                          className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
                           style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                         />
                       </div>
@@ -140,7 +140,7 @@ export function CostsSummary() {
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                              className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
                               style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                             />
                           </div>
@@ -171,7 +171,7 @@ export function CostsSummary() {
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-300"
+                            className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
                             style={{ width: `${Math.min(100, (s.amount / Math.max(1, totalAmount)) * 100)}%` }}
                           />
                         </div>

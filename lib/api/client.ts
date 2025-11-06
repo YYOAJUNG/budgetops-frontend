@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-export const api = axios.create({ 
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api',
+export const api = axios.create({
+  baseURL: `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 중요! 쿠키를 포함하여 세션 유지
 });
  
 // Mock mode interceptor

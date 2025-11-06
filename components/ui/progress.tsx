@@ -21,7 +21,9 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
           'h-full w-full flex-1 rounded-full transition-all',
           variant === 'danger'
             ? 'bg-red-400'
-            : 'bg-sky-400'
+            : variant === 'warning'
+              ? 'bg-gradient-to-r from-orange-300 to-red-300'
+             : 'bg-sky-400'
         )}
         style={{ transform: `translateX(-${100 - Math.min(100, value)}%)` }}
       />
