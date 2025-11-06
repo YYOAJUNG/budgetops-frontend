@@ -12,7 +12,7 @@ export default function LandingPage() {
     // /api/auth/google 경로로 리다이렉트
     // apiBaseUrl이 이미 /api로 끝나므로 /auth/google만 추가
     //window.location.href = `${apiBaseUrl}/auth/google`;
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE}/oauth2/authorization/google`;
   };
 
   return (
