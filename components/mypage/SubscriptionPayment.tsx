@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X } from 'lucide-react';
+import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -240,15 +240,25 @@ function PlanChangeDialog({
   onOpenChange,
   currentPlanId,
   onPlanSelect,
+  isLoading,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentPlanId?: string;
   onPlanSelect?: (planId: string) => void;
+  isLoading?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] p-0">
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+              <p className="text-sm font-medium text-gray-700">플랜 변경 중...</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">플랜 변경</h2>
@@ -257,6 +267,7 @@ function PlanChangeDialog({
           <button
             onClick={() => onOpenChange(false)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={isLoading}
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -289,6 +300,9 @@ export function SubscriptionPayment() {
   const [cvc, setCvc] = useState('');
   const [cardholderName, setCardholderName] = useState('');
   const [detectedBrand, setDetectedBrand] = useState<CardBrand>('unknown');
+  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+  const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
+  const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription'],
@@ -329,8 +343,12 @@ export function SubscriptionPayment() {
    */
   const handlePlanSelect = async (planId: string) => {
     try {
+      setIsLoadingPlan(true);
       console.log('[handlePlanSelect] 시작 - planId:', planId);
       console.log('[handlePlanSelect] NEXT_PUBLIC_USE_MOCK:', process.env.NEXT_PUBLIC_USE_MOCK);
+
+      // 로딩 딜레이 추가 (1.5초)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const selectedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
       if (!selectedPlan) {
@@ -400,6 +418,8 @@ export function SubscriptionPayment() {
       console.error('[handlePlanSelect] 오류 발생:', error);
       console.error('[handlePlanSelect] 오류 상세:', JSON.stringify(error, null, 2));
       alert(PAYMENT_ERRORS.PLAN_CHANGE_FAILED);
+    } finally {
+      setIsLoadingPlan(false);
     }
   };
 
@@ -433,7 +453,11 @@ export function SubscriptionPayment() {
         return;
       }
 
+      setIsLoadingPaymentMethod(true);
       console.log('[handlePaymentMethodSubmit] 시작');
+
+      // 로딩 딜레이 추가 (1.5초)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Mock 빌링키 생성
       const mockImpUid = `billing_mock_${Date.now()}`;
@@ -471,6 +495,8 @@ export function SubscriptionPayment() {
     } catch (error) {
       console.error('[handlePaymentMethodSubmit] 오류 발생:', error);
       alert(PAYMENT_ERRORS.PAYMENT_METHOD_FAILED || '결제 수단 등록에 실패했습니다.');
+    } finally {
+      setIsLoadingPaymentMethod(false);
     }
   };
 
@@ -479,6 +505,11 @@ export function SubscriptionPayment() {
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     try {
+      setIsLoadingPurchase(true);
+
+      // 로딩 딜레이 추가 (1.5초)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
       // Mock 모드: 즉시 성공 처리
@@ -519,6 +550,8 @@ export function SubscriptionPayment() {
     } catch (error) {
       console.error('Token purchase error:', error);
       alert(PAYMENT_ERRORS.TOKEN_PURCHASE_FAILED);
+    } finally {
+      setIsLoadingPurchase(false);
     }
   };
 
@@ -544,12 +577,14 @@ export function SubscriptionPayment() {
         onOpenChange={setShowPlans}
         currentPlanId={subscription?.planId}
         onPlanSelect={handlePlanSelect}
+        isLoading={isLoadingPlan}
       />
 
       <PurchaseTokenDialog
         open={showPurchaseDialog}
         onOpenChange={setShowPurchaseDialog}
         onPurchase={handlePurchase}
+        isLoading={isLoadingPurchase}
       />
 
       {/* 결제 수단 등록/변경 다이얼로그 */}
@@ -672,14 +707,23 @@ export function SubscriptionPayment() {
               variant="outline"
               className="flex-1"
               onClick={() => setShowPaymentMethodDialog(false)}
+              disabled={isLoadingPaymentMethod}
             >
               취소
             </Button>
             <Button
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handlePaymentMethodSubmit}
+              disabled={isLoadingPaymentMethod}
             >
-              등록
+              {isLoadingPaymentMethod ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  등록 중...
+                </>
+              ) : (
+                '등록'
+              )}
             </Button>
           </div>
         </DialogContent>
