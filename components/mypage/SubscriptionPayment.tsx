@@ -12,11 +12,17 @@ import {
   getCurrentSubscription,
   getPaymentMethod,
   getPaymentHistory,
+  updateSubscription,
+  savePaymentMethod,
   type Subscription,
 } from '@/lib/api/subscription';
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
 import { PurchaseTokenDialog } from './PurchaseTokenDialog';
+import { requestPayment, issueBillingKey, generateOrderUid } from '@/lib/portone';
+import { api } from '@/lib/api/client';
+import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
+import { CardBrand, detectCardBrand, getCardBrandName, formatCardNumber, unformatCardNumber } from '@/lib/utils/cardUtils';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -157,7 +163,15 @@ function TokenStatusCard({
 }
 
 // 서브 컴포넌트: 플랜 카드
-function PlanCard({ plan, isCurrentPlan }: { plan: SubscriptionPlan; isCurrentPlan: boolean }) {
+function PlanCard({
+  plan,
+  isCurrentPlan,
+  onSelect,
+}: {
+  plan: SubscriptionPlan;
+  isCurrentPlan: boolean;
+  onSelect?: (planId: string) => void;
+}) {
   const buttonClass = cn(
     'w-full',
     isCurrentPlan
@@ -170,6 +184,12 @@ function PlanCard({ plan, isCurrentPlan }: { plan: SubscriptionPlan; isCurrentPl
   const getButtonText = () => {
     if (isCurrentPlan) return '현재 플랜';
     return plan.price !== null ? '플랜 선택' : '영업팀 문의';
+  };
+
+  const handleClick = () => {
+    if (!isCurrentPlan && onSelect) {
+      onSelect(plan.id);
+    }
   };
 
   return (
@@ -206,7 +226,7 @@ function PlanCard({ plan, isCurrentPlan }: { plan: SubscriptionPlan; isCurrentPl
             </li>
           ))}
         </ul>
-        <Button className={buttonClass} disabled={isCurrentPlan}>
+        <Button className={buttonClass} disabled={isCurrentPlan} onClick={handleClick}>
           {getButtonText()}
         </Button>
       </CardContent>
@@ -219,10 +239,12 @@ function PlanChangeDialog({
   open,
   onOpenChange,
   currentPlanId,
+  onPlanSelect,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currentPlanId?: string;
+  onPlanSelect?: (planId: string) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,7 +264,12 @@ function PlanChangeDialog({
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {SUBSCRIPTION_PLANS.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} isCurrentPlan={currentPlanId === plan.id} />
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                isCurrentPlan={currentPlanId === plan.id}
+                onSelect={onPlanSelect}
+              />
             ))}
           </div>
         </div>
@@ -255,18 +282,25 @@ function PlanChangeDialog({
 export function SubscriptionPayment() {
   const [showPlans, setShowPlans] = useState(false);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiryMonth, setExpiryMonth] = useState('');
+  const [expiryYear, setExpiryYear] = useState('');
+  const [cvc, setCvc] = useState('');
+  const [cardholderName, setCardholderName] = useState('');
+  const [detectedBrand, setDetectedBrand] = useState<CardBrand>('unknown');
 
-  const { data: subscription } = useQuery({
+  const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription'],
     queryFn: getCurrentSubscription,
   });
 
-  const { data: paymentMethod } = useQuery({
+  const { data: paymentMethod, refetch: refetchPaymentMethod } = useQuery({
     queryKey: ['paymentMethod'],
     queryFn: getPaymentMethod,
   });
 
-  const { data: paymentHistory } = useQuery({
+  const { data: paymentHistory, refetch: refetchPaymentHistory } = useQuery({
     queryKey: ['paymentHistory'],
     queryFn: getPaymentHistory,
   });
@@ -290,10 +324,202 @@ export function SubscriptionPayment() {
     // Free 플랜일 때는 버튼이 disabled이므로 이 함수가 호출되지 않음
   };
 
-  const handlePurchase = (packageId: string, amount: number, price: number) => {
-    // TODO: 실제 토큰 구매 API 호출
-    // await purchaseTokens({ packageId, amount, price });
-    // API 호출 후 구독 정보 refetch
+  /**
+   * 플랜 선택 핸들러 - PortOne 결제 연동
+   */
+  const handlePlanSelect = async (planId: string) => {
+    try {
+      console.log('[handlePlanSelect] 시작 - planId:', planId);
+      console.log('[handlePlanSelect] NEXT_PUBLIC_USE_MOCK:', process.env.NEXT_PUBLIC_USE_MOCK);
+
+      const selectedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
+      if (!selectedPlan) {
+        console.log('[handlePlanSelect] 플랜을 찾을 수 없음');
+        return;
+      }
+
+      // Enterprise 플랜: 영업팀 문의
+      if (planId === 'enterprise') {
+        alert('Enterprise 플랜은 영업팀에 문의해주세요.');
+        return;
+      }
+
+      const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+      console.log('[handlePlanSelect] Mock 모드:', isMock);
+
+      // Mock 모드: 결제 없이 즉시 변경
+      if (isMock) {
+        console.log('[handlePlanSelect] Mock 모드 - updateSubscription 호출');
+        await updateSubscription(planId);
+        console.log('[handlePlanSelect] Mock 모드 - refetchSubscription 호출');
+        await refetchSubscription();
+        console.log('[handlePlanSelect] Mock 모드 - 완료');
+        setShowPlans(false);
+        alert(PAYMENT_SUCCESS.PLAN_CHANGED);
+        return;
+      }
+
+      // 실제 모드
+      // Free 플랜: 결제 없이 즉시 변경
+      if (planId === 'free') {
+        await updateSubscription(planId);
+        await refetchSubscription();
+        setShowPlans(false);
+        alert(PAYMENT_SUCCESS.PLAN_CHANGED);
+        return;
+      }
+
+      // Pro 플랜: 결제 수단 등록 여부 확인 필요
+      if (selectedPlan.price) {
+        console.log('[handlePlanSelect] Pro 플랜 - 결제 수단 확인');
+        console.log('[handlePlanSelect] paymentMethod:', paymentMethod);
+        console.log('[handlePlanSelect] isRegistered:', paymentMethod?.isRegistered);
+
+        // 결제 수단 등록 여부 확인
+        if (!paymentMethod || !paymentMethod.isRegistered) {
+          alert('Pro 플랜으로 변경하려면 먼저 결제 수단을 등록해주세요.');
+          return;
+        }
+
+        console.log('[handlePlanSelect] 플랜 변경 시작');
+        // 플랜 변경
+        await updateSubscription(planId);
+        console.log('[handlePlanSelect] updateSubscription 완료');
+
+        await refetchSubscription();
+        console.log('[handlePlanSelect] refetchSubscription 완료');
+
+        await refetchPaymentHistory();
+        console.log('[handlePlanSelect] refetchPaymentHistory 완료');
+
+        setShowPlans(false);
+        alert(PAYMENT_SUCCESS.PLAN_CHANGED);
+        console.log('[handlePlanSelect] Pro 플랜 변경 완료');
+      }
+    } catch (error) {
+      console.error('[handlePlanSelect] 오류 발생:', error);
+      console.error('[handlePlanSelect] 오류 상세:', JSON.stringify(error, null, 2));
+      alert(PAYMENT_ERRORS.PLAN_CHANGE_FAILED);
+    }
+  };
+
+  /**
+   * 결제 수단 등록/변경 버튼 클릭
+   */
+  const handlePaymentMethodChange = () => {
+    // 입력 폼 초기화
+    setCardNumber('');
+    setExpiryMonth('');
+    setExpiryYear('');
+    setCvc('');
+    setCardholderName('');
+    setDetectedBrand('unknown');
+    setShowPaymentMethodDialog(true);
+  };
+
+  /**
+   * 결제 수단 등록 처리
+   */
+  const handlePaymentMethodSubmit = async () => {
+    try {
+      // 입력 검증
+      if (!cardNumber || !expiryMonth || !expiryYear || !cvc || !cardholderName) {
+        alert('모든 카드 정보를 입력해주세요.');
+        return;
+      }
+
+      if (cardNumber.length !== 16) {
+        alert('카드 번호 16자리를 입력해주세요.');
+        return;
+      }
+
+      console.log('[handlePaymentMethodSubmit] 시작');
+
+      // Mock 빌링키 생성
+      const mockImpUid = `billing_mock_${Date.now()}`;
+      console.log('[handlePaymentMethodSubmit] Mock 빌링키:', mockImpUid);
+
+      // 백엔드에 결제 정보 등록
+      await api.post(`/v1/users/${TEMP_USER_ID}/payment/register`, {
+        impUid: mockImpUid,
+      });
+
+      console.log('[handlePaymentMethodSubmit] 백엔드 등록 완료');
+
+      // 카드 정보를 로컬 스토리지에 저장
+      const cardInfo = {
+        id: mockImpUid,
+        type: 'card' as const,
+        last4: cardNumber.slice(-4),
+        brand: getCardBrandName(detectedBrand),
+        expiryMonth: parseInt(expiryMonth),
+        expiryYear: parseInt(expiryYear),
+      };
+      await savePaymentMethod(cardInfo);
+
+      console.log('[handlePaymentMethodSubmit] 카드 정보 저장 완료:', cardInfo);
+
+      // 결제 수단 정보 새로고침
+      await refetchPaymentMethod();
+      await refetchSubscription();
+      await refetchPaymentHistory();
+
+      console.log('[handlePaymentMethodSubmit] 모든 데이터 새로고침 완료');
+
+      setShowPaymentMethodDialog(false);
+      alert('결제 수단이 성공적으로 등록되었습니다.');
+    } catch (error) {
+      console.error('[handlePaymentMethodSubmit] 오류 발생:', error);
+      alert(PAYMENT_ERRORS.PAYMENT_METHOD_FAILED || '결제 수단 등록에 실패했습니다.');
+    }
+  };
+
+  /**
+   * 토큰 구매 핸들러 - PortOne 결제 연동
+   */
+  const handlePurchase = async (packageId: string, amount: number, price: number) => {
+    try {
+      const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+
+      // Mock 모드: 즉시 성공 처리
+      if (isMock) {
+        setShowPurchaseDialog(false);
+        alert(PAYMENT_SUCCESS.TOKEN_PURCHASED(amount));
+        return;
+      }
+
+      // 실제 모드: 결제 진행
+      // 1. 결제 진행
+      const paymentResult = await requestPayment({
+        orderName: `토큰 ${amount}개 구매`,
+        amount: price,
+        orderUid: generateOrderUid('TOKEN'),
+        buyerName: TEST_USER.name,
+        buyerEmail: TEST_USER.email,
+      });
+
+      if (!paymentResult.success) {
+        alert(paymentResult.errorMsg || PAYMENT_ERRORS.PAYMENT_FAILED);
+        return;
+      }
+
+      // 2. 백엔드에 토큰 구매 요청
+      await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
+        packageId,
+        amount,
+        price,
+        impUid: paymentResult.impUid,
+      });
+
+      // 3. 데이터 갱신
+      await Promise.all([refetchSubscription(), refetchPaymentHistory()]);
+
+      setShowPurchaseDialog(false);
+      alert(PAYMENT_SUCCESS.TOKEN_PURCHASED(amount));
+    } catch (error) {
+      console.error('Token purchase error:', error);
+      alert(PAYMENT_ERRORS.TOKEN_PURCHASE_FAILED);
+    }
   };
 
   return (
@@ -317,6 +543,7 @@ export function SubscriptionPayment() {
         open={showPlans}
         onOpenChange={setShowPlans}
         currentPlanId={subscription?.planId}
+        onPlanSelect={handlePlanSelect}
       />
 
       <PurchaseTokenDialog
@@ -324,6 +551,139 @@ export function SubscriptionPayment() {
         onOpenChange={setShowPurchaseDialog}
         onPurchase={handlePurchase}
       />
+
+      {/* 결제 수단 등록/변경 다이얼로그 */}
+      <Dialog open={showPaymentMethodDialog} onOpenChange={setShowPaymentMethodDialog}>
+        <DialogContent className="sm:max-w-[420px] p-6">
+          <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">결제 수단 등록</h2>
+              <p className="text-sm text-gray-600 mt-1">카드 정보를 입력해주세요</p>
+            </div>
+            <button
+              onClick={() => setShowPaymentMethodDialog(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="space-y-4 py-4">
+            {/* 카드 번호 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                카드 번호
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formatCardNumber(cardNumber)}
+                  onChange={(e) => {
+                    const value = unformatCardNumber(e.target.value).slice(0, 16);
+                    setCardNumber(value);
+                    // 브랜드 실시간 감지
+                    if (value.length > 0) {
+                      setDetectedBrand(detectCardBrand(value));
+                    } else {
+                      setDetectedBrand('unknown');
+                    }
+                  }}
+                  placeholder="1234 5678 9012 3456"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {detectedBrand !== 'unknown' && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      {getCardBrandName(detectedBrand)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 카드 소유자 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                카드 소유자명
+              </label>
+              <input
+                type="text"
+                value={cardholderName}
+                onChange={(e) => setCardholderName(e.target.value)}
+                placeholder="홍길동"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* 만료일 & CVC */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  월
+                </label>
+                <input
+                  type="text"
+                  value={expiryMonth}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 12)) {
+                      setExpiryMonth(value);
+                    }
+                  }}
+                  placeholder="MM"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  년
+                </label>
+                <input
+                  type="text"
+                  value={expiryYear}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setExpiryYear(value);
+                  }}
+                  placeholder="YY"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CVC
+                </label>
+                <input
+                  type="text"
+                  value={cvc}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
+                    setCvc(value);
+                  }}
+                  placeholder="123"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowPaymentMethodDialog(false)}
+            >
+              취소
+            </Button>
+            <Button
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handlePaymentMethodSubmit}
+            >
+              등록
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 결제 수단 */}
       <div className="mb-8">
@@ -337,21 +697,28 @@ export function SubscriptionPayment() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">
-                    {paymentMethod?.brand || '카드'} •••• {paymentMethod?.last4 || '****'}
+                    {paymentMethod?.isRegistered
+                      ? `${paymentMethod?.brand || '카드'} •••• ${paymentMethod?.last4 || '****'}`
+                      : '등록된 결제 수단이 없습니다'}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    만료: {paymentMethod?.expiryMonth || '--'}/{paymentMethod?.expiryYear || '--'}
-                  </p>
+                  {paymentMethod?.isRegistered ? (
+                    <p className="text-sm text-gray-600">
+                      만료: {paymentMethod?.expiryMonth || '--'}/{paymentMethod?.expiryYear || '--'}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600">
+                      Pro 플랜 이용을 위해 결제 수단을 등록해주세요
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="border-gray-300 text-gray-700">
-                  변경
-                </Button>
-                <Button variant="outline" className="border-gray-300 text-gray-700">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                className="border-gray-300 text-gray-700"
+                onClick={handlePaymentMethodChange}
+              >
+                {paymentMethod?.isRegistered ? '변경' : '등록'}
+              </Button>
             </div>
           </CardContent>
         </Card>
