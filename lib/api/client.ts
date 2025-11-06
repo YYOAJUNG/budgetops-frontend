@@ -5,6 +5,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // 중요! 쿠키를 포함하여 세션 유지
 });
  
 // Mock mode interceptor
