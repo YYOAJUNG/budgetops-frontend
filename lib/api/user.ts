@@ -36,8 +36,8 @@ export async function getCurrentUser(): Promise<User> {
   }
 
   try {
-    // 백엔드 API 호출: /api/auth/user
-    const response = await api.get('api/auth/user');
+    // 백엔드 API 호출: /api/v1/users/me
+    const response = await api.get('/v1/users/me');
     return response.data;
   } catch (error: any) {
     // 401 Unauthorized인 경우 로그인하지 않은 상태
