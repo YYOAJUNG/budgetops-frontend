@@ -144,18 +144,15 @@ function convertEc2ToResource(instance: AwsEc2Instance): ResourceItem {
 
 export async function getResources(): Promise<ResourceItem[]> {
   try {
-    // 실제 EC2 데이터 조회
+    // 실제 EC2 데이터만 조회
     const ec2Instances = await getAllEc2Instances();
     const ec2Resources = ec2Instances.map(convertEc2ToResource);
-
-    // 기존 목 데이터와 병합 (EC2는 실제 데이터로 대체)
-    const mockResourcesWithoutEc2 = MOCK_RESOURCES.filter((r) => r.service !== 'EC2');
     
-    return [...ec2Resources, ...mockResourcesWithoutEc2];
+    return ec2Resources;
   } catch (error) {
     console.error('Failed to fetch resources:', error);
-    // 에러 시 목 데이터 반환
-    return MOCK_RESOURCES;
+    // 에러 시 빈 배열 반환
+    return [];
   }
 }
 
