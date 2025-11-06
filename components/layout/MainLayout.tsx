@@ -11,10 +11,11 @@ import { UI_CONFIG } from '@/constants/ui';
 
 interface MainLayoutProps {
   children: React.ReactNode;
+  showTopbar?: boolean;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
+export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed } = useUIStore();
 
   const { handleDragStart } = useDragToToggleSidebar({
     direction: 'right',
@@ -73,11 +74,15 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div
           className={cn(
             "flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
-            // 데스크톱에서 사이드바 열림/닫힘에 따라 전체 레이아웃 조정
-            sidebarOpen ? "lg:ml-64" : "lg:ml-0"
+            // 데스크톱에서 사이드바 열림/닫힘 및 축소 상태에 따라 전체 레이아웃 조정
+            sidebarOpen
+              ? sidebarCollapsed
+                ? "lg:ml-16"
+                : "lg:ml-64"
+              : "lg:ml-0"
           )}
         >
-          <Topbar />
+          {showTopbar && <Topbar />}
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
             {children}
           </main>
