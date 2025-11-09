@@ -48,6 +48,9 @@ export async function getCurrentUser(): Promise<User> {
   }
 }
 
+// JWT는 stateless이므로 서버 측 로그아웃 API 호출 불필요
+// 클라이언트에서 토큰만 삭제하면 됨 (store/auth.ts의 logout에서 처리)
+
 // 사용자 정보 업데이트
 export async function updateUser(userData: Partial<User>): Promise<User> {
   // TODO: 실제 API 호출
