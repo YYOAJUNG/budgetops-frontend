@@ -19,10 +19,9 @@ import {
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
 import { PurchaseTokenDialog } from './PurchaseTokenDialog';
-import { requestPayment, issueBillingKey, generateOrderUid } from '@/lib/portone';
+import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
-import { CardBrand, detectCardBrand, getCardBrandName, formatCardNumber, unformatCardNumber } from '@/lib/utils/cardUtils';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -294,12 +293,6 @@ export function SubscriptionPayment() {
   const [showPlans, setShowPlans] = useState(false);
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryMonth, setExpiryMonth] = useState('');
-  const [expiryYear, setExpiryYear] = useState('');
-  const [cvc, setCvc] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [detectedBrand, setDetectedBrand] = useState<CardBrand>('unknown');
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
@@ -344,42 +337,21 @@ export function SubscriptionPayment() {
   const handlePlanSelect = async (planId: string) => {
     try {
       setIsLoadingPlan(true);
-      console.log('[handlePlanSelect] 시작 - planId:', planId);
-      console.log('[handlePlanSelect] NEXT_PUBLIC_USE_MOCK:', process.env.NEXT_PUBLIC_USE_MOCK);
 
-      // 로딩 딜레이 추가 (1.5초)
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const selectedPlan = SUBSCRIPTION_PLANS.find((p) => p.id === planId);
-      if (!selectedPlan) {
-        console.log('[handlePlanSelect] 플랜을 찾을 수 없음');
-        return;
-      }
+      if (!selectedPlan) return;
 
-      // Enterprise 플랜: 영업팀 문의
       if (planId === 'enterprise') {
         alert('Enterprise 플랜은 영업팀에 문의해주세요.');
         return;
       }
 
       const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-      console.log('[handlePlanSelect] Mock 모드:', isMock);
 
-      // Mock 모드: 결제 없이 즉시 변경
-      if (isMock) {
-        console.log('[handlePlanSelect] Mock 모드 - updateSubscription 호출');
-        await updateSubscription(planId);
-        console.log('[handlePlanSelect] Mock 모드 - refetchSubscription 호출');
-        await refetchSubscription();
-        console.log('[handlePlanSelect] Mock 모드 - 완료');
-        setShowPlans(false);
-        alert(PAYMENT_SUCCESS.PLAN_CHANGED);
-        return;
-      }
-
-      // 실제 모드
-      // Free 플랜: 결제 없이 즉시 변경
-      if (planId === 'free') {
+      // Mock 모드 또는 Free 플랜: 결제 없이 즉시 변경
+      if (isMock || planId === 'free') {
         await updateSubscription(planId);
         await refetchSubscription();
         setShowPlans(false);
@@ -387,36 +359,24 @@ export function SubscriptionPayment() {
         return;
       }
 
-      // Pro 플랜: 결제 수단 등록 여부 확인 필요
+      // Pro 플랜: 결제 수단 확인 필요
       if (selectedPlan.price) {
-        console.log('[handlePlanSelect] Pro 플랜 - 결제 수단 확인');
-        console.log('[handlePlanSelect] paymentMethod:', paymentMethod);
-        console.log('[handlePlanSelect] isRegistered:', paymentMethod?.isRegistered);
-
-        // 결제 수단 등록 여부 확인
-        if (!paymentMethod || !paymentMethod.isRegistered) {
+        if (!paymentMethod?.isRegistered) {
           alert('Pro 플랜으로 변경하려면 먼저 결제 수단을 등록해주세요.');
           return;
         }
 
-        console.log('[handlePlanSelect] 플랜 변경 시작');
-        // 플랜 변경
         await updateSubscription(planId);
-        console.log('[handlePlanSelect] updateSubscription 완료');
-
-        await refetchSubscription();
-        console.log('[handlePlanSelect] refetchSubscription 완료');
-
-        await refetchPaymentHistory();
-        console.log('[handlePlanSelect] refetchPaymentHistory 완료');
+        await Promise.all([
+          refetchSubscription(),
+          refetchPaymentHistory(),
+        ]);
 
         setShowPlans(false);
         alert(PAYMENT_SUCCESS.PLAN_CHANGED);
-        console.log('[handlePlanSelect] Pro 플랜 변경 완료');
       }
     } catch (error) {
-      console.error('[handlePlanSelect] 오류 발생:', error);
-      console.error('[handlePlanSelect] 오류 상세:', JSON.stringify(error, null, 2));
+      console.error('[handlePlanSelect] Error:', error);
       alert(PAYMENT_ERRORS.PLAN_CHANGE_FAILED);
     } finally {
       setIsLoadingPlan(false);
@@ -427,74 +387,54 @@ export function SubscriptionPayment() {
    * 결제 수단 등록/변경 버튼 클릭
    */
   const handlePaymentMethodChange = () => {
-    // 입력 폼 초기화
-    setCardNumber('');
-    setExpiryMonth('');
-    setExpiryYear('');
-    setCvc('');
-    setCardholderName('');
-    setDetectedBrand('unknown');
     setShowPaymentMethodDialog(true);
   };
 
   /**
-   * 결제 수단 등록 처리
+   * 카카오페이 결제 수단 등록 처리
    */
   const handlePaymentMethodSubmit = async () => {
     try {
-      // 입력 검증
-      if (!cardNumber || !expiryMonth || !expiryYear || !cvc || !cardholderName) {
-        alert('모든 카드 정보를 입력해주세요.');
-        return;
-      }
-
-      if (cardNumber.length !== 16) {
-        alert('카드 번호 16자리를 입력해주세요.');
-        return;
-      }
-
       setIsLoadingPaymentMethod(true);
-      console.log('[handlePaymentMethodSubmit] 시작');
 
-      // 로딩 딜레이 추가 (1.5초)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const customerUid = `customer_${TEMP_USER_ID}`;
+      const result = await registerPaymentMethod(
+        customerUid,
+        TEST_USER.name,
+        TEST_USER.email
+      );
 
-      // Mock 빌링키 생성
-      const mockImpUid = `billing_mock_${Date.now()}`;
-      console.log('[handlePaymentMethodSubmit] Mock 빌링키:', mockImpUid);
+      if (!result.success) {
+        alert(`카카오페이 오류: ${result.errorMsg || '결제 수단 등록에 실패했습니다.'}`);
+        return;
+      }
 
-      // 백엔드에 결제 정보 등록
       await api.post(`/v1/users/${TEMP_USER_ID}/payment/register`, {
-        impUid: mockImpUid,
+        impUid: result.impUid,
       });
 
-      console.log('[handlePaymentMethodSubmit] 백엔드 등록 완료');
-
-      // 카드 정보를 로컬 스토리지에 저장
       const cardInfo = {
-        id: mockImpUid,
+        id: result.impUid || '',
         type: 'card' as const,
-        last4: cardNumber.slice(-4),
-        brand: getCardBrandName(detectedBrand),
-        expiryMonth: parseInt(expiryMonth),
-        expiryYear: parseInt(expiryYear),
+        last4: '****',
+        brand: '카카오페이',
+        expiryMonth: undefined,
+        expiryYear: undefined,
       };
       await savePaymentMethod(cardInfo);
 
-      console.log('[handlePaymentMethodSubmit] 카드 정보 저장 완료:', cardInfo);
-
-      // 결제 수단 정보 새로고침
-      await refetchPaymentMethod();
-      await refetchSubscription();
-      await refetchPaymentHistory();
-
-      console.log('[handlePaymentMethodSubmit] 모든 데이터 새로고침 완료');
+      await Promise.all([
+        refetchPaymentMethod(),
+        refetchSubscription(),
+        refetchPaymentHistory(),
+      ]);
 
       setShowPaymentMethodDialog(false);
-      alert('결제 수단이 성공적으로 등록되었습니다.');
-    } catch (error) {
-      console.error('[handlePaymentMethodSubmit] 오류 발생:', error);
-      alert(PAYMENT_ERRORS.PAYMENT_METHOD_FAILED || '결제 수단 등록에 실패했습니다.');
+      alert('카카오페이 결제 수단이 성공적으로 등록되었습니다.');
+    } catch (error: any) {
+      console.error('[Payment] Error:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || '알 수 없는 오류';
+      alert(`백엔드 오류: ${errorMsg}`);
     } finally {
       setIsLoadingPaymentMethod(false);
     }
@@ -593,7 +533,7 @@ export function SubscriptionPayment() {
           <div className="flex items-center justify-between pb-3 border-b border-gray-200">
             <div>
               <h2 className="text-xl font-bold text-gray-900">결제 수단 등록</h2>
-              <p className="text-sm text-gray-600 mt-1">카드 정보를 입력해주세요</p>
+              <p className="text-sm text-gray-600 mt-1">카카오페이로 간편하게 등록하세요</p>
             </div>
             <button
               onClick={() => setShowPaymentMethodDialog(false)}
@@ -603,127 +543,53 @@ export function SubscriptionPayment() {
             </button>
           </div>
 
-          <div className="space-y-4 py-4">
-            {/* 카드 번호 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                카드 번호
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formatCardNumber(cardNumber)}
-                  onChange={(e) => {
-                    const value = unformatCardNumber(e.target.value).slice(0, 16);
-                    setCardNumber(value);
-                    // 브랜드 실시간 감지
-                    if (value.length > 0) {
-                      setDetectedBrand(detectCardBrand(value));
-                    } else {
-                      setDetectedBrand('unknown');
-                    }
-                  }}
-                  placeholder="1234 5678 9012 3456"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {detectedBrand !== 'unknown' && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                      {getCardBrandName(detectedBrand)}
-                    </span>
-                  </div>
-                )}
+          <div className="py-6">
+            {/* 카카오페이 안내 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <span className="text-yellow-600 font-bold">₩</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-1">카카오페이 간편 결제</h4>
+                  <p className="text-sm text-gray-600">
+                    0원 결제로 결제 수단만 등록됩니다.<br />
+                    실제 결제는 플랜 변경 시에만 발생합니다.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* 카드 소유자 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                카드 소유자명
-              </label>
-              <input
-                type="text"
-                value={cardholderName}
-                onChange={(e) => setCardholderName(e.target.value)}
-                placeholder="홍길동"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* 만료일 & CVC */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  월
-                </label>
-                <input
-                  type="text"
-                  value={expiryMonth}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 12)) {
-                      setExpiryMonth(value);
-                    }
-                  }}
-                  placeholder="MM"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  년
-                </label>
-                <input
-                  type="text"
-                  value={expiryYear}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 2);
-                    setExpiryYear(value);
-                  }}
-                  placeholder="YY"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CVC
-                </label>
-                <input
-                  type="text"
-                  value={cvc}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
-                    setCvc(value);
-                  }}
-                  placeholder="123"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t border-gray-200">
+            {/* 카카오페이 버튼 */}
             <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setShowPaymentMethodDialog(false)}
-              disabled={isLoadingPaymentMethod}
-            >
-              취소
-            </Button>
-            <Button
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold text-base"
               onClick={handlePaymentMethodSubmit}
               disabled={isLoadingPaymentMethod}
             >
               {isLoadingPaymentMethod ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  등록 중...
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  카카오페이 실행 중...
                 </>
               ) : (
-                '등록'
+                <>
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3C6.48 3 2 6.58 2 11c0 2.89 1.97 5.43 4.93 6.88-.21.8-.79 2.98-.91 3.46-.15.62.23.62.48.45.19-.13 3.15-2.13 3.67-2.51.61.09 1.25.13 1.91.13 5.52 0 10-3.58 10-8S17.52 3 12 3z"/>
+                  </svg>
+                  카카오페이로 등록하기
+                </>
               )}
+            </Button>
+          </div>
+
+          <div className="flex gap-2 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowPaymentMethodDialog(false)}
+              disabled={isLoadingPaymentMethod}
+            >
+              취소
             </Button>
           </div>
         </DialogContent>
