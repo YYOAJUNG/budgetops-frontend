@@ -160,7 +160,18 @@ export async function getResources(): Promise<ResourceItem[]> {
       status: 'running',
     };
 
-    return [...ec2Resources, gcpDummy];
+    const gcpDummy2: ResourceItem = {
+      id: 'gcp-jjp-backend-southamerica-west1',
+      name: 'jjp-backend',
+      provider: 'GCP',
+      service: 'Compute Engine',
+      cost: 0,
+      region: 'southamerica-west1',
+      updatedAt: '2025-11-10T10:35:17.664537Z',
+      status: 'running',
+    };
+
+    return [...ec2Resources, gcpDummy, gcpDummy2];
   } catch (error) {
     console.error('Failed to fetch resources:', error);
     // 에러 시 빈 배열 반환
