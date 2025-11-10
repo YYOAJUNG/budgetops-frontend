@@ -12,29 +12,7 @@ import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
 
-const mockAccounts: CloudAccount[] = [
-  {
-    id: '1',
-    provider: 'AWS',
-    accountName: 'Production AWS',
-    accountId: '229342747685',
-    status: 'connected',
-    lastSync: '2025-10-30 14:30',
-    monthlyCost: 34,
-  },
-  {
-    id: '2',
-    provider: 'GCP',
-    accountName: 'Staging GCP',
-    accountId: 'Moon-SEO',
-    status: 'connected',
-    lastSync: '2025-10-30 14:25',
-    monthlyCost: 13,
-  },
-];
-
 export function CloudAccountConnection() {
-  const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -57,9 +35,9 @@ export function CloudAccountConnection() {
         lastSync: new Date().toISOString(),
         monthlyCost: 0,
       }));
-    // API 결과가 있으면 API 기준으로 보여주기
-    return mapped.length > 0 ? mapped : accounts;
-  }, [awsAccounts, accounts]);
+    // API 결과만 반환 (더미 데이터 제거)
+    return mapped;
+  }, [awsAccounts]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
