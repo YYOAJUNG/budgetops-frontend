@@ -10,7 +10,7 @@ import { getCurrentUser } from '@/lib/api/user';
 import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getAwsAccounts, type AwsAccount } from '@/lib/api/aws';
+import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
 
 const mockAccounts: CloudAccount[] = [
   {
@@ -36,6 +36,7 @@ const mockAccounts: CloudAccount[] = [
 export function CloudAccountConnection() {
   const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -79,11 +80,33 @@ export function CloudAccountConnection() {
     }
   }, [searchParams]);
 
-  const handleDeleteAccount = (id: string) => {
-    // TODO: API 호출로 계정 삭제
-    // 삭제 후 캐시 무효화 및 목록 재조회
-    queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
-    refetchAws();
+  const handleDeleteAccount = async (id: string) => {
+    // 삭제 확인
+    const account = mergedAccounts.find(acc => acc.id === id);
+    const accountName = account?.accountName || '이 계정';
+    
+    if (!confirm(`${accountName}을(를) 정말 삭제하시겠습니까?\n\n삭제된 계정은 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    setDeletingAccountId(id);
+    try {
+      // AWS 계정인 경우 API 호출
+      const awsAccount = awsAccounts?.find((a: AwsAccount) => String(a.id) === id);
+      if (awsAccount) {
+        await deleteAwsAccount(awsAccount.id);
+      }
+      
+      // 캐시 무효화 및 목록 재조회
+      queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+      await refetchAws();
+    } catch (error: any) {
+      console.error('계정 삭제 오류:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || '계정 삭제 중 오류가 발생했습니다.';
+      alert(errorMessage);
+    } finally {
+      setDeletingAccountId(null);
+    }
   };
 
   const handleAddAccount = () => {
@@ -184,9 +207,11 @@ export function CloudAccountConnection() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteAccount(account.id)}
-                      className="border-red-300 text-red-600 hover:bg-red-50"
+                      disabled={deletingAccountId === account.id}
+                      className="border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />
+                      {deletingAccountId === account.id && '삭제 중...'}
                     </Button>
                   </div>
                 </div>
