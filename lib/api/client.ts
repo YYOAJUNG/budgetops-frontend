@@ -48,11 +48,6 @@ api.interceptors.request.use(
       }
     }
 
-    // Mock 모드인 경우 로그 출력
-    if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
-      console.log('[MOCK] API Request:', config.url);
-    }
-
     return config;
   },
   (error) => {

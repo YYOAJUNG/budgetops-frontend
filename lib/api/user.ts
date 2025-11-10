@@ -30,11 +30,6 @@ export const mockUser: User = {
 
 // 사용자 정보 가져오기 (백엔드 API 호출)
 export async function getCurrentUser(): Promise<User> {
-  // Mock 모드인 경우 Mock 데이터 반환
-  if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
-    return mockUser;
-  }
-
   try {
     // 백엔드 API 호출: /api/v1/users/me
     const response = await api.get('/v1/users/me');

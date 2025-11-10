@@ -24,8 +24,6 @@ const calculateBonusTokens = (packageId: string): number => {
   return bonusMap[packageId] || 0;
 };
 
-const isMockMode = (): boolean => process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-
 // ========== Type Definitions ==========
 
 export interface Subscription {
@@ -123,35 +121,14 @@ export const mockPaymentHistory: PaymentHistory[] = [
 // ========== API Functions ==========
 
 export async function getCurrentSubscription(): Promise<Subscription> {
-  if (isMockMode()) return mockSubscription;
-
+  // 항상 실제 백엔드 사용 (결제만 Mock 처리)
   const userId = getUserId();
   const response = await api.get(`/v1/users/${userId}/billing`);
   return transformBillingResponse(response.data);
 }
 
 export async function getPaymentMethod(): Promise<PaymentMethod & { isRegistered: boolean }> {
-  if (isMockMode()) {
-    // Mock 모드: localStorage만 확인
-    if (typeof window !== 'undefined') {
-      const savedCardInfo = localStorage.getItem('paymentMethod');
-      if (savedCardInfo) {
-        const cardInfo = JSON.parse(savedCardInfo);
-        return { ...cardInfo, isRegistered: true };
-      }
-    }
-    return {
-      id: '',
-      type: 'card',
-      last4: '',
-      brand: '',
-      expiryMonth: undefined,
-      expiryYear: undefined,
-      isRegistered: false,
-    };
-  }
-
-  // 실제 모드: 백엔드 API로 등록 여부 확인
+  // 항상 백엔드 API로 등록 여부 확인
   const userId = getUserId();
   try {
     const response = await api.get(`/v1/users/${userId}/payment/status`);
@@ -202,23 +179,21 @@ export async function savePaymentMethod(cardInfo: PaymentMethod): Promise<void> 
 }
 
 export async function getPaymentHistory(): Promise<PaymentHistory[]> {
-  if (isMockMode()) return mockPaymentHistory;
-
+  // 항상 백엔드에서 결제 내역 조회
   const userId = getUserId();
-  const response = await api.get(`/v1/users/${userId}/payment/history`);
-  return response.data;
+  try {
+    const response = await api.get(`/v1/users/${userId}/payment/history`);
+    return response.data;
+  } catch (error) {
+    console.error('[getPaymentHistory] API 오류:', error);
+    return []; // 오류 시 빈 배열 반환
+  }
 }
 
 export async function updateSubscription(planId: string): Promise<Subscription> {
   console.log('[updateSubscription] 시작 - planId:', planId);
-  console.log('[updateSubscription] Mock 모드:', isMockMode());
 
-  if (isMockMode()) {
-    console.log('[updateSubscription] Mock 데이터 반환');
-    return { ...mockSubscription, planId: planId as Subscription['planId'] };
-  }
-
-  console.log('[updateSubscription] API 호출');
+  // 항상 실제 백엔드 사용 (백엔드에서 nextBillingDate 자동 설정)
   const userId = getUserId();
   const planName = planId.toUpperCase();
   const response = await api.put(`/v1/users/${userId}/billing/plan/${planName}`);
@@ -229,18 +204,6 @@ export async function updateSubscription(planId: string): Promise<Subscription> 
 export async function purchaseTokens(
   request: TokenPurchaseRequest
 ): Promise<TokenPurchaseResponse> {
-  if (isMockMode()) {
-    const bonusTokens = calculateBonusTokens(request.packageId);
-    return {
-      transactionId: `TXN-${Date.now()}`,
-      purchasedTokens: request.amount,
-      bonusTokens,
-      totalTokens: request.amount + bonusTokens,
-      currentTokens: 180,
-      purchaseDate: new Date().toISOString(),
-    };
-  }
-
   const userId = getUserId();
   const response = await api.post(`/v1/users/${userId}/payment/purchase-tokens`, request);
   return response.data;
