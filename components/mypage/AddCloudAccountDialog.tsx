@@ -12,6 +12,7 @@ interface AddCloudAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userName?: string;
+  onSuccess?: () => void;
 }
 
 type CloudProvider = 'AWS' | 'GCP' | 'Azure';
@@ -38,13 +39,26 @@ interface CredentialForm {
   clientSecret?: string;
 }
 
-export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자' }: AddCloudAccountDialogProps) {
+export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자', onSuccess }: AddCloudAccountDialogProps) {
   const [step, setStep] = useState<'select' | 'credentials'>('select');
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider | null>(null);
   const [credentials, setCredentials] = useState<CredentialForm>({
     accountName: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  async function submitAws() {
+    const { createAwsAccount } = await import('@/lib/api/aws');
+    const payload = {
+      name: credentials.accountName,
+      defaultRegion: credentials.region || 'ap-northeast-2',
+      accessKeyId: credentials.accessKeyId || '',
+      secretAccessKey: credentials.secretAccessKey || '',
+    };
+    const resp = await createAwsAccount(payload);
+    return resp;
+  }
 
   const providers: ProviderOption[] = [
     {
@@ -84,21 +98,23 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // TODO: API 호출로 계정 추가
-      console.log('Submitting:', { provider: selectedProvider, credentials });
-      
-      // 시뮬레이션: 2초 대기
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // 성공 시 다이얼로그 닫기
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      if (selectedProvider === 'AWS') {
+        await submitAws();
+        setSuccessMsg('AWS 계정이 성공적으로 연동되었습니다.');
+      } else {
+        // GCP/Azure는 추후 구현
+        setErrorMsg('현재는 AWS 계정 연동만 지원합니다.');
+        return;
+      }
+      if (onSuccess) onSuccess();
       onOpenChange(false);
-      
-      // 상태 초기화
       setStep('select');
       setSelectedProvider(null);
       setCredentials({ accountName: '' });
     } catch (error) {
-      console.error('Failed to add account:', error);
+      setErrorMsg('계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.');
     } finally {
       setIsSubmitting(false);
     }
@@ -289,6 +305,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           {step === 'select' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>
+              {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
+              {successMsg && <p className="mb-3 text-sm text-green-600">{successMsg}</p>}
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 {providers.map((provider) => (
@@ -328,6 +346,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {selectedProvider} 자격 증명
               </h3>
+              {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
+              {successMsg && <p className="mb-3 text-sm text-green-600">{successMsg}</p>}
               {renderCredentialsForm()}
             </>
           )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { getCurrentUser } from '@/lib/api/user';
 import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { getAwsAccounts, type AwsAccount } from '@/lib/api/aws';
 
 const mockAccounts: CloudAccount[] = [
   {
@@ -39,6 +40,24 @@ export function CloudAccountConnection() {
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
+  const { data: awsAccounts, refetch: refetchAws } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+  });
+  const mergedAccounts = useMemo<CloudAccount[]>(() => {
+    const mapped: CloudAccount[] =
+      (awsAccounts || []).map((a: AwsAccount) => ({
+        id: String(a.id),
+        provider: 'AWS',
+        accountName: a.name,
+        accountId: a.accessKeyId,
+        status: a.active ? 'connected' : 'pending',
+        lastSync: new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    // API 결과가 있으면 API 기준으로 보여주기
+    return mapped.length > 0 ? mapped : accounts;
+  }, [awsAccounts, accounts]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -185,6 +204,10 @@ export function CloudAccountConnection() {
       <AddCloudAccountDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
+        onSuccess={() => {
+          // 계정 추가 성공 시 목록 재조회
+          refetchAws();
+        }}
         userName={user?.name || '사용자'}
       />
     </div>
