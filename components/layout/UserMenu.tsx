@@ -79,7 +79,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <span>내 정보</span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => router.push('/accounts')}
+            onClick={() => router.push('/mypage?addCloudAccount=1#accounts')}
             className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
           >
             <Cloud className="mr-3 h-4 w-4 text-gray-500" />

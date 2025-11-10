@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { AddCloudAccountDialog } from './AddCloudAccountDialog';
 import { getCurrentUser } from '@/lib/api/user';
 import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const mockAccounts: CloudAccount[] = [
   {
@@ -38,6 +39,25 @@ export function CloudAccountConnection() {
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const shouldOpen = searchParams.get('addCloudAccount') === '1';
+    if (shouldOpen) {
+      // 섹션으로 스크롤 이동
+      const section = document.getElementById('accounts');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // 다이얼로그 열기
+      setShowAddDialog(true);
+      // URL 정리 (뒤로 가기 시 재오픈 방지)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('addCloudAccount');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams]);
 
   const handleDeleteAccount = (id: string) => {
     // TODO: API 호출로 계정 삭제
