@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ const mockAccounts: CloudAccount[] = [
 export function CloudAccountConnection() {
   const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const queryClient = useQueryClient();
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
@@ -80,7 +81,9 @@ export function CloudAccountConnection() {
 
   const handleDeleteAccount = (id: string) => {
     // TODO: API 호출로 계정 삭제
-    setAccounts(accounts.filter(acc => acc.id !== id));
+    // 삭제 후 캐시 무효화 및 목록 재조회
+    queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+    refetchAws();
   };
 
   const handleAddAccount = () => {
@@ -105,7 +108,7 @@ export function CloudAccountConnection() {
 
       {/* 연결된 계정 목록 */}
       <div className="space-y-4 mb-8">
-        {accounts.length === 0 ? (
+        {mergedAccounts.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <Cloud className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -123,7 +126,7 @@ export function CloudAccountConnection() {
             </Button>
           </div>
         ) : (
-          accounts.map((account) => {
+          mergedAccounts.map((account) => {
             const StatusIcon = ACCOUNT_STATUS_CONFIG[account.status].icon;
             return (
               <div
@@ -205,7 +208,8 @@ export function CloudAccountConnection() {
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onSuccess={() => {
-          // 계정 추가 성공 시 목록 재조회
+          // 계정 추가 성공 시 캐시 무효화 및 재조회
+          queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
           refetchAws();
         }}
         userName={user?.name || '사용자'}

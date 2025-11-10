@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useUIStore } from '@/store/ui';
 import { X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api/client';
 
 const TRANSITION_CLASS = 'transition-transform duration-300 ease-in-out';
 
@@ -48,9 +49,12 @@ export function AIChatPanel() {
   const { aiChatOpen, setAIChatOpen } = useUIStore();
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!input.trim()) return;
+    if (isSending) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -62,17 +66,42 @@ export function AIChatPanel() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
 
-    // TODO: AI API 호출
-    setTimeout(() => {
+    try {
+      setIsSending(true);
+      const res = await api.post('/ai/chat', {
+        message: userMessage.content,
+        session_id: sessionId ?? undefined,
+      });
+
+      const aiText: string = res.data?.response ?? '응답을 가져오지 못했습니다.';
+      const returnedSessionId: string | undefined = res.data?.session_id;
+      if (returnedSessionId && !sessionId) {
+        setSessionId(returnedSessionId);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '죄송합니다. AI 기능은 현재 개발 중입니다.',
+        content: aiText,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
-    }, 500);
-  }, [input]);
+    } catch (error: any) {
+      const errorText =
+        error?.response?.data?.detail ||
+        error?.message ||
+        '요청 처리 중 오류가 발생했습니다.';
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `오류: ${errorText}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [input, sessionId, isSending]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -119,7 +148,7 @@ export function AIChatPanel() {
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isSending}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="h-5 w-5" />
