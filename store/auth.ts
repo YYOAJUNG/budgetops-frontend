@@ -14,8 +14,10 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (user: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  setToken: (token: string) => void;
+  removeToken: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,7 +27,25 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       login: (user) => set({ user, isAuthenticated: true }),
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: async () => {
+        // JWT는 stateless이므로 서버 측 로그아웃 API 호출 불필요
+        // 클라이언트에서 토큰만 삭제
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('jwt_token');
+        }
+        // 로컬 상태 초기화
+        set({ user: null, isAuthenticated: false });
+      },
+      setToken: (token: string) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('jwt_token', token);
+        }
+      },
+      removeToken: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('jwt_token');
+        }
+      },
       checkAuth: async () => {
         // 이미 확인 중이면 중복 호출 방지
         if (get().isLoading) return;
@@ -35,6 +55,16 @@ export const useAuthStore = create<AuthState>()(
           // Mock 모드인 경우 스킵
           if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
             set({ isLoading: false });
+            return;
+          }
+
+          // JWT 토큰이 없으면 인증 실패
+          if (typeof window !== 'undefined' && !localStorage.getItem('jwt_token')) {
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
             return;
           }
 
@@ -51,7 +81,11 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           });
         } catch (error) {
-          // 로그인하지 않았거나 세션이 만료된 경우
+          // 로그인하지 않았거나 토큰이 만료된 경우
+          // 토큰 삭제
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('jwt_token');
+          }
           set({
             user: null,
             isAuthenticated: false,

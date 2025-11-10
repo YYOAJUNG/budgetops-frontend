@@ -51,8 +51,11 @@ export function Sidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <Link href="/" className="flex items-center overflow-hidden">
+      <div className={cn(
+        "flex h-16 items-center border-b border-gray-200",
+        sidebarCollapsed ? "justify-center" : "px-6"
+      )}>
+        <Link href="/dashboard" className="flex items-center overflow-hidden">
           <h1 className={cn(
             "text-xl font-bold text-gray-900 whitespace-nowrap",
             "transition-[opacity,transform] duration-300 ease-in-out",
