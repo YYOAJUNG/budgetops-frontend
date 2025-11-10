@@ -5,21 +5,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store/ui';
-import { useDragToToggleSidebar } from '@/hooks/useDragToToggleSidebar';
 import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
-import { UI_CONFIG } from '@/constants/ui';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { InboxArchive } from '@mynaui/icons-react';
+
+const TRANSITION_CLASS = 'transition-all duration-500 ease-in-out';
 
 export function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
-  const { sidebarCollapsed, toggleSidebarCollapsed } = useUIStore();
-
-  const { handleDragStart } = useDragToToggleSidebar({
-    direction: sidebarCollapsed ? 'right' : 'left',
-    onToggle: toggleSidebarCollapsed,
-  });
+  const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
@@ -30,25 +25,33 @@ export function Sidebar() {
   };
 
   return (
-    <div className={cn(
-      "relative flex h-full flex-col bg-white border-r border-gray-200 shadow-sm transition-all duration-300",
-      sidebarCollapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "relative flex h-full flex-col bg-white border-r border-gray-200 shadow-sm",
+        TRANSITION_CLASS,
+        sidebarCollapsed ? "w-16" : "w-64"
+      )}
+      onMouseEnter={() => setSidebarCollapsed(false)}
+      onMouseLeave={() => setSidebarCollapsed(true)}
+    >
       <div className={cn(
-        "flex h-16 items-center border-b border-gray-200 transition-all duration-300",
+        "flex h-16 items-center border-b border-gray-200",
+        TRANSITION_CLASS,
         sidebarCollapsed ? "justify-center" : "px-6"
       )}>
         <Link href="/" className="hover:opacity-80 transition-opacity">
           <h1 className={cn(
-            "text-xl font-bold text-gray-900 transition-all duration-300",
-            sidebarCollapsed ? "text-sm" : ""
+            "text-xl font-bold text-gray-900",
+            TRANSITION_CLASS,
+            sidebarCollapsed && "text-sm"
           )}>
             {sidebarCollapsed ? "BO" : "BudgetOps"}
           </h1>
         </Link>
       </div>
       <nav className={cn(
-        "flex-1 space-y-1 transition-all duration-300",
+        "flex-1 space-y-1",
+        TRANSITION_CLASS,
         sidebarCollapsed ? "p-2" : "p-4"
       )}>
         {NAVIGATION_ITEMS.map((item) => (
@@ -134,7 +137,8 @@ export function Sidebar() {
         ))}
       </nav>
       <div className={cn(
-        "border-t border-gray-200 transition-all duration-300",
+        "border-t border-gray-200",
+        TRANSITION_CLASS,
         sidebarCollapsed ? "p-2" : "p-4"
       )}>
         <a
@@ -143,26 +147,16 @@ export function Sidebar() {
           rel="noopener noreferrer"
           title={sidebarCollapsed ? "피드백 남기기" : undefined}
           className={cn(
-            "flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200",
+            "flex items-center px-3 py-2.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors",
             sidebarCollapsed && "justify-center"
           )}
         >
           <InboxArchive className={cn(
             "h-5 w-5 text-blue-600",
-            sidebarCollapsed ? "" : "mr-3"
+            !sidebarCollapsed && "mr-3"
           )} />
           {!sidebarCollapsed && "피드백 남기기"}
         </a>
-      </div>
-
-      {/* Drag Handle - 데스크톱에서만 표시 */}
-      <div
-        className="hidden lg:block absolute right-0 top-0 h-full w-1 cursor-ew-resize hover:bg-blue-500 transition-colors group"
-        onMouseDown={handleDragStart}
-        onDoubleClick={toggleSidebarCollapsed}
-        title="드래그하거나 더블클릭하여 사이드바 접기/펼치기"
-      >
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gray-300 group-hover:bg-blue-500 transition-colors rounded-l" />
       </div>
     </div>
   );
