@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
 import { ChevronDown, Clock, User } from 'lucide-react';
@@ -15,6 +16,7 @@ import { CopilotContent } from './preview/CopilotContent';
 type MenuType = 'dashboard' | 'accounts' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
 
 export function DashboardPreview() {
+  const router = useRouter();
   const [selectedTimeRange, setSelectedTimeRange] = useState('Last 30 Days');
   const [selectedMenu, setSelectedMenu] = useState<MenuType>('dashboard');
   const [clickCount, setClickCount] = useState(0);
@@ -174,7 +176,10 @@ export function DashboardPreview() {
             </div>
 
             <Button
-              onClick={() => window.location.href = '${process.env.NEXT_PUBLIC_API_BASE}/oauth2/authorization/google'}
+              onClick={() => {
+                const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080';
+                window.location.href = `${apiBase}/oauth2/authorization/google`;
+              }}
               size="lg"
               className="w-full bg-white hover:bg-gray-50 text-gray-900 text-base font-medium py-6 border border-gray-300 shadow-sm"
             >

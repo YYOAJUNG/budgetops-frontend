@@ -38,7 +38,7 @@ export function Sidebar() {
         "flex h-16 items-center border-b border-gray-200 transition-all duration-300",
         sidebarCollapsed ? "justify-center" : "px-6"
       )}>
-        <Link href="/" className="hover:opacity-80 transition-opacity">
+        <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
           <h1 className={cn(
             "text-xl font-bold text-gray-900 transition-all duration-300",
             sidebarCollapsed ? "text-sm" : ""

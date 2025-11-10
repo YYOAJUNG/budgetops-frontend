@@ -23,8 +23,21 @@ export default function OAuthCallback() {
         return;
       }
 
+      // JWT 토큰 추출 (쿼리 파라미터에서)
+      const token = searchParams.get('token');
+
+      if (!token) {
+        console.error('JWT 토큰이 없습니다.');
+        router.replace('/');
+        return;
+      }
+
       try {
-        // 사용자 정보 가져오기
+        // JWT 토큰을 localStorage에 저장
+        localStorage.setItem('jwt_token', token);
+        console.log('JWT 토큰 저장 완료');
+
+        // 사용자 정보 가져오기 (토큰이 헤더에 자동으로 포함됨)
         const userInfo = await getCurrentUser();
         console.log('사용자 정보:', userInfo);
 
@@ -41,6 +54,8 @@ export default function OAuthCallback() {
         router.replace('/dashboard');
       } catch (err) {
         console.error('사용자 정보 가져오기 실패:', err);
+        // 토큰이 유효하지 않으면 삭제
+        localStorage.removeItem('jwt_token');
         router.replace('/');
       }
     };
