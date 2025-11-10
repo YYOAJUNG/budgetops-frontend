@@ -20,9 +20,11 @@ export function CloudAccountConnection() {
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
-  const { data: awsAccounts, refetch: refetchAws } = useQuery({
+  const { data: awsAccounts, refetch: refetchAws, isLoading: isLoadingAccounts } = useQuery({
     queryKey: ['awsAccounts'],
     queryFn: getAwsAccounts,
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    gcTime: 0, // 캐시 시간 최소화 (React Query v5)
   });
   const mergedAccounts = useMemo<CloudAccount[]>(() => {
     const mapped: CloudAccount[] =
@@ -210,10 +212,13 @@ export function CloudAccountConnection() {
       <AddCloudAccountDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onSuccess={() => {
-          // 계정 추가 성공 시 캐시 무효화 및 재조회
+        onSuccess={async () => {
+          // 계정 추가 성공 시 캐시 완전히 제거 및 재조회
+          queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+          await refetchAws();
+          // 추가로 한 번 더 무효화하여 최신 데이터 확보
           queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
-          refetchAws();
+          await refetchAws();
         }}
         userName={user?.name || '사용자'}
       />

@@ -110,3 +110,42 @@ export async function getAllEc2Instances(): Promise<AwsEc2Instance[]> {
   }
 }
 
+export interface Ec2MetricDataPoint {
+  timestamp: string;
+  value: number | null;
+  unit: string;
+}
+
+export interface AwsEc2Metrics {
+  instanceId: string;
+  region: string;
+  cpuUtilization: Ec2MetricDataPoint[];
+  networkIn: Ec2MetricDataPoint[];
+  networkOut: Ec2MetricDataPoint[];
+  memoryUtilization: Ec2MetricDataPoint[];
+}
+
+/**
+ * EC2 인스턴스의 CloudWatch 메트릭 조회
+ * @param accountId AWS 계정 ID
+ * @param instanceId EC2 인스턴스 ID
+ * @param region 리전 (선택사항)
+ * @param hours 조회할 시간 범위 (기본값: 1시간)
+ */
+export async function getEc2InstanceMetrics(
+  accountId: number,
+  instanceId: string,
+  region?: string,
+  hours?: number
+): Promise<AwsEc2Metrics> {
+  const params: any = {};
+  if (region) params.region = region;
+  if (hours) params.hours = hours;
+  
+  const { data } = await api.get<AwsEc2Metrics>(
+    `/aws/accounts/${accountId}/ec2/instances/${instanceId}/metrics`,
+    { params }
+  );
+  return data;
+}
+

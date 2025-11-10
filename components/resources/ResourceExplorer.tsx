@@ -23,7 +23,8 @@ import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
 import { getAllEc2Instances, AwsEc2Instance, getAwsAccounts } from '@/lib/api/aws';
 import { FreeTierCard } from './FreeTierCard';
-import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud } from 'lucide-react';
+import { Ec2MetricsDialog } from './Ec2MetricsDialog';
+import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -309,11 +310,24 @@ export function ResourceExplorer() {
           {filteredResources.map((resource) => {
             // EC2 리소스인 경우 상세 정보 찾기
             const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
+            // EC2 인스턴스의 accountId 찾기
+            // 실제로는 백엔드에서 인스턴스 조회 시 accountId를 포함하도록 수정하는 것이 가장 좋지만,
+            // 현재는 첫 번째 활성 계정을 사용 (대부분의 사용자는 하나의 계정만 사용)
+            let accountId: number | null = null;
+            if (ec2Instance && awsAccounts && awsAccounts.length > 0) {
+              // 첫 번째 활성 계정 사용
+              const activeAccount = awsAccounts.find(acc => acc.active);
+              if (activeAccount) {
+                accountId = activeAccount.id;
+              }
+            }
             return (
               <ResourceCard 
                 key={resource.id} 
                 resource={resource} 
                 ec2Instance={ec2Instance}
+                accountId={accountId}
+                region={resource.region}
               />
             );
           })}
@@ -325,11 +339,16 @@ export function ResourceExplorer() {
 
 function ResourceCard({ 
   resource, 
-  ec2Instance 
+  ec2Instance,
+  accountId,
+  region
 }: { 
   resource: ResourceItem;
   ec2Instance?: AwsEc2Instance;
+  accountId?: number | null;
+  region?: string;
 }) {
+  const [showMetrics, setShowMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
 
   return (
@@ -402,7 +421,30 @@ function ResourceCard({
           <span className="text-slate-500">{isEc2 ? '시작 시간' : '업데이트'}</span>
           <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
         </div>
+        {isEc2 && accountId && (
+          <div className="pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowMetrics(true)}
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              메트릭 보기
+            </Button>
+          </div>
+        )}
       </CardContent>
+      {isEc2 && accountId && ec2Instance && (
+        <Ec2MetricsDialog
+          open={showMetrics}
+          onOpenChange={setShowMetrics}
+          accountId={accountId}
+          instanceId={ec2Instance.instanceId}
+          instanceName={ec2Instance.name || ec2Instance.instanceId}
+          region={region}
+        />
+      )}
     </Card>
   );
 }

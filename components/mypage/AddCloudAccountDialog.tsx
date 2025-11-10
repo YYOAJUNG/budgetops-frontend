@@ -103,16 +103,23 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       if (selectedProvider === 'AWS') {
         await submitAws();
         setSuccessMsg('AWS 계정이 성공적으로 연동되었습니다.');
+        // 성공 후 콜백 호출 (다이얼로그 닫기 전에)
+        if (onSuccess) {
+          await onSuccess();
+        }
+        // 약간의 지연 후 다이얼로그 닫기 (데이터 갱신 시간 확보)
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
       } else {
         // GCP/Azure는 추후 구현
         setErrorMsg('현재는 AWS 계정 연동만 지원합니다.');
+        setIsSubmitting(false);
         return;
       }
-      if (onSuccess) onSuccess();
-      onOpenChange(false);
-      setStep('select');
-      setSelectedProvider(null);
-      setCredentials({ accountName: '' });
     } catch (error: any) {
       console.error('AWS 계정 연동 오류:', error);
       // 백엔드에서 반환한 에러 메시지 추출
