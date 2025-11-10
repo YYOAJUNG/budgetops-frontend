@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
+import { getAllEc2Instances, AwsEc2Instance } from '@/lib/api/aws';
 import { FreeTierCard } from './FreeTierCard';
-import { ArrowUpDown, Filter, RefreshCw } from 'lucide-react';
+import { ArrowUpDown, Filter, RefreshCw, Server } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -50,6 +51,12 @@ export function ResourceExplorer() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
+  });
+
+  // EC2 인스턴스 상세 정보도 함께 조회
+  const { data: ec2Data } = useQuery({
+    queryKey: ['ec2-instances'],
+    queryFn: getAllEc2Instances,
   });
 
   const [providerFilter, setProviderFilter] = useState<string[]>([]);
@@ -254,41 +261,100 @@ export function ResourceExplorer() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredResources.map((resource) => (
-            <ResourceCard key={resource.id} resource={resource} />
-          ))}
+          {filteredResources.map((resource) => {
+            // EC2 리소스인 경우 상세 정보 찾기
+            const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
+            return (
+              <ResourceCard 
+                key={resource.id} 
+                resource={resource} 
+                ec2Instance={ec2Instance}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function ResourceCard({ resource }: { resource: ResourceItem }) {
+function ResourceCard({ 
+  resource, 
+  ec2Instance 
+}: { 
+  resource: ResourceItem;
+  ec2Instance?: AwsEc2Instance;
+}) {
+  const isEc2 = resource.service === 'EC2' && ec2Instance;
+
   return (
-    <Card className="border border-slate-200 shadow-sm">
+    <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Badge className="bg-sky-100 text-sky-700">{resource.provider}</Badge>
-            <span className="text-xs uppercase tracking-wide text-slate-500">{resource.service}</span>
+            <div className="flex items-center gap-1">
+              {isEc2 && <Server className="h-3 w-3 text-slate-500" />}
+              <span className="text-xs uppercase tracking-wide text-slate-500">{resource.service}</span>
+            </div>
           </div>
-          <span className="text-sm font-medium text-slate-500">{resource.status}</span>
+          <Badge 
+            variant="outline" 
+            className={
+              resource.status === 'running' 
+                ? 'border-green-200 bg-green-50 text-green-700' 
+                : resource.status === 'stopped'
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-yellow-200 bg-yellow-50 text-yellow-700'
+            }
+          >
+            {resource.status}
+          </Badge>
         </div>
         <CardTitle className="text-lg font-semibold text-slate-900">
           {resource.name}
         </CardTitle>
+        {isEc2 && (
+          <div className="text-xs text-slate-500 font-mono">
+            {ec2Instance.instanceId}
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-slate-600">
+      <CardContent className="space-y-3 text-sm text-slate-600">
+        {isEc2 && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">인스턴스 타입</span>
+              <span className="font-medium text-slate-900">{ec2Instance.instanceType}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">퍼블릭 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {ec2Instance.publicIp || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">프라이빗 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {ec2Instance.privateIp || 'N/A'}
+              </span>
+            </div>
+          </>
+        )}
+        {resource.cost > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500">월간 비용</span>
+            <span className="text-base font-semibold text-slate-900">{formatCurrency(resource.cost)}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
-          <span className="text-slate-500">월간 비용</span>
-          <span className="text-base font-semibold text-slate-900">{formatCurrency(resource.cost)}</span>
+          <span className="text-slate-500">{isEc2 ? '가용 영역' : '리전'}</span>
+          <span className="font-medium text-slate-700">
+            {isEc2 ? ec2Instance.availabilityZone : resource.region}
+          </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-slate-500">리전</span>
-          <span className="font-medium text-slate-700">{resource.region}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">업데이트</span>
+          <span className="text-slate-500">{isEc2 ? '시작 시간' : '업데이트'}</span>
           <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
         </div>
       </CardContent>

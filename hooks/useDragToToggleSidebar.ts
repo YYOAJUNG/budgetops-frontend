@@ -3,7 +3,7 @@ import { UI_CONFIG } from '@/constants/ui';
 
 interface UseDragToToggleSidebarOptions {
   direction: 'left' | 'right';
-  onToggle: (shouldOpen: boolean) => void;
+  onToggle: () => void;
 }
 
 export function useDragToToggleSidebar({ direction, onToggle }: UseDragToToggleSidebarOptions) {
@@ -12,43 +12,34 @@ export function useDragToToggleSidebar({ direction, onToggle }: UseDragToToggleS
 
   const handleDragStart = (e: React.MouseEvent) => {
     if (typeof window !== 'undefined' && window.innerWidth < UI_CONFIG.SIDEBAR.MOBILE_BREAKPOINT) {
-      return; // 모바일에서는 드래그 비활성화
+      return;
     }
     setIsDragging(true);
     dragStartX.current = e.clientX;
   };
 
   useEffect(() => {
-    const handleDragMove = (e: MouseEvent) => {
-      if (!isDragging) return;
+    if (!isDragging) return;
 
+    const handleDragMove = (e: MouseEvent) => {
       const deltaX = e.clientX - dragStartX.current;
 
-      // 드래그 거리가 임계값 이상이면 토글
       if (Math.abs(deltaX) > UI_CONFIG.SIDEBAR.DRAG_THRESHOLD) {
-        if (direction === 'left') {
-          // 왼쪽으로 드래그 -> 닫기
-          if (deltaX < 0) {
-            onToggle(false);
-          }
-        } else {
-          // 오른쪽으로 드래그 -> 열기
-          if (deltaX > 0) {
-            onToggle(true);
-          }
+        const shouldToggle =
+          (direction === 'left' && deltaX < 0) ||
+          (direction === 'right' && deltaX > 0);
+
+        if (shouldToggle) {
+          onToggle();
+          setIsDragging(false);
         }
-        setIsDragging(false);
       }
     };
 
-    const handleDragEnd = () => {
-      setIsDragging(false);
-    };
+    const handleDragEnd = () => setIsDragging(false);
 
-    if (isDragging) {
-      document.addEventListener('mousemove', handleDragMove);
-      document.addEventListener('mouseup', handleDragEnd);
-    }
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
 
     return () => {
       document.removeEventListener('mousemove', handleDragMove);
@@ -56,5 +47,5 @@ export function useDragToToggleSidebar({ direction, onToggle }: UseDragToToggleS
     };
   }, [isDragging, direction, onToggle]);
 
-  return { isDragging, handleDragStart };
+  return { handleDragStart };
 }

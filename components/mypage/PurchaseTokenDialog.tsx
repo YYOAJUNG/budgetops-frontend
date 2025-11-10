@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Zap, Check } from 'lucide-react';
+import { X, Zap, Check, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ interface PurchaseTokenDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPurchase?: (packageId: string, amount: number, price: number) => void;
+  isLoading?: boolean;
 }
 
 interface TokenPackage {
@@ -45,6 +46,7 @@ export function PurchaseTokenDialog({
   open,
   onOpenChange,
   onPurchase,
+  isLoading = false,
 }: PurchaseTokenDialogProps) {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
@@ -53,13 +55,20 @@ export function PurchaseTokenDialog({
     if (pkg) {
       // 백엔드는 기본 토큰 수량만 검증 (보너스 제외)
       onPurchase?.(pkg.id, pkg.amount, pkg.price);
-      onOpenChange(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0">
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-10 w-10 text-amber-600 animate-spin" />
+              <p className="text-sm font-medium text-gray-700">토큰 구매 중...</p>
+            </div>
+          </div>
+        )}
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -69,6 +78,7 @@ export function PurchaseTokenDialog({
           <button
             onClick={() => onOpenChange(false)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={isLoading}
           >
             <X className="h-5 w-5 text-gray-500" />
           </button>
@@ -149,18 +159,26 @@ export function PurchaseTokenDialog({
               onClick={() => onOpenChange(false)}
               variant="outline"
               className="flex-1 border-gray-300 text-gray-700"
+              disabled={isLoading}
             >
               취소
             </Button>
             <Button
               onClick={handlePurchase}
-              disabled={!selectedPackage}
+              disabled={!selectedPackage || isLoading}
               className={cn(
                 'flex-1 bg-amber-500 hover:bg-amber-600 text-white',
-                !selectedPackage && 'opacity-50 cursor-not-allowed'
+                (!selectedPackage || isLoading) && 'opacity-50 cursor-not-allowed'
               )}
             >
-              구매하기
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  구매 중...
+                </>
+              ) : (
+                '구매하기'
+              )}
             </Button>
           </div>
         </div>

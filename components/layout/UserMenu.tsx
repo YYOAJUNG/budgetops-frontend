@@ -24,8 +24,8 @@ export function UserMenu({ user }: UserMenuProps) {
   const { logout } = useAuthStore();
   const [open, setOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push('/');
   };
 
