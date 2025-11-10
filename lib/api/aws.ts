@@ -20,11 +20,26 @@ export interface AwsAccount {
   active: boolean;
 }
 
+export interface CreateAwsAccountRequest {
+  name: string;
+  defaultRegion: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
 /**
  * AWS 계정 목록 조회
  */
 export async function getAwsAccounts(): Promise<AwsAccount[]> {
   const { data } = await api.get<AwsAccount[]>('/aws/accounts');
+  return data;
+}
+
+/**
+ * AWS 계정 생성(연동)
+ */
+export async function createAwsAccount(payload: CreateAwsAccountRequest): Promise<AwsAccount> {
+  const { data } = await api.post<AwsAccount>('/aws/accounts', payload);
   return data;
 }
 

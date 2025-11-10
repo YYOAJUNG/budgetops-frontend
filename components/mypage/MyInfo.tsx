@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { User, Mail, Building, Phone, MapPin } from 'lucide-react';
+import { User, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/api/user';
 
@@ -16,10 +16,6 @@ export function MyInfo() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    company: '',
-    phone: '',
-    department: '',
-    position: '',
   });
 
   useEffect(() => {
@@ -27,10 +23,6 @@ export function MyInfo() {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        company: user.company || '',
-        phone: user.phone || '',
-        department: user.department || '',
-        position: user.position || '',
       });
     }
   }, [user]);
@@ -128,106 +120,6 @@ export function MyInfo() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  전화번호
-                </div>
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4" />
-                  회사명
-                </div>
-              </label>
-              <input
-                type="text"
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  부서
-                </div>
-              </label>
-              <input
-                type="text"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  직급
-                </div>
-              </label>
-              <input
-                type="text"
-                value={formData.position}
-                onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                disabled={!isEditing}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 계정 정보 */}
-        <div className="pt-6 border-t border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">계정 정보</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p className="text-sm font-medium text-gray-900">가입일</p>
-                <p className="text-sm text-gray-600">
-                  {user?.joinDate
-                    ? new Date(user.joinDate).toLocaleDateString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })
-                    : '-'}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p className="text-sm font-medium text-gray-900">마지막 로그인</p>
-                <p className="text-sm text-gray-600">
-                  {user?.lastLogin
-                    ? new Date(user.lastLogin).toLocaleDateString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '-'}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

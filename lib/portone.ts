@@ -78,10 +78,13 @@ export interface PaymentRequest {
   orderName: string;
   amount: number;
   orderUid: string;
-  buyerName: string;
-  buyerEmail: string;
+  buyerName?: string;
+  buyerEmail?: string;
 }
 
+/**
+ * 일회성 결제 (카카오페이)
+ */
 export async function requestPayment(request: PaymentRequest): Promise<PaymentResult> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !window.IMP) {
@@ -105,7 +108,7 @@ export async function requestPayment(request: PaymentRequest): Promise<PaymentRe
         buyer_name: request.buyerName,
       },
       (response: any) => {
-        console.log('[PortOne] 결제 응답:', response);
+        console.log('[PortOne] 일회성 결제 응답:', response);
 
         if (response.success) {
           resolve({
@@ -126,8 +129,6 @@ export async function requestPayment(request: PaymentRequest): Promise<PaymentRe
 /**
  * 주문 고유번호 생성
  */
-export function generateOrderUid(prefix: string): string {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000);
-  return `${prefix}_${timestamp}_${random}`;
+export function generateOrderUid(prefix: string = 'ORDER'): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
