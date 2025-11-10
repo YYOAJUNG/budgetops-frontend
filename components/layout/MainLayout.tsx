@@ -25,7 +25,7 @@ export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
         </div>
 
         <div className={cn(
-          'flex-1 flex flex-col overflow-hidden ml-64',
+          'flex-1 flex flex-col overflow-hidden ml-16',
           TRANSITION_CLASS,
           aiChatOpen ? 'mr-96' : 'mr-0'
         )}>
