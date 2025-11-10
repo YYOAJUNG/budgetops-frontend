@@ -1,25 +1,18 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { DashboardPreview } from '@/components/landing/DashboardPreview';
 
 export default function LandingPage() {
-  const router = useRouter();
-  const { login, setToken } = useAuthStore();
-
   const handleGoogleLogin = () => {
-    // 요구사항: 구글 버튼 클릭 시 즉시 대시보드로 이동
-    // 대시보드 보호 라우트 통과를 위해 임시 토큰과 사용자 세션 설정
-    setToken('dev-mock-token');
-    login({
-      id: 'dev-user',
-      email: 'dev@budgetops.local',
-      name: 'Developer',
-      role: 'user',
-    });
-    router.push('/dashboard');
+    // 백엔드 OAuth 로그인 엔드포인트로 리다이렉트
+    // NEXT_PUBLIC_API_BASE_URL은 일반적으로 http://localhost:8080/api 형식
+    //const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+    
+    // /api/auth/google 경로로 리다이렉트
+    // apiBaseUrl이 이미 /api로 끝나므로 /auth/google만 추가
+    //window.location.href = `${apiBaseUrl}/auth/google`;
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE}/oauth2/authorization/google`;
   };
 
   return (

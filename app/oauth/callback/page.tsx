@@ -1,12 +1,12 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { getCurrentUser } from '@/lib/api/user';
 import { Loader2 } from 'lucide-react';
 
-function OAuthHandler() {
+export default function OAuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuthStore();
@@ -63,23 +63,12 @@ function OAuthHandler() {
     handleCallback();
   }, [searchParams, router, login]);
 
-  return null;
-}
-
-export default function OAuthCallback() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            <p className="text-gray-600">로그인 처리 중...</p>
-          </div>
-        </div>
-      }
-    >
-      <OAuthHandler />
-    </Suspense>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="text-gray-600">로그인 처리 중...</p>
+      </div>
+    </div>
   );
 }
-
