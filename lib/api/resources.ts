@@ -147,8 +147,20 @@ export async function getResources(): Promise<ResourceItem[]> {
     // 실제 EC2 데이터만 조회
     const ec2Instances = await getAllEc2Instances();
     const ec2Resources = ec2Instances.map(convertEc2ToResource);
-    
-    return ec2Resources;
+
+    // 요청된 더미 GCP 리소스 추가
+    const gcpDummy: ResourceItem = {
+      id: 'gcp-elated-bison-476314-f8-my-test-instance',
+      name: 'my-test-instance',
+      provider: 'GCP',
+      service: 'Compute Engine',
+      cost: 0,
+      region: 'us-central1',
+      updatedAt: '2025-11-10T10:32:11.857676Z',
+      status: 'running',
+    };
+
+    return [...ec2Resources, gcpDummy];
   } catch (error) {
     console.error('Failed to fetch resources:', error);
     // 에러 시 빈 배열 반환
