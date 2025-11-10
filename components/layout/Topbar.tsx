@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
 import { Sparkles } from '@mynaui/icons-react';
+import Link from 'next/link';
 
 // TODO: Replace with API call
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -53,6 +54,12 @@ export function Topbar() {
   return (
     <div className="flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
       <div className="flex items-center space-x-2">
+        <Link
+          href="/mypage?addCloudAccount=1#accounts"
+          className="px-3 py-2 text-sm rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+        >
+          클라우드 계정 연동
+        </Link>
         <button
           onClick={toggleAIChat}
           className="p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative"
