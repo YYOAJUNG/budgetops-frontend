@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
 import { ChevronDown, Clock, User } from 'lucide-react';
@@ -15,6 +16,7 @@ import { CopilotContent } from './preview/CopilotContent';
 type MenuType = 'dashboard' | 'accounts' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
 
 export function DashboardPreview() {
+  const router = useRouter();
   const [selectedTimeRange, setSelectedTimeRange] = useState('Last 30 Days');
   const [selectedMenu, setSelectedMenu] = useState<MenuType>('dashboard');
   const [clickCount, setClickCount] = useState(0);
