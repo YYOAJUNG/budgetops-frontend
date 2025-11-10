@@ -88,7 +88,7 @@ export function AIChatPanel() {
         aiChatOpen ? 'translate-x-0' : 'translate-x-full'
       )}
     >
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div>
           <h2 className="font-semibold text-gray-900">AI 어시스턴트</h2>
           <p className="text-xs text-gray-500">비용 관리 도우미</p>
