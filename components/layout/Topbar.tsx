@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { Menu } from 'lucide-react';
+import { Sparkles } from '@mynaui/icons-react';
 
 // TODO: Replace with API call
 const MOCK_NOTIFICATIONS: Notification[] = [
@@ -33,7 +33,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
 
 export function Topbar() {
   const { user } = useAuthStore();
-  const { sidebarOpen, setSidebarOpen } = useUIStore();
+  const { toggleAIChat, aiChatOpen } = useUIStore();
 
   // TODO: Replace with actual API calls
   const handleMarkAllRead = () => {
@@ -51,21 +51,18 @@ export function Topbar() {
   const unreadCount = MOCK_NOTIFICATIONS.filter(n => !n.isRead).length;
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 rounded-lg transition-colors hover:bg-slate-100"
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="h-6 w-6 text-slate-600" />
-        </button>
-        <span className="text-sm font-medium uppercase tracking-wide text-slate-500">
-          BudgetOps Console
-        </span>
-      </div>
-
+    <div className="flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
       <div className="flex items-center space-x-2">
+        <button
+          onClick={toggleAIChat}
+          className="p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative"
+          aria-label="AI 어시스턴트"
+        >
+          <Sparkles className="h-5 w-5 text-indigo-600 group-hover:scale-110 transition-transform" />
+          {!aiChatOpen && (
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+          )}
+        </button>
         <NotificationMenu
           notifications={MOCK_NOTIFICATIONS}
           unreadCount={unreadCount}

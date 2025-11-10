@@ -1,18 +1,18 @@
 import { create } from 'zustand';
 
 interface UIState {
-  sidebarOpen: boolean;
   sidebarCollapsed: boolean;
-  setSidebarOpen: (open: boolean) => void;
+  aiChatOpen: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  toggleSidebarCollapsed: () => void;
+  setAIChatOpen: (open: boolean) => void;
+  toggleAIChat: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  sidebarOpen: true,
-  sidebarCollapsed: false,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  sidebarCollapsed: true,
+  aiChatOpen: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  setAIChatOpen: (open) => set({ aiChatOpen: open }),
+  toggleAIChat: () => set((state) => ({ aiChatOpen: !state.aiChatOpen })),
 }));
 
