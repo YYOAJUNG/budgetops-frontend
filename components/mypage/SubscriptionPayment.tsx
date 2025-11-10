@@ -19,7 +19,7 @@ import {
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
 import { PurchaseTokenDialog } from './PurchaseTokenDialog';
-import { registerPaymentMethod } from '@/lib/portone';
+import { registerPaymentMethod, requestPayment, generateOrderUid } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
 
