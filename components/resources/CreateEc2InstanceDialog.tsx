@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createEc2Instance, CreateEc2InstanceRequest, AwsAccount } from '@/lib/api/aws';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Server, Cpu, Key, Shield, Network, MapPin, Info } from 'lucide-react';
 
 interface CreateEc2InstanceDialogProps {
   open: boolean;
@@ -114,118 +114,190 @@ export function CreateEc2InstanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>EC2 인스턴스 생성</DialogTitle>
-          <DialogDescription>
-            새로운 EC2 인스턴스를 생성합니다. 리전: {account.defaultRegion}
-          </DialogDescription>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Server className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-semibold text-slate-900">
+                EC2 인스턴스 생성
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 mt-1">
+                리전: <span className="font-medium text-slate-900">{account.defaultRegion}</span>
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">인스턴스 이름 *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="예: my-web-server"
-            />
+        <div className="px-6 py-6 space-y-6">
+          {/* 필수 항목 섹션 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+              <Info className="h-4 w-4 text-blue-600" />
+              <h3 className="text-sm font-semibold text-slate-900">필수 항목</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Server className="h-4 w-4 text-slate-500" />
+                  인스턴스 이름 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="예: my-web-server"
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="instanceType" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-slate-500" />
+                  인스턴스 타입 <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={formData.instanceType}
+                  onValueChange={(value) => setFormData({ ...formData, instanceType: value })}
+                >
+                  <SelectTrigger id="instanceType" className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INSTANCE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="imageId" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Server className="h-4 w-4 text-slate-500" />
+                AMI ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="imageId"
+                value={formData.imageId}
+                onChange={(e) => setFormData({ ...formData, imageId: e.target.value })}
+                placeholder="예: ami-0c55b159cbfafe1f0"
+                className="h-10"
+              />
+              {COMMON_AMIS[account.defaultRegion] && (
+                <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                  <Info className="h-3 w-3" />
+                  기본값: <span className="font-mono">{COMMON_AMIS[account.defaultRegion]}</span> (Amazon Linux 2)
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="instanceType">인스턴스 타입 *</Label>
-            <Select
-              value={formData.instanceType}
-              onValueChange={(value) => setFormData({ ...formData, instanceType: value })}
-            >
-              <SelectTrigger id="instanceType">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INSTANCE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* 선택 항목 섹션 */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+              <Info className="h-4 w-4 text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-700">선택 항목</h3>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="imageId">AMI ID *</Label>
-            <Input
-              id="imageId"
-              value={formData.imageId}
-              onChange={(e) => setFormData({ ...formData, imageId: e.target.value })}
-              placeholder="예: ami-0c55b159cbfafe1f0"
-            />
-            <p className="text-xs text-slate-500">
-              {COMMON_AMIS[account.defaultRegion]
-                ? `기본값: ${COMMON_AMIS[account.defaultRegion]} (Amazon Linux 2)`
-                : 'AMI ID를 입력해주세요.'}
-            </p>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="keyPairName" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Key className="h-4 w-4 text-slate-500" />
+                  키 페어 이름
+                </Label>
+                <Input
+                  id="keyPairName"
+                  value={formData.keyPairName}
+                  onChange={(e) => setFormData({ ...formData, keyPairName: e.target.value })}
+                  placeholder="예: my-key-pair"
+                  className="h-10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="keyPairName">키 페어 이름 (선택사항)</Label>
-            <Input
-              id="keyPairName"
-              value={formData.keyPairName}
-              onChange={(e) => setFormData({ ...formData, keyPairName: e.target.value })}
-              placeholder="예: my-key-pair"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="securityGroupId" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-slate-500" />
+                  보안 그룹 ID
+                </Label>
+                <Input
+                  id="securityGroupId"
+                  value={formData.securityGroupId}
+                  onChange={(e) => setFormData({ ...formData, securityGroupId: e.target.value })}
+                  placeholder="예: sg-12345678"
+                  className="h-10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="securityGroupId">보안 그룹 ID (선택사항)</Label>
-            <Input
-              id="securityGroupId"
-              value={formData.securityGroupId}
-              onChange={(e) => setFormData({ ...formData, securityGroupId: e.target.value })}
-              placeholder="예: sg-12345678"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="subnetId" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <Network className="h-4 w-4 text-slate-500" />
+                  서브넷 ID
+                </Label>
+                <Input
+                  id="subnetId"
+                  value={formData.subnetId}
+                  onChange={(e) => setFormData({ ...formData, subnetId: e.target.value })}
+                  placeholder="예: subnet-12345678"
+                  className="h-10"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="subnetId">서브넷 ID (선택사항)</Label>
-            <Input
-              id="subnetId"
-              value={formData.subnetId}
-              onChange={(e) => setFormData({ ...formData, subnetId: e.target.value })}
-              placeholder="예: subnet-12345678"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="availabilityZone">가용 영역 (선택사항)</Label>
-            <Input
-              id="availabilityZone"
-              value={formData.availabilityZone}
-              onChange={(e) => setFormData({ ...formData, availabilityZone: e.target.value })}
-              placeholder="예: ap-northeast-2a"
-            />
+              <div className="space-y-2">
+                <Label htmlFor="availabilityZone" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-slate-500" />
+                  가용 영역
+                </Label>
+                <Input
+                  id="availabilityZone"
+                  value={formData.availabilityZone}
+                  onChange={(e) => setFormData({ ...formData, availabilityZone: e.target.value })}
+                  placeholder="예: ap-northeast-2a"
+                  className="h-10"
+                />
+              </div>
+            </div>
           </div>
 
           {errorMsg && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-red-700">{errorMsg}</p>
+              <div>
+                <p className="text-sm font-medium text-red-900">오류 발생</p>
+                <p className="text-sm text-red-700 mt-1">{errorMsg}</p>
+              </div>
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+              className="min-w-[100px]"
+            >
               취소
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="min-w-[140px] bg-blue-600 hover:bg-blue-700 text-white"
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   생성 중...
                 </>
               ) : (
-                '인스턴스 생성'
+                <>
+                  <Server className="mr-2 h-4 w-4" />
+                  인스턴스 생성
+                </>
               )}
             </Button>
           </div>
