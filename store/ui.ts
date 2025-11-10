@@ -9,7 +9,7 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  sidebarCollapsed: true,
+  sidebarCollapsed: false,
   aiChatOpen: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setAIChatOpen: (open) => set({ aiChatOpen: open }),
