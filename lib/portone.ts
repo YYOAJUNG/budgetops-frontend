@@ -68,3 +68,62 @@ export async function registerPaymentMethod(
     );
   });
 }
+
+export interface PaymentRequest {
+  orderName: string;
+  amount: number;
+  orderUid: string;
+  buyerName?: string;
+  buyerEmail?: string;
+}
+
+/**
+ * 일회성 결제 (카카오페이)
+ */
+export async function requestPayment(request: PaymentRequest): Promise<PaymentResult> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.IMP) {
+      resolve({
+        success: false,
+        errorMsg: 'PortOne SDK가 로드되지 않았습니다.',
+      });
+      return;
+    }
+
+    window.IMP.init(STORE_ID);
+
+    window.IMP.request_pay(
+      {
+        pg: 'kakaopay',
+        pay_method: 'card',
+        merchant_uid: request.orderUid,
+        name: request.orderName,
+        amount: request.amount,
+        buyer_email: request.buyerEmail,
+        buyer_name: request.buyerName,
+      },
+      (response: any) => {
+        console.log('[PortOne] 일회성 결제 응답:', response);
+
+        if (response.success) {
+          resolve({
+            success: true,
+            impUid: response.imp_uid,
+          });
+        } else {
+          resolve({
+            success: false,
+            errorMsg: response.error_msg || '결제에 실패했습니다.',
+          });
+        }
+      }
+    );
+  });
+}
+
+/**
+ * 주문 번호 생성
+ */
+export function generateOrderUid(prefix: string = 'ORDER'): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+}
