@@ -18,8 +18,8 @@ export interface User {
 // Mock 사용자 데이터 (개발/테스트용)
 export const mockUser: User = {
   id: '1',
-  name: '김땡땡',
-  email: 'user@example.com',
+  name: '조예진',
+  email: 'whdpwls@ajou.ac.kr',
   company: 'BudgetOps',
   phone: '010-1234-5678',
   department: '개발팀',
