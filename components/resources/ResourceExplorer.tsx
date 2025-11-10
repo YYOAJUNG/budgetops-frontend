@@ -21,10 +21,17 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
-import { getAllEc2Instances, AwsEc2Instance, getAwsAccounts } from '@/lib/api/aws';
-import { FreeTierCard } from './FreeTierCard';
+import { 
+  getAllEc2Instances, 
+  AwsEc2Instance, 
+  getAwsAccounts,
+  stopEc2Instance,
+  startEc2Instance,
+  terminateEc2Instance,
+} from '@/lib/api/aws';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
-import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity } from 'lucide-react';
+import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
+import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, Play, Square, Trash2, Plus } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -124,9 +131,36 @@ export function ResourceExplorer() {
     }
   };
 
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
   return (
     <div className="space-y-6">
-      <FreeTierCard />
+      {hasAwsAccounts && awsAccounts && awsAccounts.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            EC2 인스턴스 생성
+          </Button>
+        </div>
+      )}
+
+      {hasAwsAccounts && awsAccounts && awsAccounts.length > 0 && (
+        <CreateEc2InstanceDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          accountId={awsAccounts.find(acc => acc.active)?.id || awsAccounts[0].id}
+          account={awsAccounts.find(acc => acc.active) || awsAccounts[0]}
+          onSuccess={async () => {
+            await refetch();
+            await refetchEc2();
+            queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+            queryClient.invalidateQueries({ queryKey: ['resources'] });
+          }}
+        />
+      )}
 
       <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
@@ -349,7 +383,61 @@ function ResourceCard({
   region?: string;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
+  const [isOperating, setIsOperating] = useState(false);
+  const queryClient = useQueryClient();
   const isEc2 = resource.service === 'EC2' && ec2Instance;
+  
+  const handleStop = async () => {
+    if (!accountId || !ec2Instance) return;
+    if (!confirm(`${ec2Instance.name || ec2Instance.instanceId} 인스턴스를 정지하시겠습니까?`)) {
+      return;
+    }
+    setIsOperating(true);
+    try {
+      await stopEc2Instance(accountId, ec2Instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    } catch (error: any) {
+      console.error('인스턴스 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 정지 중 오류가 발생했습니다.');
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
+  const handleStart = async () => {
+    if (!accountId || !ec2Instance) return;
+    setIsOperating(true);
+    try {
+      await startEc2Instance(accountId, ec2Instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    } catch (error: any) {
+      console.error('인스턴스 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 시작 중 오류가 발생했습니다.');
+    } finally {
+      setIsOperating(false);
+    }
+  };
+
+  const handleTerminate = async () => {
+    if (!accountId || !ec2Instance) return;
+    const instanceName = ec2Instance.name || ec2Instance.instanceId;
+    if (!confirm(`${instanceName} 인스턴스를 삭제하시겠습니까?\n\n삭제된 인스턴스는 복구할 수 없습니다.`)) {
+      return;
+    }
+    setIsOperating(true);
+    try {
+      await terminateEc2Instance(accountId, ec2Instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    } catch (error: any) {
+      console.error('인스턴스 삭제 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsOperating(false);
+    }
+  };
 
   return (
     <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -422,7 +510,7 @@ function ResourceCard({
           <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
         </div>
         {isEc2 && accountId && (
-          <div className="pt-3 border-t border-slate-200">
+          <div className="pt-3 border-t border-slate-200 space-y-2">
             <Button
               variant="outline"
               size="sm"
@@ -432,6 +520,41 @@ function ResourceCard({
               <Activity className="mr-2 h-4 w-4" />
               메트릭 보기
             </Button>
+            <div className="grid grid-cols-2 gap-2">
+              {ec2Instance.state === 'running' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStop}
+                  disabled={isOperating}
+                  className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                >
+                  <Square className="mr-2 h-4 w-4" />
+                  정지
+                </Button>
+              ) : ec2Instance.state === 'stopped' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleStart}
+                  disabled={isOperating}
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  시작
+                </Button>
+              ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTerminate}
+                disabled={isOperating}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                삭제
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

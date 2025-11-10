@@ -11,6 +11,19 @@ export interface AwsEc2Instance {
   launchTime: string;
 }
 
+export interface CreateEc2InstanceRequest {
+  name: string;
+  instanceType: string;
+  imageId: string;
+  keyPairName?: string;
+  securityGroupId?: string;
+  subnetId?: string;
+  availabilityZone?: string;
+  userData?: string;
+  minCount?: number;
+  maxCount?: number;
+}
+
 export interface AwsAccount {
   id: number;
   name: string;
@@ -147,5 +160,80 @@ export async function getEc2InstanceMetrics(
     { params }
   );
   return data;
+}
+
+/**
+ * EC2 인스턴스 생성
+ * @param accountId AWS 계정 ID
+ * @param request 인스턴스 생성 요청
+ * @param region 리전 (선택사항)
+ */
+export async function createEc2Instance(
+  accountId: number,
+  request: CreateEc2InstanceRequest,
+  region?: string
+): Promise<AwsEc2Instance> {
+  const params = region ? { region } : {};
+  const { data } = await api.post<AwsEc2Instance>(
+    `/aws/accounts/${accountId}/ec2/instances`,
+    request,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * EC2 인스턴스 정지
+ * @param accountId AWS 계정 ID
+ * @param instanceId EC2 인스턴스 ID
+ * @param region 리전 (선택사항)
+ */
+export async function stopEc2Instance(
+  accountId: number,
+  instanceId: string,
+  region?: string
+): Promise<AwsEc2Instance> {
+  const params = region ? { region } : {};
+  const { data } = await api.post<AwsEc2Instance>(
+    `/aws/accounts/${accountId}/ec2/instances/${instanceId}/stop`,
+    {},
+    { params }
+  );
+  return data;
+}
+
+/**
+ * EC2 인스턴스 시작
+ * @param accountId AWS 계정 ID
+ * @param instanceId EC2 인스턴스 ID
+ * @param region 리전 (선택사항)
+ */
+export async function startEc2Instance(
+  accountId: number,
+  instanceId: string,
+  region?: string
+): Promise<AwsEc2Instance> {
+  const params = region ? { region } : {};
+  const { data } = await api.post<AwsEc2Instance>(
+    `/aws/accounts/${accountId}/ec2/instances/${instanceId}/start`,
+    {},
+    { params }
+  );
+  return data;
+}
+
+/**
+ * EC2 인스턴스 삭제 (종료)
+ * @param accountId AWS 계정 ID
+ * @param instanceId EC2 인스턴스 ID
+ * @param region 리전 (선택사항)
+ */
+export async function terminateEc2Instance(
+  accountId: number,
+  instanceId: string,
+  region?: string
+): Promise<void> {
+  const params = region ? { region } : {};
+  await api.delete(`/aws/accounts/${accountId}/ec2/instances/${instanceId}`, { params });
 }
 
