@@ -88,14 +88,6 @@ export async function getEc2Instance(
 }
 
 /**
- * AWS 계정 삭제 (비활성화)
- * @param accountId AWS 계정 ID
- */
-export async function deleteAwsAccount(accountId: number): Promise<void> {
-  await api.delete(`/aws/accounts/${accountId}`);
-}
-
-/**
  * 모든 AWS 계정의 EC2 인스턴스를 조회
  */
 export async function getAllEc2Instances(): Promise<AwsEc2Instance[]> {
