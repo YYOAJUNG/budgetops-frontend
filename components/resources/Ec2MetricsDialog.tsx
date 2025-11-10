@@ -131,8 +131,8 @@ export function Ec2MetricsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
-        <DialogHeader className="pb-4 border-b">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between">
             <div>
               <DialogTitle className="text-2xl font-bold text-slate-900 mb-1">
@@ -157,7 +157,7 @@ export function Ec2MetricsDialog({
           </div>
         </DialogHeader>
 
-        <div className="space-y-6 mt-6">
+        <div className="space-y-6 px-6 py-6">
           {/* 시간 범위 선택 */}
           <div className="flex items-center gap-3">
             <label className="text-sm font-medium text-slate-700">조회 기간:</label>
@@ -480,21 +480,7 @@ export function Ec2MetricsDialog({
                     )}
                   </CardContent>
                 </Card>
-              ) : (
-                <Card className="border-amber-200 bg-amber-50/50">
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-amber-900 mb-1">메모리 메트릭 정보</p>
-                        <p className="text-sm text-amber-800">
-                          메모리 사용률 메트릭을 보려면 EC2 인스턴스에 CloudWatch Agent가 설치되어 있어야 합니다.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              ) : null}
             </div>
           )}
         </div>
