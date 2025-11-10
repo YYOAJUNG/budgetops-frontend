@@ -189,7 +189,7 @@ export function CloudAccountConnection() {
                       className="border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />
-                      {deletingAccountId === account.id && '삭제 중...'}
+                      {deletingAccountId === account.id && <span className="ml-1">삭제 중...</span>}
                     </Button>
                   </div>
                 </div>

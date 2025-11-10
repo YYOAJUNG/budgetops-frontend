@@ -44,6 +44,14 @@ export async function createAwsAccount(payload: CreateAwsAccountRequest): Promis
 }
 
 /**
+ * AWS 계정 삭제 (비활성화)
+ * @param accountId AWS 계정 ID
+ */
+export async function deleteAwsAccount(accountId: number): Promise<void> {
+  await api.delete(`/aws/accounts/${accountId}`);
+}
+
+/**
  * 특정 AWS 계정의 EC2 인스턴스 목록 조회
  * @param accountId AWS 계정 ID
  * @param region 리전 (선택사항)
