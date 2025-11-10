@@ -176,7 +176,10 @@ export function DashboardPreview() {
             </div>
 
             <Button
-              onClick={() => window.location.href = '${process.env.NEXT_PUBLIC_API_BASE}/oauth2/authorization/google'}
+              onClick={() => {
+                const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080';
+                window.location.href = `${apiBase}/oauth2/authorization/google`;
+              }}
               size="lg"
               className="w-full bg-white hover:bg-gray-50 text-gray-900 text-base font-medium py-6 border border-gray-300 shadow-sm"
             >
