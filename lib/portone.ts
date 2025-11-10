@@ -17,6 +17,7 @@ declare global {
 export interface PaymentResult {
   success: boolean;
   impUid?: string;
+  customerUid?: string;
   errorMsg?: string;
 }
 
@@ -57,6 +58,7 @@ export async function registerPaymentMethod(
           resolve({
             success: true,
             impUid: response.imp_uid,
+            customerUid: customerUid,
           });
         } else {
           resolve({
@@ -69,6 +71,9 @@ export async function registerPaymentMethod(
   });
 }
 
+/**
+ * 실제 결제 진행 (토큰 구매용)
+ */
 export interface PaymentRequest {
   orderName: string;
   amount: number;
@@ -122,7 +127,7 @@ export async function requestPayment(request: PaymentRequest): Promise<PaymentRe
 }
 
 /**
- * 주문 번호 생성
+ * 주문 고유번호 생성
  */
 export function generateOrderUid(prefix: string = 'ORDER'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
