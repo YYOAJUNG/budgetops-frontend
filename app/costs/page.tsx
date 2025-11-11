@@ -17,20 +17,32 @@ export default function CostsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">비용 관리</h1>
-          <p className="text-gray-600 mt-1">클라우드 비용을 분석하고 최적화하세요</p>
+      <div className="space-y-8 max-w-7xl mx-auto">
+        {/* 페이지 헤더 */}
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-gray-900">비용 관리</h1>
+          <p className="text-gray-600 text-base">클라우드 비용을 분석하고 최적화하세요</p>
         </div>
 
         {/* 추천 액션 카드 */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">추천 액션</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">추천 액션</h2>
+              <p className="text-sm text-gray-500 mt-1">실제 리소스 기반 최적화 제안</p>
+            </div>
+          </div>
           <RecommendationCards resourceIds={resourceIds} />
         </div>
 
         {/* 비용 요약 */}
-        <CostsSummary />
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">비용 요약</h2>
+            <p className="text-sm text-gray-500 mt-1">기간별 비용 현황 및 분석</p>
+          </div>
+          <CostsSummary />
+        </div>
       </div>
     </MainLayout>
   );

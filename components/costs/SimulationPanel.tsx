@@ -79,52 +79,62 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <div>
-            <CardTitle>시뮬레이션 실행</CardTitle>
-            <CardDescription>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
+        <CardHeader className="flex flex-row items-start justify-between pb-5 border-b border-gray-100">
+          <div className="space-y-1">
+            <CardTitle className="text-xl font-semibold text-gray-900">시뮬레이션 실행</CardTitle>
+            <CardDescription className="text-sm text-gray-600">
               {actionType === 'offhours' && 'Off-hours 스케줄링 시뮬레이션'}
               {actionType === 'commitment' && 'Commitment 최적화 시뮬레이션'}
               {actionType === 'storage' && 'Storage 수명주기 시뮬레이션'}
             </CardDescription>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+          >
+            <X className="h-5 w-5" />
           </Button>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           {/* 파라미터 입력 */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">시뮬레이션 파라미터</h3>
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 mb-1">시뮬레이션 파라미터</h3>
+              <p className="text-sm text-gray-500">최적화 시나리오를 위한 설정을 입력하세요</p>
+            </div>
 
             {actionType === 'offhours' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>중단 시간</Label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">중단 시간</Label>
                   <Input
                     type="time"
                     value={params?.stopAt}
                     onChange={(e) => setParams({ ...params, stopAt: e.target.value })}
+                    className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <Label>재시작 시간</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">재시작 시간</Label>
                   <Input
                     type="time"
                     value={params?.startAt}
                     onChange={(e) => setParams({ ...params, startAt: e.target.value })}
+                    className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <Label>요일</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">요일</Label>
                   <Select
                     value={params?.weekdays?.[0] || 'Mon-Fri'}
                     onValueChange={(value) => setParams({ ...params, weekdays: [value] })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -133,25 +143,26 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>타임존</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">타임존</Label>
                   <Input
                     value={params?.timezone || 'Asia/Seoul'}
                     onChange={(e) => setParams({ ...params, timezone: e.target.value })}
+                    className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
               </div>
             )}
 
             {actionType === 'commitment' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>커밋 레벨</Label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">커밋 레벨</Label>
                   <Select
                     value={String(params?.commitLevel || 0.7)}
                     onValueChange={(value) => setParams({ ...params, commitLevel: parseFloat(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -161,13 +172,13 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>약정 기간 (년)</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">약정 기간 (년)</Label>
                   <Select
                     value={String(params?.commitYears || 1)}
                     onValueChange={(value) => setParams({ ...params, commitYears: parseInt(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -180,14 +191,14 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
             )}
 
             {actionType === 'storage' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>목표 스토리지 클래스</Label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">목표 스토리지 클래스</Label>
                   <Select
                     value={params?.targetTier || 'Cold'}
                     onValueChange={(value) => setParams({ ...params, targetTier: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -196,13 +207,13 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>보존 기간 (일)</Label>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">보존 기간 (일)</Label>
                   <Select
                     value={String(params?.retentionDays || 90)}
                     onValueChange={(value) => setParams({ ...params, retentionDays: parseInt(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
