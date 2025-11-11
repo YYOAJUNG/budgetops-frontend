@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { Clock, DollarSign, Archive, X } from 'lucide-react';
 import { useState } from 'react';
-import { SimulateRequest, SimulationResult, simulate, getRecommendations, RecommendationResponse } from '@/lib/api/simulator';
+import { SimulationResult, getRecommendations, RecommendationResponse } from '@/lib/api/simulator';
 import { useQuery } from '@tanstack/react-query';
-import { SimulationPanel } from './SimulationPanel';
 
 interface RecommendationCardProps {
   title: string;
@@ -16,6 +15,7 @@ interface RecommendationCardProps {
   actionType: 'offhours' | 'commitment' | 'storage';
   resourceIds: string[];
   icon: React.ReactNode;
+  scenario?: SimulationResult; // 추천 응답에 포함된 시나리오 정보
 }
 
 function RecommendationCard({
@@ -25,38 +25,12 @@ function RecommendationCard({
   actionType,
   resourceIds,
   icon,
+  scenario,
 }: RecommendationCardProps) {
   const [showDetails, setShowDetails] = useState(false);
-  const [showSimulationPanel, setShowSimulationPanel] = useState(false);
-  const [simulationResults, setSimulationResults] = useState<SimulationResult[]>([]);
 
-  const { isLoading, refetch, data: simulationData } = useQuery({
-    queryKey: ['simulation-details', actionType, resourceIds],
-    queryFn: async () => {
-      const request: SimulateRequest = {
-        resourceIds,
-        action: actionType,
-      };
-      const response = await simulate(request);
-      return response;
-    },
-    enabled: false, // 수동 실행
-  });
-
-  const handleViewDetails = async () => {
-    setShowDetails(true);
-    try {
-      const result = await refetch();
-      if (result.data) {
-        setSimulationResults(result.data.scenarios);
-      }
-    } catch (error) {
-      console.error('시뮬레이션 조회 실패:', error);
-    }
-  };
-
-  const handleSimulate = () => {
-    setShowSimulationPanel(true);
+  const handleViewDetails = () => {
+    setShowDetails(!showDetails);
   };
 
   return (
@@ -87,31 +61,46 @@ function RecommendationCard({
             </p>
           </div>
 
-          {showDetails && isLoading && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 py-3">
-              <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-              <span>시뮬레이션 실행 중...</span>
-            </div>
-          )}
-
-          {showDetails && !isLoading && simulationResults.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <p className="text-sm font-semibold text-gray-700 mb-2">시나리오 결과</p>
-              {simulationResults.slice(0, 3).map((result, idx) => (
-                <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <p className="font-medium text-sm text-gray-900 mb-1">{result.scenarioName}</p>
-                  <p className="text-xs text-gray-600 mb-2 leading-relaxed">{result.description}</p>
-                  <p className="text-xs font-semibold text-blue-600">
-                    절감액: {formatCurrency(result.savings, 'KRW')}
-                  </p>
+          {showDetails && scenario && (
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <p className="text-sm font-semibold text-gray-900 mb-2">최적화 근거</p>
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="font-medium text-sm text-gray-900 mb-1">{scenario.scenarioName}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">
+                        {scenario.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-blue-200">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">현재 비용</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(scenario.currentCost, 'KRW')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">변경 후 비용</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(scenario.newCost, 'KRW')}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-500 mb-1">예상 절감액</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        {formatCurrency(scenario.savings, 'KRW')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-xs text-gray-500 pt-2">
+                    <span>리스크: {(scenario.riskScore * 100).toFixed(1)}%</span>
+                    <span>우선순위: {scenario.priorityScore.toFixed(0)}</span>
+                    <span>확신도: {(scenario.confidence * 100).toFixed(1)}%</span>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {showDetails && !isLoading && simulationResults.length === 0 && (
-            <div className="text-sm text-gray-500 py-3">
-              시뮬레이션 결과가 없습니다.
+              </div>
             </div>
           )}
 
@@ -120,30 +109,14 @@ function RecommendationCard({
               variant="outline"
               size="sm"
               onClick={handleViewDetails}
-              disabled={isLoading}
-              className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
             >
-              근거 보기
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSimulate}
-              className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-            >
-              시뮬레이션
+              {showDetails ? '근거 숨기기' : '근거 보기'}
             </Button>
           </div>
         </div>
       </CardContent>
 
-      {showSimulationPanel && (
-        <SimulationPanel
-          resourceIds={resourceIds}
-          actionType={actionType}
-          onClose={() => setShowSimulationPanel(false)}
-        />
-      )}
     </Card>
   );
 }
@@ -237,6 +210,7 @@ export function RecommendationCards({ resourceIds }: RecommendationCardsProps) {
           actionType={rec.actionType as 'offhours' | 'commitment' | 'storage'}
           resourceIds={resourceIds}
           icon={getActionIcon(rec.actionType)}
+          scenario={rec.scenario}
         />
       ))}
     </div>
