@@ -98,7 +98,7 @@ import { Button } from '@/components/ui/button';
 import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
 import { useContextStore } from '@/store/context';
 import { formatCurrency } from '@/lib/utils';
-import { DollarSign, Target, AlertTriangle, Lightbulb, Plus, Cloud, Bot, AlertCircle } from 'lucide-react';
+import { DollarSign, Target, AlertTriangle, Lightbulb, Cloud, Bot, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { useRouter } from 'next/navigation';
@@ -232,46 +232,20 @@ export function Dashboard() {
       </div>
 
       {/* 빠른 작업 */}
-      <Card className={`shadow-lg border-0 bg-white ${!hasCloudAccounts ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}>
+      <Card className="shadow-lg border-0 bg-white">
         <CardHeader className="pb-4">
           <CardTitle className="text-xl font-semibold text-gray-900">빠른 작업</CardTitle>
-          <CardDescription className="text-gray-600">
-            자주 사용하는 기능에 빠르게 접근하세요
-          </CardDescription>
+          <CardDescription className="text-gray-600">자주 사용하는 기능에 빠르게 접근하세요</CardDescription>
         </CardHeader>
         <CardContent>
-          {!hasCloudAccounts && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900 mb-1">
-                  클라우드 계정을 먼저 연결하세요
-                </p>
-                <p className="text-sm text-blue-700">
-                  비용 분석과 예산 관리를 시작하려면 클라우드 계정 연결이 필요합니다.
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             <Button
-              variant={!hasCloudAccounts ? "default" : "outline"}
-              className={
-                !hasCloudAccounts
-                  ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-lg animate-pulse"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-              }
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
               onClick={() => router.push('/mypage?addCloudAccount=1')}
             >
               <Cloud className="mr-2 h-4 w-4" />
               계정 연결
-            </Button>
-            <Button
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              예산 만들기
             </Button>
             <Button
               variant="outline"
