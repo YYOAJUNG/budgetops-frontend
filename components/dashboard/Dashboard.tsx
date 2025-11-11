@@ -165,6 +165,14 @@ export function Dashboard() {
   const costChange =
     previousMonthCost > 0 ? ((currentMonthCost - previousMonthCost) / previousMonthCost) * 100 : 0;
 
+  // 이번 달 총 비용에 AWS 비용도 포함 (AWS 비용이 있으면 추가)
+  const totalCurrentMonthCost = useMemo(() => {
+    // costSeries의 마지막 값과 AWS 비용을 합산
+    // AWS 비용은 최근 30일 기준이므로, 이번 달 비용으로 정확히 매핑하려면 월별 비용 조회가 필요하지만
+    // 일단 현재는 costSeries의 값과 AWS 비용을 합산
+    return currentMonthCost + totalAwsCost;
+  }, [currentMonthCost, totalAwsCost]);
+
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
     0
@@ -199,7 +207,7 @@ export function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="이번 달 총 비용"
-          value={formatCurrency(currentMonthCost, currency)}
+          value={formatCurrency(totalCurrentMonthCost, currency)}
           change={{
             value: costChange,
             label: '전월 대비',
