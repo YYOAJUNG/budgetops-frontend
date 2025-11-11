@@ -291,7 +291,7 @@ export function Dashboard() {
               </CardContent>
             </Card>
           ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
-            totalAwsCost > 0 ? (
+            totalAwsCostUsd > 0 ? (
               <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
