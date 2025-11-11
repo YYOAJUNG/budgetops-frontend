@@ -34,11 +34,11 @@ const MessageBubble = ({ message }: { message: Message }) => {
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[80%] rounded-2xl px-4 py-2 shadow-sm',
+          'max-w-[85%] rounded-2xl px-4 py-2 shadow-sm',
           isUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         <p className={cn('text-xs mt-1', isUser ? 'text-indigo-200' : 'text-gray-500')}>
           {formatTime(message.timestamp)}
         </p>
@@ -172,66 +172,110 @@ export function AIChatPanel() {
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
+        {isSending && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl px-4 py-2 shadow-sm bg-gray-100 text-gray-600">
+              <p className="text-sm">답변 생성중입니다...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
-        {/* 서비스 선택 버튼 */}
+        {/* 프롬프트 추천 버튼 */}
         {activeAccounts.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => {
-                setShowServiceSelector(!showServiceSelector);
-                if (!showServiceSelector) {
-                  const costMessage = `최근 30일 전체 AWS 비용이 $${totalCost.toFixed(2)} USD입니다. 비용 절감 방안을 알려주세요.`;
-                  setInput(costMessage);
-                }
-              }}
-              className={cn(
-                "px-3 py-1.5 text-xs rounded-lg border transition-colors",
-                showServiceSelector
-                  ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-              )}
-            >
-              💰 전체 비용 분석
-            </button>
-            <button
-              onClick={() => {
-                setSelectedService('ec2');
-                setShowServiceSelector(false);
-                const ec2Message = `EC2 인스턴스 최적화 방안을 알려주세요.`;
-                setInput(ec2Message);
-              }}
-              className="px-3 py-1.5 text-xs rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              🖥️ EC2 최적화
-            </button>
-            {accountCosts && accountCosts.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-700">프롬프트 추천</div>
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => {
-                  setSelectedService('cost');
-                  setShowServiceSelector(false);
-                  const accountList = accountCosts.map(ac => `${ac.accountName}: $${ac.totalCost.toFixed(2)}`).join(', ');
-                  const costMessage = `계정별 비용을 분석해주세요. ${accountList}`;
-                  setInput(costMessage);
+                  setShowServiceSelector(!showServiceSelector);
+                  if (!showServiceSelector) {
+                    const costMessage = `최근 30일 전체 AWS 비용이 $${totalCost.toFixed(2)} USD입니다. 비용 절감 방안을 알려주세요.`;
+                    setInput(costMessage);
+                  }
                 }}
-                className="px-3 py-1.5 text-xs rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className={cn(
+                  "px-3 py-2 text-sm rounded-lg border transition-colors",
+                  showServiceSelector
+                    ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                )}
               >
-                📊 계정별 분석
+                전체 비용 분석
               </button>
-            )}
+              <button
+                onClick={() => {
+                  setSelectedService('ec2');
+                  setShowServiceSelector(false);
+                  const ec2Message = `EC2 인스턴스 최적화 방안을 알려주세요.`;
+                  setInput(ec2Message);
+                }}
+                className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                EC2 최적화
+              </button>
+              {accountCosts && accountCosts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService('cost');
+                    setShowServiceSelector(false);
+                    const accountList = accountCosts.map(ac => `${ac.accountName}: $${ac.totalCost.toFixed(2)}`).join(', ');
+                    const costMessage = `계정별 비용을 분석해주세요. ${accountList}`;
+                    setInput(costMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  계정별 분석
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* 비용 정보 미리보기 */}
+        {/* 유저 정보 */}
         {activeAccounts.length > 0 && accountCosts && (
-          <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs">
-            <div className="font-semibold text-blue-900 mb-1">💡 빠른 정보</div>
-            <div className="text-blue-700 space-y-0.5">
+          <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="font-semibold text-blue-900 mb-2 text-sm">유저 정보</div>
+            <div className="text-blue-700 space-y-1 text-sm">
               <div>전체 비용 (30일): <span className="font-semibold">${totalCost.toFixed(2)}</span></div>
               {accountCosts.length > 0 && (
                 <div>활성 계정: <span className="font-semibold">{activeAccounts.length}개</span></div>
               )}
+            </div>
+            
+            {/* 상위 서비스 3개 선택 */}
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <div className="text-xs font-medium text-blue-900 mb-2">서비스 선택</div>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    const ec2Message = `EC2 서비스 최적화 방안을 알려주세요.`;
+                    setInput(ec2Message);
+                  }}
+                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  EC2
+                </button>
+                <button
+                  onClick={() => {
+                    const s3Message = `S3 서비스 최적화 방안을 알려주세요.`;
+                    setInput(s3Message);
+                  }}
+                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  S3
+                </button>
+                <button
+                  onClick={() => {
+                    const rdsMessage = `RDS 서비스 최적화 방안을 알려주세요.`;
+                    setInput(rdsMessage);
+                  }}
+                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  RDS
+                </button>
+              </div>
             </div>
           </div>
         )}
