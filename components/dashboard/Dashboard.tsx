@@ -275,53 +275,72 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* AWS 계정별 비용 */}
+      {/* CSP별 비용 카드 */}
       {hasCloudAccounts && (
-        <Card className="shadow-lg border-0 bg-white">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl font-semibold text-gray-900">AWS 계정별 비용</CardTitle>
-            <CardDescription className="text-gray-600">
-              연결된 AWS 계정의 비용을 확인하세요
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingCosts ? (
-              <div className="text-center py-8 text-gray-600">비용 데이터를 불러오는 중...</div>
-            ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {awsAccountCosts.map((account: AccountCost) => (
-                    <div
-                      key={account.accountId}
-                      className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">{account.accountName}</h3>
-                        <Cloud className="h-5 w-5 text-orange-500" />
-                      </div>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(account.totalCost, currency)}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">최근 30일 비용</p>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">클라우드 서비스별 비용</h3>
+            <p className="text-sm text-gray-600">최근 30일간의 비용을 확인하세요</p>
+          </div>
+          
+          {isLoadingCosts ? (
+            <Card className="shadow-lg border-0 bg-white">
+              <CardContent className="py-8">
+                <div className="text-center text-gray-600">비용 데이터를 불러오는 중...</div>
+              </CardContent>
+            </Card>
+          ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
+            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Cloud className="h-6 w-6 text-orange-600" />
                     </div>
-                  ))}
-                </div>
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-gray-900">총 AWS 비용</span>
-                    <span className="text-2xl font-bold text-blue-600">
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
+                      <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                    <p className="text-2xl font-bold text-orange-600">
                       {formatCurrency(totalAwsCost, currency)}
-                    </span>
+                    </p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-600">
-                비용 데이터가 없습니다. AWS Cost Explorer가 활성화되어 있는지 확인하세요.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                
+                {awsAccountCosts.length > 1 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {awsAccountCosts.map((account: AccountCost) => (
+                        <div
+                          key={account.accountId}
+                          className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-700 mb-1">
+                            {account.accountName}
+                          </p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {formatCurrency(account.totalCost, currency)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="shadow-lg border-0 bg-white">
+              <CardContent className="py-8">
+                <div className="text-center text-gray-600">
+                  비용 데이터가 없습니다. AWS Cost Explorer가 활성화되어 있는지 확인하세요.
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
