@@ -6,7 +6,7 @@ const getApiBaseUrl = () => {
   const apiBase = 
     process.env.NEXT_PUBLIC_API_BASE_URL || 
     process.env.NEXT_PUBLIC_API_BASE || 
-    'http://localhost:8080';
+    'https://api.budgetops.work';
   
   // /api가 이미 포함되어 있지 않으면 추가
   return apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`;
@@ -46,11 +46,6 @@ api.interceptors.request.use(
           baseURL: config.baseURL,
         });
       }
-    }
-
-    // Mock 모드인 경우 로그 출력
-    if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
-      console.log('[MOCK] API Request:', config.url);
     }
 
     return config;

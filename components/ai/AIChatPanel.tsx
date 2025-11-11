@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useUIStore } from '@/store/ui';
 import { X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api/client';
+import { getAwsAccounts, getAllAwsAccountsCosts, AwsAccount } from '@/lib/api/aws';
+import { useQuery } from '@tanstack/react-query';
 
 const TRANSITION_CLASS = 'transition-transform duration-300 ease-in-out';
 
@@ -31,11 +34,11 @@ const MessageBubble = ({ message }: { message: Message }) => {
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[80%] rounded-2xl px-4 py-2 shadow-sm',
+          'max-w-[85%] rounded-2xl px-4 py-2 shadow-sm',
           isUser ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         <p className={cn('text-xs mt-1', isUser ? 'text-indigo-200' : 'text-gray-500')}>
           {formatTime(message.timestamp)}
         </p>
@@ -48,9 +51,48 @@ export function AIChatPanel() {
   const { aiChatOpen, setAIChatOpen } = useUIStore();
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | null>(null);
+  const [showServiceSelector, setShowServiceSelector] = useState(false);
 
-  const handleSend = useCallback(() => {
+  // AWS 계정 및 비용 정보 조회
+  const { data: awsAccounts } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+  });
+
+  const activeAccounts = useMemo(() => {
+    return (awsAccounts || []).filter((account: AwsAccount) => account.active === true);
+  }, [awsAccounts]);
+
+  const endDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    return date.toISOString().split('T')[0];
+  }, []);
+
+  const startDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  }, []);
+
+  const { data: accountCosts } = useQuery({
+    queryKey: ['awsAccountCosts', startDate, endDate],
+    queryFn: () => getAllAwsAccountsCosts(startDate, endDate),
+    enabled: activeAccounts.length > 0,
+    retry: 1,
+  });
+
+  const totalCost = useMemo(() => {
+    if (!accountCosts) return 0;
+    return accountCosts.reduce((sum, account) => sum + account.totalCost, 0);
+  }, [accountCosts]);
+
+  const handleSend = useCallback(async () => {
     if (!input.trim()) return;
+    if (isSending) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -62,17 +104,42 @@ export function AIChatPanel() {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
 
-    // TODO: AI API 호출
-    setTimeout(() => {
+    try {
+      setIsSending(true);
+      const res = await api.post('/ai/chat', {
+        message: userMessage.content,
+        session_id: sessionId ?? undefined,
+      });
+
+      const aiText: string = res.data?.response ?? '응답을 가져오지 못했습니다.';
+      const returnedSessionId: string | undefined = res.data?.session_id;
+      if (returnedSessionId && !sessionId) {
+        setSessionId(returnedSessionId);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '죄송합니다. AI 기능은 현재 개발 중입니다.',
+        content: aiText,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
-    }, 500);
-  }, [input]);
+    } catch (error: any) {
+      const errorText =
+        error?.response?.data?.detail ||
+        error?.message ||
+        '요청 처리 중 오류가 발생했습니다.';
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `오류: ${errorText}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [input, sessionId, isSending]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -105,9 +172,80 @@ export function AIChatPanel() {
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
+        {isSending && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl px-4 py-2 shadow-sm bg-gray-100 text-gray-600">
+              <p className="text-sm">답변 생성중입니다...</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
+        {/* 프롬프트 추천 버튼 */}
+        {activeAccounts.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-gray-700">프롬프트 추천</div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  setShowServiceSelector(!showServiceSelector);
+                  if (!showServiceSelector) {
+                    const costMessage = `최근 30일 전체 AWS 비용이 $${totalCost.toFixed(2)} USD입니다. 비용 절감 방안을 알려주세요.`;
+                    setInput(costMessage);
+                  }
+                }}
+                className={cn(
+                  "px-3 py-2 text-sm rounded-lg border transition-colors",
+                  showServiceSelector
+                    ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                )}
+              >
+                전체 비용 분석
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedService('ec2');
+                  setShowServiceSelector(false);
+                  const ec2Message = `EC2 인스턴스 최적화 방안을 알려주세요.`;
+                  setInput(ec2Message);
+                }}
+                className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                EC2 최적화
+              </button>
+              {accountCosts && accountCosts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService('cost');
+                    setShowServiceSelector(false);
+                    const accountList = accountCosts.map(ac => `${ac.accountName}: $${ac.totalCost.toFixed(2)}`).join(', ');
+                    const costMessage = `계정별 비용을 분석해주세요. ${accountList}`;
+                    setInput(costMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  계정별 분석
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 유저 정보 */}
+        {activeAccounts.length > 0 && accountCosts && (
+          <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="font-semibold text-blue-900 mb-2 text-sm">유저 정보</div>
+            <div className="text-blue-700 space-y-1 text-sm">
+              <div>전체 비용 (30일): <span className="font-semibold">${totalCost.toFixed(2)}</span></div>
+              {accountCosts.length > 0 && (
+                <div>활성 계정: <span className="font-semibold">{activeAccounts.length}개</span></div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
           <input
             type="text"
@@ -119,7 +257,7 @@ export function AIChatPanel() {
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isSending}
             className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="h-5 w-5" />

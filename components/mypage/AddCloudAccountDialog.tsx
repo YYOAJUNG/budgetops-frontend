@@ -53,11 +53,11 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   async function submitAws() {
+    const { createAwsAccount } = await import('@/lib/api/aws');
     const payload = {
       name: credentials.accountName,
       defaultRegion: credentials.region || 'ap-northeast-2',
@@ -109,7 +109,23 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      if (selectedProvider === 'GCP') {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      if (selectedProvider === 'AWS') {
+        await submitAws();
+        setSuccessMsg('AWS 계정이 성공적으로 연동되었습니다.');
+        // 성공 후 콜백 호출 (다이얼로그 닫기 전에)
+        if (onSuccess) {
+          await onSuccess();
+        }
+        // 약간의 지연 후 다이얼로그 닫기 (데이터 갱신 시간 확보)
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
+      } else if (selectedProvider === 'GCP') {
         // GCP 계정 저장 API 호출
         if (!credentials.serviceAccountId?.trim() || !credentials.jsonKeyContent || !credentials.billingAccountId?.trim()) {
           setTestResult({
@@ -147,36 +163,39 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           });
         }
       } else {
-        // AWS, Azure 등의 저장 로직 (향후 구현)
-        console.log('Submitting:', { provider: selectedProvider, credentials });
-        
-        // 시뮬레이션: 2초 대기
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // 성공 시 다이얼로그 닫기
-        onOpenChange(false);
-        
-        // 상태 초기화
-        setStep('select');
-        setSelectedProvider(null);
-        setCredentials({ accountName: '' });
-        setTestResult(null);
+        // Azure는 추후 구현
+        setErrorMsg('현재는 AWS, GCP 계정 연동만 지원합니다.');
+        setIsSubmitting(false);
+        return;
       }
     } catch (error: any) {
-      console.error('Failed to add account:', error);
+      console.error('AWS 계정 연동 오류:', error);
+      // 백엔드에서 반환한 에러 메시지 추출
+      let errorMessage = '계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.';
       
-      let errorMessage = '계정 저장에 실패했어요.';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        // 백엔드 에러 응답 형식에 따라 메시지 추출
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } else if (error?.response?.status === 400) {
+        // 400 Bad Request인 경우 백엔드 메시지 확인
+        const errorData = error?.response?.data;
+        if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (error?.message) {
         errorMessage = error.message;
       }
-
-      setTestResult({
-        success: false,
-        message: errorMessage,
-      });
+      
+      setErrorMsg(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -657,6 +676,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           {step === 'select' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>
+              {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
+              {successMsg && <p className="mb-3 text-sm text-green-600">{successMsg}</p>}
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 {providers.map((provider) => (
@@ -696,6 +717,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {selectedProvider} 자격 증명
               </h3>
+              {errorMsg && <p className="mb-3 text-sm text-red-600">{errorMsg}</p>}
+              {successMsg && <p className="mb-3 text-sm text-green-600">{successMsg}</p>}
               {renderCredentialsForm()}
             </>
           )}

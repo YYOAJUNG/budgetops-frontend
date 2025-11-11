@@ -3,7 +3,7 @@
  * 카카오페이 간편결제 연동
  */
 
-const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID || 'imp12345678';
+const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID!;
 
 declare global {
   interface Window {
@@ -17,6 +17,7 @@ declare global {
 export interface PaymentResult {
   success: boolean;
   impUid?: string;
+  customerUid?: string;
   errorMsg?: string;
 }
 
@@ -57,6 +58,7 @@ export async function registerPaymentMethod(
           resolve({
             success: true,
             impUid: response.imp_uid,
+            customerUid: customerUid,
           });
         } else {
           resolve({
@@ -67,4 +69,66 @@ export async function registerPaymentMethod(
       }
     );
   });
+}
+
+/**
+ * 실제 결제 진행 (토큰 구매용)
+ */
+export interface PaymentRequest {
+  orderName: string;
+  amount: number;
+  orderUid: string;
+  buyerName?: string;
+  buyerEmail?: string;
+}
+
+/**
+ * 일회성 결제 (카카오페이)
+ */
+export async function requestPayment(request: PaymentRequest): Promise<PaymentResult> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.IMP) {
+      resolve({
+        success: false,
+        errorMsg: 'PortOne SDK가 로드되지 않았습니다.',
+      });
+      return;
+    }
+
+    window.IMP.init(STORE_ID);
+
+    window.IMP.request_pay(
+      {
+        pg: 'kakaopay',
+        pay_method: 'card',
+        merchant_uid: request.orderUid,
+        name: request.orderName,
+        amount: request.amount,
+        buyer_email: request.buyerEmail,
+        buyer_name: request.buyerName,
+      },
+      (response: any) => {
+        console.log('[PortOne] 일회성 결제 응답:', response);
+
+        if (response.success) {
+          resolve({
+            success: true,
+            impUid: response.imp_uid,
+          });
+        } else {
+          resolve({
+            success: false,
+            errorMsg: response.error_msg || '결제에 실패했습니다.',
+          });
+        }
+      }
+    );
+  });
+}
+
+/**
+ * 주문 고유번호 생성
+ */
+export function generateOrderUid(prefix: string = 'ORDER'): string {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }

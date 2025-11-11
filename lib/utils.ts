@@ -5,13 +5,61 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * USD를 KRW로 변환 (환율: 약 1,350원, 실시간 환율 API 연동 가능)
+ */
+export function convertUsdToKrw(usdAmount: number): number {
+  // TODO: 실시간 환율 API 연동 가능
+  const exchangeRate = 1350; // USD to KRW 환율
+  return usdAmount * exchangeRate;
+}
+
+/**
+ * KRW를 USD로 변환
+ */
+export function convertKrwToUsd(krwAmount: number): number {
+  const exchangeRate = 1350; // USD to KRW 환율
+  return krwAmount / exchangeRate;
+}
+
+/**
+ * 통화 변환 (USD <-> KRW)
+ */
+export function convertCurrency(
+  amount: number,
+  fromCurrency: 'KRW' | 'USD',
+  toCurrency: 'KRW' | 'USD'
+): number {
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
+  if (fromCurrency === 'USD' && toCurrency === 'KRW') {
+    return convertUsdToKrw(amount);
+  }
+  if (fromCurrency === 'KRW' && toCurrency === 'USD') {
+    return convertKrwToUsd(amount);
+  }
+  return amount;
+}
+
 export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
-  return new Intl.NumberFormat(currency === 'KRW' ? 'ko-KR' : 'en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+  if (currency === 'KRW') {
+    // 한국 원화는 "1,000원" 형태로 표시
+    const formatted = new Intl.NumberFormat('ko-KR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+    return `${formatted}원`;
+  } else {
+    // USD는 "$1,000" 형태로 표시
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+    return formatted.replace(/^-/, ''); // "-$0" 같은 경우를 "$0"으로 변경
+  }
 }
 
 export function formatNumber(num: number): string {
@@ -20,5 +68,40 @@ export function formatNumber(num: number): string {
 
 export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
+/**
+ * 금액을 축약 형식으로 표시 (예: ₩4.2M)
+ */
+export function formatCurrencyCompact(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
+  if (currency === 'KRW') {
+    if (amount >= 1000000) {
+      return `₩${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `₩${(amount / 1000).toFixed(1)}K`;
+    }
+    return `${amount.toLocaleString()}원`;
+  } else {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return `$${amount.toLocaleString()}`;
+  }
+}
+
+/**
+ * HHI (Herfindahl-Hirschman Index) 계산
+ * 집중도 측정: 0~10,000 (높을수록 집중도 높음)
+ */
+export function calculateHHI(shares: number[]): number {
+  const sum = shares.reduce((acc, share) => acc + share, 0);
+  if (sum === 0) return 0;
+  
+  return shares.reduce((acc, share) => {
+    const percentage = (share / sum) * 100;
+    return acc + Math.pow(percentage, 2);
+  }, 0);
 }
 

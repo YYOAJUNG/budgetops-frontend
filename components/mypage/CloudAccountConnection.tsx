@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Cloud, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,39 +9,87 @@ import { AddCloudAccountDialog } from './AddCloudAccountDialog';
 import { getCurrentUser } from '@/lib/api/user';
 import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
-
-const mockAccounts: CloudAccount[] = [
-  {
-    id: '1',
-    provider: 'AWS',
-    accountName: 'Production AWS',
-    accountId: '123456789012',
-    status: 'connected',
-    lastSync: '2024-10-30 14:30',
-    monthlyCost: 2134,
-  },
-  {
-    id: '2',
-    provider: 'GCP',
-    accountName: 'Staging GCP',
-    accountId: 'my-project-123',
-    status: 'connected',
-    lastSync: '2024-10-30 14:25',
-    monthlyCost: 456,
-  },
-];
+import { useSearchParams, useRouter } from 'next/navigation';
+import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
 
 export function CloudAccountConnection() {
-  const [accounts, setAccounts] = useState<CloudAccount[]>(mockAccounts);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
+  const { data: awsAccounts, refetch: refetchAws, isLoading: isLoadingAccounts } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    gcTime: 0, // 캐시 시간 최소화 (React Query v5)
+  });
+  const mergedAccounts = useMemo<CloudAccount[]>(() => {
+    const mapped: CloudAccount[] =
+      (awsAccounts || []).map((a: AwsAccount) => ({
+        id: String(a.id),
+        provider: 'AWS',
+        accountName: a.name,
+        accountId: a.accessKeyId,
+        status: a.active ? 'connected' : 'pending',
+        lastSync: new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    // API 결과만 반환 (더미 데이터 제거)
+    return mapped;
+  }, [awsAccounts]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const handleDeleteAccount = (id: string) => {
-    // TODO: API 호출로 계정 삭제
-    setAccounts(accounts.filter(acc => acc.id !== id));
+  useEffect(() => {
+    const shouldOpen = searchParams.get('addCloudAccount') === '1';
+    if (shouldOpen) {
+      // 섹션으로 스크롤 이동
+      const section = document.getElementById('accounts');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // 다이얼로그 열기
+      setShowAddDialog(true);
+      // URL 정리 (뒤로 가기 시 재오픈 방지)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('addCloudAccount');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams]);
+
+  const handleDeleteAccount = async (id: string) => {
+    // 삭제 확인
+    const account = mergedAccounts.find(acc => acc.id === id);
+    const accountName = account?.accountName || '이 계정';
+    
+    if (!confirm(`${accountName}을(를) 정말 삭제하시겠습니까?\n\n삭제된 계정은 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    setDeletingAccountId(id);
+    try {
+      // AWS 계정인 경우 API 호출
+      const awsAccount = awsAccounts?.find((a: AwsAccount) => String(a.id) === id);
+      if (awsAccount) {
+        await deleteAwsAccount(awsAccount.id);
+      }
+      
+      // 캐시 완전히 제거 및 목록 재조회
+      queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+      await refetchAws();
+      // 추가로 한 번 더 무효화하여 최신 데이터 확보
+      queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+      await refetchAws();
+    } catch (error: any) {
+      console.error('계정 삭제 오류:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || '계정 삭제 중 오류가 발생했습니다.';
+      alert(errorMessage);
+    } finally {
+      setDeletingAccountId(null);
+    }
   };
 
   const handleAddAccount = () => {
@@ -66,7 +114,7 @@ export function CloudAccountConnection() {
 
       {/* 연결된 계정 목록 */}
       <div className="space-y-4 mb-8">
-        {accounts.length === 0 ? (
+        {mergedAccounts.length === 0 ? (
           <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <Cloud className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -84,7 +132,7 @@ export function CloudAccountConnection() {
             </Button>
           </div>
         ) : (
-          accounts.map((account) => {
+          mergedAccounts.map((account) => {
             const StatusIcon = ACCOUNT_STATUS_CONFIG[account.status].icon;
             return (
               <div
@@ -142,9 +190,11 @@ export function CloudAccountConnection() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteAccount(account.id)}
-                      className="border-red-300 text-red-600 hover:bg-red-50"
+                      disabled={deletingAccountId === account.id}
+                      className="border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />
+                      {deletingAccountId === account.id && <span className="ml-1">삭제 중...</span>}
                     </Button>
                   </div>
                 </div>
@@ -165,6 +215,18 @@ export function CloudAccountConnection() {
       <AddCloudAccountDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
+        onSuccess={async () => {
+          // 계정 추가 성공 시 캐시 완전히 제거 및 재조회
+          queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+          await refetchAws();
+          // 추가로 한 번 더 무효화하여 최신 데이터 확보
+          queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+          await refetchAws();
+          // 리소스 및 비용 관련 캐시도 무효화
+          queryClient.invalidateQueries({ queryKey: ['resources'] });
+          queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+          queryClient.invalidateQueries({ queryKey: ['awsAccountCosts'] });
+        }}
         userName={user?.name || '사용자'}
       />
     </div>
