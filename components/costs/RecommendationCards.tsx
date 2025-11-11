@@ -54,7 +54,7 @@ function RecommendationCard({
         <div className="space-y-5">
           <div className="pb-2 border-b border-gray-100">
             <p className="text-3xl font-bold text-gray-900 mb-1">
-              {formatCurrency(estimatedSavings, 'KRW')}
+              {formatCurrency(Math.max(0, estimatedSavings), 'KRW')}
             </p>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
               월 예상 절감액
@@ -90,7 +90,7 @@ function RecommendationCard({
                     <div className="col-span-2">
                       <p className="text-xs text-gray-500 mb-1">예상 절감액</p>
                       <p className="text-lg font-bold text-blue-600">
-                        {formatCurrency(scenario.savings, 'KRW')}
+                        {formatCurrency(Math.max(0, scenario.savings), 'KRW')}
                       </p>
                     </div>
                   </div>

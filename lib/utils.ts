@@ -43,23 +43,23 @@ export function convertCurrency(
 }
 
 export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
-  // 0일 때는 "-" 기호 없이 표시
-  if (amount === 0) {
-    const formatted = new Intl.NumberFormat(currency === 'KRW' ? 'ko-KR' : 'en-US', {
-      style: 'currency',
-      currency,
+  if (currency === 'KRW') {
+    // 한국 원화는 "1,000원" 형태로 표시
+    const formatted = new Intl.NumberFormat('ko-KR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(0);
-    // "-₩0" 또는 "-$0" 같은 경우를 "₩0" 또는 "$0"으로 변경
-    return formatted.replace(/^-/, '');
+    }).format(amount);
+    return `${formatted}원`;
+  } else {
+    // USD는 "$1,000" 형태로 표시
+    const formatted = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+    return formatted.replace(/^-/, ''); // "-$0" 같은 경우를 "$0"으로 변경
   }
-  return new Intl.NumberFormat(currency === 'KRW' ? 'ko-KR' : 'en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
 }
 
 export function formatNumber(num: number): string {
