@@ -70,3 +70,38 @@ export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
 }
 
+/**
+ * 금액을 축약 형식으로 표시 (예: ₩4.2M)
+ */
+export function formatCurrencyCompact(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
+  if (currency === 'KRW') {
+    if (amount >= 1000000) {
+      return `₩${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `₩${(amount / 1000).toFixed(1)}K`;
+    }
+    return `${amount.toLocaleString()}원`;
+  } else {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    } else if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return `$${amount.toLocaleString()}`;
+  }
+}
+
+/**
+ * HHI (Herfindahl-Hirschman Index) 계산
+ * 집중도 측정: 0~10,000 (높을수록 집중도 높음)
+ */
+export function calculateHHI(shares: number[]): number {
+  const sum = shares.reduce((acc, share) => acc + share, 0);
+  if (sum === 0) return 0;
+  
+  return shares.reduce((acc, share) => {
+    const percentage = (share / sum) * 100;
+    return acc + Math.pow(percentage, 2);
+  }, 0);
+}
+

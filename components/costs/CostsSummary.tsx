@@ -473,7 +473,7 @@ export function CostsSummary() {
       {!isLoading && !isError && data && (
         <div className="space-y-6">
           {/* 총 비용 카드 (스파크라인 포함) */}
-          <Card className="overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <Card className="overflow-hidden border border-gray-200 shadow-sm bg-gradient-to-br from-gray-50 via-white to-gray-50">
             <CardContent className="p-8">
               <div className="flex items-start justify-between mb-4">
                 <div>
