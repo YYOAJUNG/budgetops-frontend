@@ -50,11 +50,11 @@ export function CostsSummary() {
   const services = useMemo(() => data?.byService ?? [], [data]);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 md:text-2xl">비용 요약</h2>
-          <p className="mt-1 text-xs text-slate-600 md:text-sm">
+          <h2 className="text-xl font-semibold text-gray-900">비용 요약</h2>
+          <p className="mt-1 text-sm text-gray-500">
             선택한 기간의 총액, 클라우드 사업자별, 서비스별 비용을 한눈에 확인하세요.
           </p>
         </div>
@@ -119,13 +119,13 @@ export function CostsSummary() {
           </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="border border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base font-semibold text-slate-800">CSP별 비용 Top</CardTitle>
+                <CardTitle className="text-base font-semibold text-gray-900">CSP별 비용 Top</CardTitle>
               </CardHeader>
               <CardContent>
                 {providers.length === 0 ? (
-                  <div className="text-sm text-slate-600">
+                  <div className="text-sm text-gray-600">
                     연결된 클라우드 계정이 없습니다.
                   </div>
                 ) : (
@@ -135,16 +135,16 @@ export function CostsSummary() {
                       .map(([provider, amount]) => (
                         <div key={provider} className="text-sm">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-slate-600 font-medium">{provider}</span>
-                            <span className="font-semibold text-slate-900">{formatCurrency(amount)}</span>
+                            <span className="text-gray-600 font-medium">{provider}</span>
+                            <span className="font-semibold text-gray-900">{formatCurrency(amount)}</span>
                           </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-sky-300"
+                              className="h-full rounded-full bg-blue-500"
                               style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                             />
                           </div>
-                          <div className="text-xs text-slate-500 mt-1">
+                          <div className="text-xs text-gray-500 mt-1">
                             {Math.round((amount / Math.max(1, totalAmount)) * 100)}%
                           </div>
                         </div>
@@ -154,24 +154,24 @@ export function CostsSummary() {
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="border border-gray-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base font-semibold text-slate-800">서비스별 비용 Top</CardTitle>
+                <CardTitle className="text-base font-semibold text-gray-900">서비스별 비용 Top</CardTitle>
               </CardHeader>
               <CardContent>
                 {services.length === 0 ? (
-                  <div className="text-sm text-slate-600">데이터가 없습니다.</div>
+                  <div className="text-sm text-gray-600">데이터가 없습니다.</div>
                 ) : (
                   <div className="space-y-3">
                     {services.map((s) => (
                       <div key={s.service} className="text-sm">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-slate-600 font-medium">{s.service}</span>
-                          <span className="font-semibold text-slate-900">{formatCurrency(s.amount)}</span>
+                          <span className="text-gray-600 font-medium">{s.service}</span>
+                          <span className="font-semibold text-gray-900">{formatCurrency(s.amount)}</span>
                         </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-sky-300"
+                            className="h-full rounded-full bg-blue-500"
                             style={{ width: `${Math.min(100, (s.amount / Math.max(1, totalAmount)) * 100)}%` }}
                           />
                         </div>
