@@ -36,7 +36,9 @@ export default function CostsPage() {
         </div>
 
         {/* 비용 요약 */}
-        <CostsSummary />
+        <div className="space-y-4">
+          <CostsSummary />
+        </div>
       </div>
     </MainLayout>
   );

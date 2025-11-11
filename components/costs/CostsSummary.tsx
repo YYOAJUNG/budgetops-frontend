@@ -62,36 +62,36 @@ export function CostsSummary() {
       </div>
 
       {isLoading && (
-        <Card>
-          <CardContent className="p-6 text-slate-600">불러오는 중...</CardContent>
+        <Card className="border border-gray-200">
+          <CardContent className="p-6 text-gray-600">불러오는 중...</CardContent>
         </Card>
       )}
 
       {isError && (
-        <Card>
+        <Card className="border border-gray-200">
           <CardContent className="p-6 text-red-600">비용 데이터를 불러오지 못했습니다.</CardContent>
         </Card>
       )}
 
       {!isLoading && !isError && data && (
         <div className="space-y-6">
-          <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white text-slate-900">
+          <Card className="overflow-hidden border border-gray-200 shadow-sm bg-white">
             <CardContent className="p-8">
-              <div className="text-sm font-medium uppercase tracking-wide text-slate-500">총 비용</div>
-              <div className="mt-4 text-4xl font-semibold">{formatCurrency(totalAmount)}</div>
-              <div className="mt-2 text-xs text-slate-500">선택한 기간 동안 발생한 전체 비용</div>
+              <div className="text-sm font-medium uppercase tracking-wide text-gray-500">총 비용</div>
+              <div className="mt-4 text-4xl font-semibold text-gray-900">{formatCurrency(totalAmount)}</div>
+              <div className="mt-2 text-xs text-gray-500">선택한 기간 동안 발생한 전체 비용</div>
             </CardContent>
           </Card>
 
-          <Card className="border border-slate-200 shadow-sm">
+          <Card className="border border-gray-200 shadow-sm">
             <CardHeader className="pb-4">
-              <CardTitle className="text-base font-semibold text-slate-800">CSP별 비용</CardTitle>
+              <CardTitle className="text-base font-semibold text-gray-900">CSP별 비용</CardTitle>
             </CardHeader>
             <CardContent>
               {providers.length === 0 ? (
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-gray-600">
                   연결된 클라우드 계정이 없습니다.{' '}
-                  <button className="underline" onClick={() => router.push('/accounts')}>
+                  <button className="underline text-blue-600 hover:text-blue-700" onClick={() => router.push('/accounts')}>
                     계정 연동
                   </button>{' '}
                   후 확인해 주세요.
@@ -99,16 +99,16 @@ export function CostsSummary() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-3">
                   {providers.map(([provider, amount]) => (
-                    <div key={provider} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{provider}</div>
-                      <div className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(amount)}</div>
-                      <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div key={provider} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{provider}</div>
+                      <div className="mt-2 text-xl font-semibold text-gray-900">{formatCurrency(amount)}</div>
+                      <div className="mt-3 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-sky-300"
+                          className="h-full rounded-full bg-blue-500"
                           style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                         />
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-gray-500">
                         {Math.round((amount / Math.max(1, totalAmount)) * 100)}%
                       </div>
                     </div>
