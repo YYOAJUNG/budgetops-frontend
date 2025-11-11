@@ -135,6 +135,14 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         } else if (errorData.error) {
           errorMessage = errorData.error;
         }
+      } else if (error?.response?.status === 400) {
+        // 400 Bad Request인 경우 백엔드 메시지 확인
+        const errorData = error?.response?.data;
+        if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
       } else if (error?.message) {
         errorMessage = error.message;
       }

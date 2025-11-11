@@ -77,7 +77,10 @@ export function CloudAccountConnection() {
         await deleteAwsAccount(awsAccount.id);
       }
       
-      // 캐시 무효화 및 목록 재조회
+      // 캐시 완전히 제거 및 목록 재조회
+      queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+      await refetchAws();
+      // 추가로 한 번 더 무효화하여 최신 데이터 확보
       queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
       await refetchAws();
     } catch (error: any) {
