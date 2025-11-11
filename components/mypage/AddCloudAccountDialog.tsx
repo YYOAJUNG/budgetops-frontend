@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
-import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useState, ReactNode, useRef } from 'react';
+import { X, ChevronRight, ChevronLeft, ExternalLink, FileText, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,8 +29,10 @@ interface CredentialForm {
   secretAccessKey?: string;
   region?: string;
   // GCP
-  projectId?: string;
-  serviceAccountKey?: string;
+  serviceAccountId?: string;
+  jsonKeyFile?: File | null;
+  jsonKeyFileName?: string;
+  billingAccountId?: string;
   // Azure
   subscriptionId?: string;
   tenantId?: string;
@@ -38,13 +40,18 @@ interface CredentialForm {
   clientSecret?: string;
 }
 
+type Step = 'select' | 'credentials' | 'gcp-step1-2' | 'gcp-step3-4';
+
 export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자' }: AddCloudAccountDialogProps) {
-  const [step, setStep] = useState<'select' | 'credentials'>('select');
+  const [step, setStep] = useState<Step>('select');
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider | null>(null);
   const [credentials, setCredentials] = useState<CredentialForm>({
     accountName: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const providers: ProviderOption[] = [
     {
@@ -72,13 +79,23 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   ];
 
   const handleNext = () => {
-    if (selectedProvider) {
+    if (step === 'select' && selectedProvider === 'GCP') {
+      setStep('gcp-step1-2');
+    } else if (step === 'select' && selectedProvider) {
       setStep('credentials');
+    } else if (step === 'gcp-step1-2') {
+      setStep('gcp-step3-4');
+      setTestResult(null);
     }
   };
 
   const handleBack = () => {
-    setStep('select');
+    if (step === 'credentials' || step === 'gcp-step1-2') {
+      setStep('select');
+    } else if (step === 'gcp-step3-4') {
+      setStep('gcp-step1-2');
+      setTestResult(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -97,10 +114,55 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       setStep('select');
       setSelectedProvider(null);
       setCredentials({ accountName: '' });
+      setTestResult(null);
     } catch (error) {
       console.error('Failed to add account:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCredentials({
+        ...credentials,
+        jsonKeyFile: file,
+        jsonKeyFileName: file.name,
+      });
+      setTestResult(null);
+    }
+  };
+
+  const handleTestConnection = async (testType: 'json' | 'billing') => {
+    setIsTestingConnection(true);
+    setTestResult(null);
+
+    try {
+      // TODO: API 호출로 연결 테스트
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (testType === 'json') {
+        setTestResult({
+          success: false,
+          message: '테스트에 실패했어요. 입력한 정보를 다시 확인해 주세요.',
+        });
+      } else if (testType === 'billing') {
+        const isSuccess = false; // TODO: 실제 API 응답에 따라 설정
+        setTestResult({
+          success: isSuccess,
+          message: isSuccess 
+            ? '테스트에 성공하여 GCP 계정 연동이 완료됐어요.'
+            : '테스트에 실패했어요. 입력한 정보를 다시 확인해 주세요.',
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: '테스트에 실패했어요. 입력한 정보를 다시 확인해 주세요.',
+      });
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -109,11 +171,18 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
     
     if (selectedProvider === 'AWS') {
       return credentials.accessKeyId && credentials.secretAccessKey;
-    } else if (selectedProvider === 'GCP') {
-      return credentials.projectId;
     } else if (selectedProvider === 'Azure') {
       return credentials.subscriptionId && credentials.tenantId && 
              credentials.clientId && credentials.clientSecret;
+    }
+    return false;
+  };
+
+  const canProceedGCP = () => {
+    if (step === 'gcp-step1-2') {
+      return credentials.serviceAccountId?.trim() !== '' && credentials.jsonKeyFile !== null;
+    } else if (step === 'gcp-step3-4') {
+      return credentials.billingAccountId?.trim() !== '';
     }
     return false;
   };
@@ -158,42 +227,6 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 placeholder="us-east-1"
                 value={credentials.region || ''}
                 onChange={(e) => setCredentials({ ...credentials, region: e.target.value })}
-              />
-            </div>
-          </div>
-        </>
-      );
-    } else if (selectedProvider === 'GCP') {
-      return (
-        <>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="accountName">계정 이름 *</Label>
-              <Input
-                id="accountName"
-                placeholder="예: Staging GCP"
-                value={credentials.accountName}
-                onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="projectId">Project ID *</Label>
-              <Input
-                id="projectId"
-                placeholder="my-project-123"
-                value={credentials.projectId || ''}
-                onChange={(e) => setCredentials({ ...credentials, projectId: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="serviceAccountKey">Service Account Key (선택사항)</Label>
-              <textarea
-                id="serviceAccountKey"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-                placeholder='{"type": "service_account", "project_id": "..."}'
-                value={credentials.serviceAccountKey || ''}
-                onChange={(e) => setCredentials({ ...credentials, serviceAccountKey: e.target.value })}
               />
             </div>
           </div>
@@ -256,6 +289,221 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
     return null;
   };
 
+  const renderGCPStep = () => {
+    if (step === 'gcp-step1-2') {
+      return (
+        <div className="space-y-6">
+          {/* Step 1: 서비스 계정 생성 */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">1. 서비스 계정 생성</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              GCP 콘솔에서 연동하려는 프로젝트의 서비스 계정을 생성한 뒤 서비스 계정 ID를 입력해 주세요.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="serviceAccountId">서비스 계정 ID</Label>
+              <Input
+                id="serviceAccountId"
+                placeholder="example-service-account@project-name-12345.iam.gserviceaccount.com"
+                value={credentials.serviceAccountId || ''}
+                onChange={(e) => setCredentials({ ...credentials, serviceAccountId: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-gray-600 mb-3">아래 4개의 역할을 부여해 주세요.</p>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>기본 &gt; 뷰어</span>
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>모니터링 &gt; 모니터링 뷰어</span>
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>BigQuery &gt; BigQuery 데이터 뷰어</span>
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2">•</span>
+                <span>BigQuery &gt; BigQuery 작업 사용자</span>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <a
+              href="https://console.cloud.google.com/iam-admin/serviceaccounts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              GCP 콘솔 &gt; 서비스 계정 탭 열기
+              <ExternalLink className="ml-1 h-4 w-4" />
+            </a>
+          </div>
+
+          {/* Step 2: 서비스 계정 JSON 키 업로드 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">2. 서비스 계정 JSON 키 업로드</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              생성한 서비스 계정의 키 탭으로 이동하여 키를 추가해 주세요. 키 유형은 JSON으로 선택해 주세요.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {credentials.jsonKeyFile ? 'JSON 파일 업로드됨' : 'JSON 파일 업로드'}
+                </Button>
+                {credentials.jsonKeyFileName && (
+                  <p className="text-xs text-gray-500 mt-2">{credentials.jsonKeyFileName}</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={() => handleTestConnection('json')}
+                  disabled={!credentials.jsonKeyFile || isTestingConnection}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isTestingConnection ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      테스트 중...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      연결 테스트
+                    </>
+                  )}
+                </Button>
+                {testResult && (
+                  <div className={cn(
+                    'flex items-center gap-2 text-sm',
+                    testResult.success ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {testResult.success ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : null}
+                    <span>{testResult.message}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    } else if (step === 'gcp-step3-4') {
+      return (
+        <div className="space-y-6">
+          {/* Step 3: 결제 내보내기 설정 */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">3. 결제 내보내기 설정</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              비용 데이터를 가져오기 위해 BigQuery 내보내기 탭에서 자세한 사용량 비용 설정 수정을 눌러 주세요.
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              앞에서 선택한 프로젝트와 동일한 프로젝트를 선택하고, 새 데이터 세트 <code className="bg-gray-100 px-1 rounded">billing_export_dataset</code> 을 만들어 주세요.
+            </p>
+            
+            <div>
+              <a
+                href="https://console.cloud.google.com/billing/export"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                GCP 콘솔 &gt; 결제 내보내기 탭 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+            </div>
+          </div>
+
+          {/* Step 4: 결제 계정 설정 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">4. 결제 계정 설정</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              결제 계정 관리 탭으로 이동하여 계정 ID를 입력해 주세요.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="billingAccountId">결제 계정 ID</Label>
+                <Input
+                  id="billingAccountId"
+                  placeholder="EXAMPL-123456-ABC123"
+                  value={credentials.billingAccountId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, billingAccountId: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <a
+                  href="https://console.cloud.google.com/billing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  GCP 콘솔 &gt; 결제 계정 관리 탭 열기
+                  <ExternalLink className="ml-1 h-4 w-4" />
+                </a>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={() => handleTestConnection('billing')}
+                  disabled={!credentials.billingAccountId || isTestingConnection}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isTestingConnection ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      테스트 중...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      연결 테스트
+                    </>
+                  )}
+                </Button>
+                {testResult && (
+                  <div className={cn(
+                    'flex items-center gap-2 text-sm',
+                    testResult.success ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {testResult.success ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : null}
+                    <span>{testResult.message}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0">
@@ -266,6 +514,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             <p className="text-gray-600 mt-1">
               {step === 'select' 
                 ? `${userName} 님의 퍼블릭 클라우드 계정을 연동하고 있어요.`
+                : selectedProvider === 'GCP'
+                ? `${userName} 님의 GCP 계정을 연동하고 있어요.`
                 : `${selectedProvider} 계정 자격 증명을 입력하세요.`
               }
             </p>
@@ -277,6 +527,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               setStep('select');
               setSelectedProvider(null);
               setCredentials({ accountName: '' });
+              setTestResult(null);
             }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -323,6 +574,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 </p>
               </div>
             </>
+          ) : selectedProvider === 'GCP' ? (
+            renderGCPStep()
           ) : (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -335,17 +588,16 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
 
         {/* 하단 버튼 */}
         <div className="flex justify-between p-6 border-t border-gray-200">
-          {step === 'credentials' && (
+          {(step === 'credentials' || step === 'gcp-step1-2' || step === 'gcp-step3-4') && (
             <Button
               onClick={handleBack}
               variant="outline"
               className="border-gray-300 text-gray-700"
             >
-              <ChevronLeft className="h-5 w-5 mr-1" />
-              이전
+              <ChevronLeft className="h-5 w-5" />
             </Button>
           )}
-          <div className="ml-auto">
+          <div className={step === 'select' || step === 'credentials' ? 'ml-auto' : 'ml-auto'}>
             {step === 'select' ? (
               <Button
                 onClick={handleNext}
@@ -358,6 +610,30 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 다음
                 <ChevronRight className="h-5 w-5 ml-1" />
               </Button>
+            ) : selectedProvider === 'GCP' ? (
+              step === 'gcp-step3-4' ? (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!canProceedGCP() || (testResult && !testResult.success) || isSubmitting}
+                  className={cn(
+                    'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
+                    (!canProceedGCP() || (testResult && !testResult.success) || isSubmitting) && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  {isSubmitting ? '연동 중...' : '완료'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleNext}
+                  disabled={!canProceedGCP()}
+                  className={cn(
+                    'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
+                    !canProceedGCP() && 'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <ChevronRight className="h-5 w-5 ml-1" />
+                </Button>
+              )
             ) : (
               <Button
                 onClick={handleSubmit}
