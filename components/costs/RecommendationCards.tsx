@@ -3,9 +3,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { Clock, DollarSign, Archive, ChevronRight } from 'lucide-react';
+import { Clock, DollarSign, Archive } from 'lucide-react';
 import { useState } from 'react';
-import { SimulateRequest, SimulationResult, simulate } from '@/lib/api/simulator';
+import { SimulateRequest, SimulationResult, simulate, getRecommendations, RecommendationResponse } from '@/lib/api/simulator';
 import { useQuery } from '@tanstack/react-query';
 import { SimulationPanel } from './SimulationPanel';
 
@@ -144,37 +144,55 @@ interface RecommendationCardsProps {
   resourceIds: string[];
 }
 
+function getActionIcon(actionType: string) {
+  switch (actionType) {
+    case 'offhours':
+      return <Clock className="h-5 w-5" />;
+    case 'commitment':
+      return <DollarSign className="h-5 w-5" />;
+    case 'storage':
+      return <Archive className="h-5 w-5" />;
+    default:
+      return <Clock className="h-5 w-5" />;
+  }
+}
+
 export function RecommendationCards({ resourceIds }: RecommendationCardsProps) {
-  // TODO: 실제 추천 데이터를 API에서 가져오기
-  // 현재는 예시 데이터
-  const recommendations = [
-    {
-      title: 'Off-hours로 월 최대 절감 예상',
-      description: '주중 20:00~08:30 중단으로 비용 절감',
-      estimatedSavings: 150000,
-      actionType: 'offhours' as const,
-      icon: <Clock className="h-5 w-5" />,
-    },
-    {
-      title: '커밋 70%로 전환 시 절감',
-      description: '1년 약정으로 온디맨드 대비 50% 할인',
-      estimatedSavings: 200000,
-      actionType: 'commitment' as const,
-      icon: <DollarSign className="h-5 w-5" />,
-    },
-    {
-      title: '90일 미접근 스토리지 아카이빙',
-      description: 'Cold 스토리지로 이동하여 비용 절감',
-      estimatedSavings: 50000,
-      actionType: 'storage' as const,
-      icon: <Archive className="h-5 w-5" />,
-    },
-  ];
+  // 실제 추천 데이터를 API에서 가져오기
+  const { data: recommendations, isLoading, error } = useQuery({
+    queryKey: ['recommendations'],
+    queryFn: getRecommendations,
+    enabled: resourceIds.length > 0, // 리소스가 있을 때만 조회
+  });
 
   if (resourceIds.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
         리소스를 선택하면 추천 액션을 확인할 수 있습니다.
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        추천 액션을 분석하는 중...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-red-500">
+        추천 액션을 불러오는 중 오류가 발생했습니다.
+      </div>
+    );
+  }
+
+  if (!recommendations || recommendations.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        현재 추천할 수 있는 액션이 없습니다.
       </div>
     );
   }
@@ -187,9 +205,9 @@ export function RecommendationCards({ resourceIds }: RecommendationCardsProps) {
           title={rec.title}
           description={rec.description}
           estimatedSavings={rec.estimatedSavings}
-          actionType={rec.actionType}
+          actionType={rec.actionType as 'offhours' | 'commitment' | 'storage'}
           resourceIds={resourceIds}
-          icon={rec.icon}
+          icon={getActionIcon(rec.actionType)}
         />
       ))}
     </div>

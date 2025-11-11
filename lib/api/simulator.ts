@@ -99,3 +99,19 @@ export async function rejectProposal(proposalId: string): Promise<ProposalRespon
   return data;
 }
 
+/**
+ * 추천 액션 조회
+ */
+export interface RecommendationResponse {
+  title: string;
+  description: string;
+  estimatedSavings: number;
+  actionType: string;
+  scenario: SimulationResult;
+}
+
+export async function getRecommendations(): Promise<RecommendationResponse[]> {
+  const { data } = await api.get<RecommendationResponse[]>('/simulator/recommendations');
+  return data;
+}
+
