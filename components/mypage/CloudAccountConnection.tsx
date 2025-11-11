@@ -222,6 +222,10 @@ export function CloudAccountConnection() {
           // 추가로 한 번 더 무효화하여 최신 데이터 확보
           queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
           await refetchAws();
+          // 리소스 및 비용 관련 캐시도 무효화
+          queryClient.invalidateQueries({ queryKey: ['resources'] });
+          queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+          queryClient.invalidateQueries({ queryKey: ['awsAccountCosts'] });
         }}
         userName={user?.name || '사용자'}
       />

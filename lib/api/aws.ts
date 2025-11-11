@@ -110,13 +110,26 @@ export async function getAllEc2Instances(): Promise<AwsEc2Instance[]> {
       return [];
     }
 
-    // 모든 계정의 EC2 인스턴스를 병렬로 조회
-    const instancesPromises = accounts.map((account) =>
-      getEc2Instances(account.id, account.defaultRegion).catch(() => [])
+    // 활성 계정만 필터링
+    const activeAccounts = accounts.filter((account) => account.active === true);
+    if (activeAccounts.length === 0) {
+      console.warn('No active AWS accounts found');
+      return [];
+    }
+
+    // 모든 활성 계정의 EC2 인스턴스를 병렬로 조회
+    const instancesPromises = activeAccounts.map((account) =>
+      getEc2Instances(account.id, account.defaultRegion).catch((error) => {
+        console.error(`Failed to fetch EC2 instances for account ${account.id} (${account.name}):`, error);
+        // 에러를 로깅하지만 빈 배열 반환하여 다른 계정 조회는 계속 진행
+        return [];
+      })
     );
 
     const instancesArrays = await Promise.all(instancesPromises);
-    return instancesArrays.flat();
+    const allInstances = instancesArrays.flat();
+    console.log(`Fetched ${allInstances.length} EC2 instances from ${activeAccounts.length} active account(s)`);
+    return allInstances;
   } catch (error) {
     console.error('Failed to fetch all EC2 instances:', error);
     return [];
