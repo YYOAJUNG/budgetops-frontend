@@ -141,10 +141,11 @@ export function Dashboard() {
   }, []);
   
   // AWS 계정별 비용 조회 (최근 30일)
-  const { data: awsAccountCosts, isLoading: isLoadingCosts } = useQuery({
+  const { data: awsAccountCosts, isLoading: isLoadingCosts, error: costsError } = useQuery({
     queryKey: ['awsAccountCosts', startDate, endDate],
     queryFn: () => getAllAwsAccountsCosts(startDate, endDate),
     enabled: hasCloudAccounts,
+    retry: 1, // 실패 시 1번만 재시도
   });
 
   // AWS 계정별 총 비용 계산
@@ -290,53 +291,116 @@ export function Dashboard() {
                 <div className="text-center text-gray-600">비용 데이터를 불러오는 중...</div>
               </CardContent>
             </Card>
-          ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
-            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
+          ) : costsError ? (
+            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-red-500">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Cloud className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
-                      <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {formatCurrency(totalAwsCost, currency)}
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-red-900 mb-1">비용 데이터 조회 실패</h4>
+                    <p className="text-sm text-red-700">
+                      {costsError instanceof Error ? costsError.message : '비용 데이터를 불러오는 중 오류가 발생했습니다.'}
+                    </p>
+                    <p className="text-xs text-red-600 mt-2">
+                      AWS Cost Explorer 권한이 활성화되어 있는지 확인하세요.
                     </p>
                   </div>
                 </div>
-                
-                {awsAccountCosts.length > 1 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {awsAccountCosts.map((account: AccountCost) => (
-                        <div
-                          key={account.accountId}
-                          className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                        >
-                          <p className="text-sm font-medium text-gray-700 mb-1">
-                            {account.accountName}
-                          </p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {formatCurrency(account.totalCost, currency)}
-                          </p>
-                        </div>
-                      ))}
+              </CardContent>
+            </Card>
+          ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
+            totalAwsCost > 0 ? (
+              <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Cloud className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
+                        <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                      <p className="text-2xl font-bold text-orange-600">
+                        {formatCurrency(totalAwsCost, currency)}
+                      </p>
                     </div>
                   </div>
-                )}
+                  
+                  {awsAccountCosts.length > 1 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {awsAccountCosts.map((account: AccountCost) => (
+                          <div
+                            key={account.accountId}
+                            className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                          >
+                            <p className="text-sm font-medium text-gray-700 mb-1">
+                              {account.accountName}
+                            </p>
+                            <p className="text-lg font-bold text-gray-900">
+                              {formatCurrency(account.totalCost, currency)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Cloud className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
+                        <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {formatCurrency(0, currency)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    최근 30일간 비용이 발생하지 않았습니다.
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          ) : awsAccountCosts && awsAccountCosts.length === 0 ? (
+            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-yellow-500">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-yellow-900 mb-1">비용 데이터 없음</h4>
+                    <p className="text-sm text-yellow-700">
+                      최근 30일간의 비용 데이터가 없습니다. 다음을 확인하세요:
+                    </p>
+                    <ul className="text-xs text-yellow-600 mt-2 list-disc list-inside space-y-1">
+                      <li>AWS Cost Explorer가 활성화되어 있는지 확인</li>
+                      <li>IAM 권한에 <code className="bg-yellow-50 px-1 rounded">ce:GetCostAndUsage</code> 권한이 있는지 확인</li>
+                      <li>비용이 발생한 리소스가 있는지 확인</li>
+                    </ul>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ) : (
             <Card className="shadow-lg border-0 bg-white">
               <CardContent className="py-8">
                 <div className="text-center text-gray-600">
-                  비용 데이터가 없습니다. AWS Cost Explorer가 활성화되어 있는지 확인하세요.
+                  비용 데이터를 불러올 수 없습니다.
                 </div>
               </CardContent>
             </Card>
