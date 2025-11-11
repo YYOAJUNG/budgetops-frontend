@@ -237,3 +237,86 @@ export async function terminateEc2Instance(
   await api.delete(`/aws/accounts/${accountId}/ec2/instances/${instanceId}`, { params });
 }
 
+export interface DailyCost {
+  date: string;
+  totalCost: number;
+  services: ServiceCost[];
+}
+
+export interface ServiceCost {
+  service: string;
+  cost: number;
+}
+
+export interface MonthlyCost {
+  year: number;
+  month: number;
+  totalCost: number;
+}
+
+export interface AccountCost {
+  accountId: number;
+  accountName: string;
+  totalCost: number;
+}
+
+/**
+ * 특정 AWS 계정의 비용 조회
+ * @param accountId AWS 계정 ID
+ * @param startDate 시작 날짜 (YYYY-MM-DD 형식, 선택사항)
+ * @param endDate 종료 날짜 (YYYY-MM-DD 형식, 선택사항)
+ */
+export async function getAwsAccountCosts(
+  accountId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<DailyCost[]> {
+  const params: any = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  
+  const { data } = await api.get<DailyCost[]>(
+    `/aws/accounts/${accountId}/costs`,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * 특정 AWS 계정의 월별 비용 조회
+ * @param accountId AWS 계정 ID
+ * @param year 연도
+ * @param month 월 (1-12)
+ */
+export async function getAwsAccountMonthlyCost(
+  accountId: number,
+  year: number,
+  month: number
+): Promise<MonthlyCost> {
+  const { data } = await api.get<MonthlyCost>(
+    `/aws/accounts/${accountId}/costs/monthly`,
+    { params: { year, month } }
+  );
+  return data;
+}
+
+/**
+ * 모든 AWS 계정의 비용 조회
+ * @param startDate 시작 날짜 (YYYY-MM-DD 형식, 선택사항)
+ * @param endDate 종료 날짜 (YYYY-MM-DD 형식, 선택사항)
+ */
+export async function getAllAwsAccountsCosts(
+  startDate?: string,
+  endDate?: string
+): Promise<AccountCost[]> {
+  const params: any = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  
+  const { data } = await api.get<AccountCost[]>(
+    '/aws/accounts/costs',
+    { params }
+  );
+  return data;
+}
+
