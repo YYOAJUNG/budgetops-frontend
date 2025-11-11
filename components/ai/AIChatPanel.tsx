@@ -243,40 +243,6 @@ export function AIChatPanel() {
                 <div>활성 계정: <span className="font-semibold">{activeAccounts.length}개</span></div>
               )}
             </div>
-            
-            {/* 상위 서비스 3개 선택 */}
-            <div className="mt-3 pt-3 border-t border-blue-200">
-              <div className="text-xs font-medium text-blue-900 mb-2">서비스 선택</div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => {
-                    const ec2Message = `EC2 서비스 최적화 방안을 알려주세요.`;
-                    setInput(ec2Message);
-                  }}
-                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
-                >
-                  EC2
-                </button>
-                <button
-                  onClick={() => {
-                    const s3Message = `S3 서비스 최적화 방안을 알려주세요.`;
-                    setInput(s3Message);
-                  }}
-                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
-                >
-                  S3
-                </button>
-                <button
-                  onClick={() => {
-                    const rdsMessage = `RDS 서비스 최적화 방안을 알려주세요.`;
-                    setInput(rdsMessage);
-                  }}
-                  className="px-2.5 py-1.5 text-xs rounded border bg-white border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors"
-                >
-                  RDS
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
