@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { testGcpIntegration, saveGcpIntegration } from '@/lib/api/gcp';
+import { createAwsAccount } from '@/lib/api/aws';
 
 interface AddCloudAccountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userName?: string;
+  onSuccess?: () => void;
 }
 
 type CloudProvider = 'AWS' | 'GCP' | 'Azure';
@@ -42,10 +44,8 @@ interface CredentialForm {
   clientSecret?: string;
 }
 
-type Step = 'select' | 'credentials';
-
-export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자' }: AddCloudAccountDialogProps) {
-  const [step, setStep] = useState<Step>('select');
+export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자', onSuccess }: AddCloudAccountDialogProps) {
+  const [step, setStep] = useState<'select' | 'credentials'>('select');
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider | null>(null);
   const [credentials, setCredentials] = useState<CredentialForm>({
     accountName: '',
@@ -53,7 +53,20 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function submitAws() {
+    const payload = {
+      name: credentials.accountName,
+      defaultRegion: credentials.region || 'ap-northeast-2',
+      accessKeyId: credentials.accessKeyId || '',
+      secretAccessKey: credentials.secretAccessKey || '',
+    };
+    const resp = await createAwsAccount(payload);
+    return resp;
+  }
 
   const providers: ProviderOption[] = [
     {
