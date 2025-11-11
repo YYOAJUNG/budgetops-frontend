@@ -30,32 +30,33 @@ function RecommendationCard({
   const [showSimulationPanel, setShowSimulationPanel] = useState(false);
   const [simulationResults, setSimulationResults] = useState<SimulationResult[]>([]);
 
-  const { isLoading, refetch } = useQuery({
-    queryKey: ['simulation', actionType, resourceIds],
+  const { isLoading, refetch, data: simulationData } = useQuery({
+    queryKey: ['simulation-details', actionType, resourceIds],
     queryFn: async () => {
       const request: SimulateRequest = {
         resourceIds,
         action: actionType,
       };
       const response = await simulate(request);
-      setSimulationResults(response.scenarios);
       return response;
     },
-    enabled: showDetails && resourceIds.length > 0,
+    enabled: false, // 수동 실행
   });
 
-  const handleViewDetails = () => {
+  const handleViewDetails = async () => {
     setShowDetails(true);
-    refetch();
+    try {
+      const result = await refetch();
+      if (result.data) {
+        setSimulationResults(result.data.scenarios);
+      }
+    } catch (error) {
+      console.error('시뮬레이션 조회 실패:', error);
+    }
   };
 
   const handleSimulate = () => {
     setShowSimulationPanel(true);
-  };
-
-  const handleApprove = () => {
-    // 제안서 생성 및 승인 (추후 구현)
-    console.log('Create proposal for', actionType);
   };
 
   return (
@@ -93,7 +94,7 @@ function RecommendationCard({
             </div>
           )}
 
-          {showDetails && simulationResults.length > 0 && (
+          {showDetails && !isLoading && simulationResults.length > 0 && (
             <div className="space-y-3 pt-2">
               <p className="text-sm font-semibold text-gray-700 mb-2">시나리오 결과</p>
               {simulationResults.slice(0, 3).map((result, idx) => (
@@ -108,11 +109,18 @@ function RecommendationCard({
             </div>
           )}
 
+          {showDetails && !isLoading && simulationResults.length === 0 && (
+            <div className="text-sm text-gray-500 py-3">
+              시뮬레이션 결과가 없습니다.
+            </div>
+          )}
+
           <div className="flex gap-2.5 pt-1">
             <Button
               variant="outline"
               size="sm"
               onClick={handleViewDetails}
+              disabled={isLoading}
               className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
             >
               근거 보기
@@ -124,13 +132,6 @@ function RecommendationCard({
               className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
             >
               시뮬레이션
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleApprove}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-            >
-              승인
             </Button>
           </div>
         </div>
