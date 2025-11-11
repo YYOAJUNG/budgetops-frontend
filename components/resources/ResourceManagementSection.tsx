@@ -86,20 +86,29 @@ export function ResourceManagementSection() {
   const { data: awsAccounts } = useQuery({
     queryKey: ['awsAccounts'],
     queryFn: getAwsAccounts,
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    gcTime: 0, // 캐시 시간 최소화
   });
 
-  const hasAwsAccounts = (awsAccounts?.length ?? 0) > 0;
+  // 활성 계정만 필터링
+  const activeAccounts = useMemo(() => {
+    return (awsAccounts || []).filter((account) => account.active === true);
+  }, [awsAccounts]);
 
-  const { data: resources, isLoading, isError, refetch, isFetching } = useQuery({
+  const hasAwsAccounts = activeAccounts.length > 0;
+
+  const { data: resources, isLoading, isError, error: resourcesError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
     enabled: hasAwsAccounts,
+    retry: 1,
   });
 
-  const { data: ec2Data, refetch: refetchEc2 } = useQuery({
+  const { data: ec2Data, refetch: refetchEc2, error: ec2Error } = useQuery({
     queryKey: ['ec2-instances'],
     queryFn: getAllEc2Instances,
     enabled: hasAwsAccounts,
+    retry: 1,
   });
 
   // 리소스와 EC2 인스턴스 매핑
@@ -109,11 +118,10 @@ export function ResourceManagementSection() {
     return resources.map((resource) => {
       const ec2Instance = ec2Data.find((ec2) => ec2.instanceId === resource.id);
       let accountId: number | null = null;
-      if (ec2Instance && awsAccounts && awsAccounts.length > 0) {
-        const activeAccount = awsAccounts.find((acc) => acc.active);
-        if (activeAccount) {
-          accountId = activeAccount.id;
-        }
+      if (ec2Instance && activeAccounts.length > 0) {
+        // 활성 계정만 사용
+        const activeAccount = activeAccounts[0]; // 첫 번째 활성 계정 사용
+        accountId = activeAccount.id;
       }
 
       return {
@@ -122,7 +130,7 @@ export function ResourceManagementSection() {
         accountId,
       };
     });
-  }, [resources, ec2Data, awsAccounts]);
+  }, [resources, ec2Data, activeAccounts]);
 
   const handleStop = async (instance: AwsEc2Instance, accountId: number, region?: string) => {
     if (!confirm(`${instance.name || instance.instanceId} 인스턴스를 정지하시겠습니까?`)) {
@@ -178,7 +186,7 @@ export function ResourceManagementSection() {
     setShowMetricsDialog(true);
   };
 
-  const activeAccount = awsAccounts?.find((acc) => acc.active) || awsAccounts?.[0];
+  const activeAccount = activeAccounts.length > 0 ? activeAccounts[0] : null;
 
   if (!hasAwsAccounts) {
     return (
@@ -247,10 +255,31 @@ export function ResourceManagementSection() {
               <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
               <p>리소스를 불러오는 중입니다...</p>
             </div>
-          ) : isError ? (
-            <div className="text-center py-12 text-red-600">
-              <AlertCircle className="h-6 w-6 mx-auto mb-2" />
-              <p>리소스 데이터를 불러오지 못했습니다.</p>
+          ) : (isError || ec2Error) ? (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto p-4 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-6 w-6 mx-auto mb-2 text-red-600" />
+                <p className="font-semibold text-red-900 mb-1">리소스 데이터 조회 실패</p>
+                <p className="text-sm text-red-700 mb-2">
+                  {resourcesError instanceof Error ? resourcesError.message : 
+                   ec2Error instanceof Error ? ec2Error.message : 
+                   '리소스 데이터를 불러오지 못했습니다.'}
+                </p>
+                <p className="text-xs text-red-600">
+                  AWS 계정이 활성화되어 있고 IAM 권한이 올바른지 확인하세요.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    refetch();
+                    refetchEc2();
+                  }}
+                  className="mt-3"
+                >
+                  다시 시도
+                </Button>
+              </div>
             </div>
           ) : resourcesWithDetails.length === 0 ? (
             <div className="text-center py-12 text-slate-500">

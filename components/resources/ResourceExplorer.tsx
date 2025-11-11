@@ -61,21 +61,30 @@ export function ResourceExplorer() {
   const { data: awsAccounts } = useQuery({
     queryKey: ['awsAccounts'],
     queryFn: getAwsAccounts,
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    gcTime: 0, // 캐시 시간 최소화
   });
   
-  const hasAwsAccounts = (awsAccounts?.length ?? 0) > 0;
+  // 활성 계정만 필터링
+  const activeAccounts = useMemo(() => {
+    return (awsAccounts || []).filter((account) => account.active === true);
+  }, [awsAccounts]);
+  
+  const hasAwsAccounts = activeAccounts.length > 0;
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
-    enabled: hasAwsAccounts, // 계정이 있을 때만 조회
+    enabled: hasAwsAccounts, // 활성 계정이 있을 때만 조회
+    retry: 1,
   });
 
   // EC2 인스턴스 상세 정보도 함께 조회
-  const { data: ec2Data, refetch: refetchEc2 } = useQuery({
+  const { data: ec2Data, refetch: refetchEc2, error: ec2Error } = useQuery({
     queryKey: ['ec2-instances'],
     queryFn: getAllEc2Instances,
-    enabled: hasAwsAccounts, // 계정이 있을 때만 조회
+    enabled: hasAwsAccounts, // 활성 계정이 있을 때만 조회
+    retry: 1,
   });
 
   const [providerFilter, setProviderFilter] = useState<string[]>([]);
