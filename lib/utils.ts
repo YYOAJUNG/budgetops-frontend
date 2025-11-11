@@ -5,6 +5,43 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * USD를 KRW로 변환 (환율: 약 1,350원, 실시간 환율 API 연동 가능)
+ */
+export function convertUsdToKrw(usdAmount: number): number {
+  // TODO: 실시간 환율 API 연동 가능
+  const exchangeRate = 1350; // USD to KRW 환율
+  return usdAmount * exchangeRate;
+}
+
+/**
+ * KRW를 USD로 변환
+ */
+export function convertKrwToUsd(krwAmount: number): number {
+  const exchangeRate = 1350; // USD to KRW 환율
+  return krwAmount / exchangeRate;
+}
+
+/**
+ * 통화 변환 (USD <-> KRW)
+ */
+export function convertCurrency(
+  amount: number,
+  fromCurrency: 'KRW' | 'USD',
+  toCurrency: 'KRW' | 'USD'
+): number {
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
+  if (fromCurrency === 'USD' && toCurrency === 'KRW') {
+    return convertUsdToKrw(amount);
+  }
+  if (fromCurrency === 'KRW' && toCurrency === 'USD') {
+    return convertKrwToUsd(amount);
+  }
+  return amount;
+}
+
 export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
   // 0일 때는 "-" 기호 없이 표시
   if (amount === 0) {

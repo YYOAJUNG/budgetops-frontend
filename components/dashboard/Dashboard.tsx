@@ -97,7 +97,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
 import { useContextStore } from '@/store/context';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, convertCurrency } from '@/lib/utils';
 import { DollarSign, Target, AlertTriangle, Lightbulb, Cloud, Bot, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
@@ -148,8 +148,8 @@ export function Dashboard() {
     retry: 1, // 실패 시 1번만 재시도
   });
 
-  // AWS 계정별 총 비용 계산
-  const totalAwsCost = useMemo(() => {
+  // AWS 계정별 총 비용 계산 (USD 기준)
+  const totalAwsCostUsd = useMemo(() => {
     if (!awsAccountCosts) return 0;
     return awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
   }, [awsAccountCosts]);
@@ -165,13 +165,13 @@ export function Dashboard() {
   const costChange =
     previousMonthCost > 0 ? ((currentMonthCost - previousMonthCost) / previousMonthCost) * 100 : 0;
 
-  // 이번 달 총 비용에 AWS 비용도 포함 (AWS 비용이 있으면 추가)
+  // 이번 달 총 비용에 AWS 비용도 포함 (통화 변환 적용)
   const totalCurrentMonthCost = useMemo(() => {
-    // costSeries의 마지막 값과 AWS 비용을 합산
-    // AWS 비용은 최근 30일 기준이므로, 이번 달 비용으로 정확히 매핑하려면 월별 비용 조회가 필요하지만
-    // 일단 현재는 costSeries의 값과 AWS 비용을 합산
-    return currentMonthCost + totalAwsCost;
-  }, [currentMonthCost, totalAwsCost]);
+    // AWS 비용은 USD로 반환되므로, 선택된 currency에 맞게 변환
+    const convertedAwsCost = convertCurrency(totalAwsCostUsd, 'USD', currency);
+    // costSeries의 비용과 변환된 AWS 비용을 합산
+    return currentMonthCost + convertedAwsCost;
+  }, [currentMonthCost, totalAwsCostUsd, currency]);
 
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
@@ -307,7 +307,7 @@ export function Dashboard() {
                     <div className="text-right">
                       <p className="text-sm text-gray-600 mb-1">총 비용</p>
                       <p className="text-2xl font-bold text-orange-600">
-                        {formatCurrency(totalAwsCost, currency)}
+                        {formatCurrency(convertCurrency(totalAwsCostUsd, 'USD', currency), currency)}
                       </p>
                     </div>
                   </div>
@@ -324,7 +324,7 @@ export function Dashboard() {
                               {account.accountName}
                             </p>
                             <p className="text-lg font-bold text-gray-900">
-                              {formatCurrency(account.totalCost, currency)}
+                              {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
                             </p>
                           </div>
                         ))}
