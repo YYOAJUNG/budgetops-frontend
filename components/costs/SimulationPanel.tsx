@@ -226,10 +226,14 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
               </div>
             )}
 
-            <Button onClick={handleRunSimulation} disabled={isLoading} className="w-full">
+            <Button 
+              onClick={handleRunSimulation} 
+              disabled={isLoading} 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-11 text-base font-medium"
+            >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   시뮬레이션 실행 중...
                 </>
               ) : (
@@ -240,41 +244,59 @@ export function SimulationPanel({ resourceIds, actionType, onClose }: Simulation
 
           {/* 결과 표시 */}
           {simulationResponse && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">시뮬레이션 결과</h3>
-              <div className="space-y-3">
+            <div className="space-y-5 pt-2 border-t border-gray-100">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">시뮬레이션 결과</h3>
+                <p className="text-sm text-gray-500">최적화 시나리오별 상세 분석 결과</p>
+              </div>
+              <div className="space-y-4">
                 {simulationResponse.scenarios.map((scenario, idx) => (
-                  <Card key={idx} className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{scenario.scenarioName}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{scenario.description}</p>
-                        <div className="mt-3 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">현재 비용:</span>
-                            <span className="font-medium">{formatCurrency(scenario.currentCost, 'KRW')}</span>
+                  <Card key={idx} className="p-5 border border-gray-200 bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900 mb-1.5">{scenario.scenarioName}</h4>
+                          <p className="text-sm text-gray-600 leading-relaxed">{scenario.description}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">현재 비용</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(scenario.currentCost, 'KRW')}
+                            </p>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">변경 후 비용:</span>
-                            <span className="font-medium">{formatCurrency(scenario.newCost, 'KRW')}</span>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">변경 후 비용</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(scenario.newCost, 'KRW')}
+                            </p>
                           </div>
-                          <div className="flex justify-between text-indigo-600">
-                            <span>절감액:</span>
-                            <span className="font-bold">{formatCurrency(scenario.savings, 'KRW')}</span>
+                          <div className="col-span-2">
+                            <p className="text-xs text-gray-500 mb-1">절감액</p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {formatCurrency(scenario.savings, 'KRW')}
+                            </p>
                           </div>
-                          <div className="flex justify-between text-xs text-gray-500">
-                            <span>리스크 스코어: {(scenario.riskScore * 100).toFixed(1)}%</span>
-                            <span>우선순위 점수: {scenario.priorityScore.toFixed(0)}</span>
-                          </div>
+                        </div>
+                        <div className="flex gap-4 text-xs text-gray-500 pt-2">
+                          <span>리스크: {(scenario.riskScore * 100).toFixed(1)}%</span>
+                          <span>우선순위: {scenario.priorityScore.toFixed(0)}</span>
                         </div>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => handleCreateProposal(scenario)}
                         disabled={createProposalMutation.isPending}
-                        className="ml-4"
+                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm whitespace-nowrap"
                       >
-                        제안서 생성
+                        {createProposalMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            생성 중...
+                          </>
+                        ) : (
+                          '제안서 생성'
+                        )}
                       </Button>
                     </div>
                   </Card>
