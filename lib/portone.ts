@@ -3,7 +3,7 @@
  * 카카오페이 간편결제 연동
  */
 
-const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID || 'imp12345678';
+const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID!;
 
 declare global {
   interface Window {
