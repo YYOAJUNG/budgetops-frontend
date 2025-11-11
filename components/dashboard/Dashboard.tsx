@@ -281,6 +281,7 @@ export function Dashboard() {
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">클라우드 서비스별 비용</h3>
             <p className="text-sm text-gray-600">최근 30일간의 비용을 확인하세요</p>
+            <p className="text-xs text-gray-500 mt-1">※ 프리티어 소진은 별도로 표시되지 않습니다</p>
           </div>
           
           {isLoadingCosts ? (
