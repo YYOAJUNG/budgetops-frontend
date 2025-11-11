@@ -100,8 +100,9 @@ import { useContextStore } from '@/store/context';
 import { formatCurrency } from '@/lib/utils';
 import { DollarSign, Target, AlertTriangle, Lightbulb, Plus, Cloud, Bot, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { getAwsAccounts } from '@/lib/api/aws';
+import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 
 /** 최소한의 로컬 타입 (API 타입이 있으면 그걸 import 해도 됨) */
 type CostPoint = { amount: number };
@@ -125,6 +126,32 @@ export function Dashboard() {
   });
   
   const hasCloudAccounts = (awsAccounts?.length ?? 0) > 0;
+
+  // 최근 30일 날짜 계산
+  const endDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1); // Cost Explorer는 endDate를 exclusive로 처리
+    return date.toISOString().split('T')[0];
+  }, []);
+  
+  const startDate = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split('T')[0];
+  }, []);
+  
+  // AWS 계정별 비용 조회 (최근 30일)
+  const { data: awsAccountCosts, isLoading: isLoadingCosts } = useQuery({
+    queryKey: ['awsAccountCosts', startDate, endDate],
+    queryFn: () => getAllAwsAccountsCosts(startDate, endDate),
+    enabled: hasCloudAccounts,
+  });
+
+  // AWS 계정별 총 비용 계산
+  const totalAwsCost = useMemo(() => {
+    if (!awsAccountCosts) return 0;
+    return awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
+  }, [awsAccountCosts]);
 
   // 안전한 기본값 + 좁은 타입 보장
   const costSeries = (costSeriesRaw ?? []) as CostPoint[];
@@ -247,6 +274,55 @@ export function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AWS 계정별 비용 */}
+      {hasCloudAccounts && (
+        <Card className="shadow-lg border-0 bg-white">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl font-semibold text-gray-900">AWS 계정별 비용</CardTitle>
+            <CardDescription className="text-gray-600">
+              연결된 AWS 계정의 비용을 확인하세요
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingCosts ? (
+              <div className="text-center py-8 text-gray-600">비용 데이터를 불러오는 중...</div>
+            ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {awsAccountCosts.map((account: AccountCost) => (
+                    <div
+                      key={account.accountId}
+                      className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900">{account.accountName}</h3>
+                        <Cloud className="h-5 w-5 text-orange-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {formatCurrency(account.totalCost, currency)}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">최근 30일 비용</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-semibold text-gray-900">총 AWS 비용</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      {formatCurrency(totalAwsCost, currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-600">
+                비용 데이터가 없습니다. AWS Cost Explorer가 활성화되어 있는지 확인하세요.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
