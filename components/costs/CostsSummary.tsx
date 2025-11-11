@@ -75,7 +75,7 @@ export function CostsSummary() {
 
       {!isLoading && !isError && data && (
         <div className="space-y-6">
-          <Card className="overflow-hidden border border-sky-100 shadow-sm bg-gradient-to-br from-sky-50 via-sky-100 to-indigo-100 text-slate-900">
+          <Card className="overflow-hidden border border-slate-200 shadow-sm bg-white text-slate-900">
             <CardContent className="p-8">
               <div className="text-sm font-medium uppercase tracking-wide text-slate-500">총 비용</div>
               <div className="mt-4 text-4xl font-semibold">{formatCurrency(totalAmount)}</div>
@@ -104,7 +104,7 @@ export function CostsSummary() {
                       <div className="mt-2 text-xl font-semibold text-slate-900">{formatCurrency(amount)}</div>
                       <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
+                          className="h-full rounded-full bg-sky-300"
                           style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                         />
                       </div>
@@ -140,7 +140,7 @@ export function CostsSummary() {
                           </div>
                           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
+                              className="h-full rounded-full bg-sky-300"
                               style={{ width: `${Math.min(100, (amount / Math.max(1, totalAmount)) * 100)}%` }}
                             />
                           </div>
@@ -171,7 +171,7 @@ export function CostsSummary() {
                         </div>
                         <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-sky-200 to-indigo-200"
+                            className="h-full rounded-full bg-sky-300"
                             style={{ width: `${Math.min(100, (s.amount / Math.max(1, totalAmount)) * 100)}%` }}
                           />
                         </div>

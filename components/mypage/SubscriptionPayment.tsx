@@ -19,7 +19,7 @@ import {
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
 import { PurchaseTokenDialog } from './PurchaseTokenDialog';
-import { registerPaymentMethod } from '@/lib/portone';
+import { registerPaymentMethod, requestPayment, generateOrderUid } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
 
@@ -332,7 +332,7 @@ export function SubscriptionPayment() {
   };
 
   /**
-   * 플랜 선택 핸들러 - PortOne 결제 연동
+   * 플랜 선택 핸들러 - 실제 결제는 건너뛰고 백엔드 플랜만 변경
    */
   const handlePlanSelect = async (planId: string) => {
     try {
@@ -348,10 +348,8 @@ export function SubscriptionPayment() {
         return;
       }
 
-      const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-
-      // Mock 모드 또는 Free 플랜: 결제 없이 즉시 변경
-      if (isMock || planId === 'free') {
+      // Free 플랜: 결제 없이 즉시 변경
+      if (planId === 'free') {
         await updateSubscription(planId);
         await refetchSubscription();
         setShowPlans(false);
@@ -359,13 +357,14 @@ export function SubscriptionPayment() {
         return;
       }
 
-      // Pro 플랜: 결제 수단 확인 필요
+      // Pro 플랜: 결제 수단 확인 후 변경 (실제 결제는 스킵)
       if (selectedPlan.price) {
         if (!paymentMethod?.isRegistered) {
           alert('Pro 플랜으로 변경하려면 먼저 결제 수단을 등록해주세요.');
           return;
         }
 
+        // 백엔드에서 플랜 변경 (nextBillingDate 자동 설정됨)
         await updateSubscription(planId);
         await Promise.all([
           refetchSubscription(),
@@ -411,6 +410,7 @@ export function SubscriptionPayment() {
 
       await api.post(`/v1/users/${TEMP_USER_ID}/payment/register`, {
         impUid: result.impUid,
+        customerUid: result.customerUid,
       });
 
       const cardInfo = {
@@ -441,48 +441,28 @@ export function SubscriptionPayment() {
   };
 
   /**
-   * 토큰 구매 핸들러 - PortOne 결제 연동
+   * 토큰 구매 핸들러 - 빌링키 자동결제
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     try {
       setIsLoadingPurchase(true);
 
-      // 로딩 딜레이 추가 (1.5초)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const isMock = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
-
-      // Mock 모드: 즉시 성공 처리
-      if (isMock) {
-        setShowPurchaseDialog(false);
-        alert(PAYMENT_SUCCESS.TOKEN_PURCHASED(amount));
+      // 결제 수단 등록 여부 확인
+      if (!paymentMethod?.isRegistered) {
+        alert('결제 수단을 먼저 등록해주세요.');
+        setIsLoadingPurchase(false);
         return;
       }
 
-      // 실제 모드: 결제 진행
-      // 1. 결제 진행
-      const paymentResult = await requestPayment({
-        orderName: `토큰 ${amount}개 구매`,
-        amount: price,
-        orderUid: generateOrderUid('TOKEN'),
-        buyerName: TEST_USER.name,
-        buyerEmail: TEST_USER.email,
-      });
-
-      if (!paymentResult.success) {
-        alert(paymentResult.errorMsg || PAYMENT_ERRORS.PAYMENT_FAILED);
-        return;
-      }
-
-      // 2. 백엔드에 토큰 구매 요청
+      // 백엔드에 토큰 구매 요청 (빌링키로 자동결제)
       await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
         packageId,
         amount,
         price,
-        impUid: paymentResult.impUid,
+        useBillingKey: true,
       });
 
-      // 3. 데이터 갱신
+      // 데이터 갱신
       await Promise.all([refetchSubscription(), refetchPaymentHistory()]);
 
       setShowPurchaseDialog(false);
