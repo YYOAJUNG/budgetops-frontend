@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { testGcpIntegration, saveGcpIntegration } from '@/lib/api/gcp';
 import { createAwsAccount } from '@/lib/api/aws';
+import { createAzureAccount } from '@/lib/api/azure';
 
 interface AddCloudAccountDialogProps {
   open: boolean;
@@ -91,6 +92,17 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         />
       ),
     },
+    {
+      id: 'Azure' as CloudProvider,
+      name: 'Microsoft Azure',
+      logo: (
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/2048px-Microsoft_Azure.svg.png"
+          alt="Azure"
+          className="w-24 h-24 object-contain"
+        />
+      ),
+    },
   ];
 
   const handleNext = () => {
@@ -119,6 +131,31 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           await onSuccess();
         }
         // 약간의 지연 후 다이얼로그 닫기 (데이터 갱신 시간 확보)
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
+      } else if (selectedProvider === 'Azure') {
+        const payload = {
+          name: credentials.accountName.trim(),
+          subscriptionId: credentials.subscriptionId?.trim() || '',
+          tenantId: credentials.tenantId?.trim() || '',
+          clientId: credentials.clientId?.trim() || '',
+          clientSecret: credentials.clientSecret || '',
+        };
+
+        if (!payload.name || !payload.subscriptionId || !payload.tenantId || !payload.clientId || !payload.clientSecret) {
+          setErrorMsg('필수 입력 항목을 모두 채워주세요.');
+          return;
+        }
+
+        await createAzureAccount(payload);
+        setSuccessMsg('Azure 계정이 성공적으로 연동되었습니다.');
+        if (onSuccess) {
+          await onSuccess();
+        }
         setTimeout(() => {
           onOpenChange(false);
           setStep('select');
@@ -170,7 +207,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         return;
       }
     } catch (error: any) {
-      console.error('AWS 계정 연동 오류:', error);
+      console.error('계정 연동 오류:', error);
       // 백엔드에서 반환한 에러 메시지 추출
       let errorMessage = '계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.';
       
@@ -401,13 +438,13 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             <Label htmlFor="accountName">계정 이름 *</Label>
             <Input
               id="accountName"
-              placeholder="예: Production Azure"
+              placeholder="예: Production Azure(원하는 이름)"
               value={credentials.accountName}
               onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
             />
           </div>
           <div>
-            <Label htmlFor="subscriptionId">Subscription ID *</Label>
+            <Label htmlFor="subscriptionId">구독 ID *</Label>
             <Input
               id="subscriptionId"
               placeholder="12345678-1234-1234-1234-123456789012"
@@ -416,7 +453,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="tenantId">Tenant ID *</Label>
+            <Label htmlFor="tenantId">테넌트 ID *</Label>
             <Input
               id="tenantId"
               placeholder="87654321-4321-4321-4321-210987654321"
@@ -425,7 +462,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="clientId">Client ID *</Label>
+            <Label htmlFor="clientId">클라이언트 ID *</Label>
             <Input
               id="clientId"
               placeholder="11111111-1111-1111-1111-111111111111"
@@ -434,11 +471,11 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="clientSecret">Client Secret *</Label>
+            <Label htmlFor="clientSecret">Client 값 *</Label>
             <Input
               id="clientSecret"
               type="password"
-              placeholder="your-client-secret"
+              placeholder="agk**~**_12AB34CEWFDKLGOELS****"
               value={credentials.clientSecret || ''}
               onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })}
             />
