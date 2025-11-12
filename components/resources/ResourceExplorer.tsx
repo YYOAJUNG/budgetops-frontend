@@ -411,6 +411,10 @@ function ResourceCard({
   const [showGcpMetrics, setShowGcpMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
   const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+  const azureDetails =
+    resource.provider === 'Azure' && resource.details && resource.details.provider === 'Azure'
+      ? resource.details
+      : undefined;
 
   return (
     <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -449,6 +453,11 @@ function ResourceCard({
             {gcpResource.resourceId}
           </div>
         )}
+        {azureDetails && (
+          <div className="text-xs text-slate-500 font-mono truncate">
+            {resource.id}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-600">
         {isEc2 && (
@@ -478,6 +487,54 @@ function ResourceCard({
             <div className="flex items-center justify-between">
               <span className="text-slate-500">시작 시간</span>
               <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
+            </div>
+          </>
+        )}
+        {azureDetails && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">리소스 그룹</span>
+              <span className="font-medium text-slate-900">{azureDetails.resourceGroup || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">인스턴스 타입</span>
+              <span className="font-medium text-slate-900">{azureDetails.vmSize || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">운영체제</span>
+              <span className="font-medium text-slate-900">{azureDetails.osType || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">호스트 이름</span>
+              <span className="font-medium text-slate-900">{azureDetails.computerName || 'N/A'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">퍼블릭 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {azureDetails.publicIp || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">프라이빗 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {azureDetails.privateIp || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">가용 영역</span>
+              <span className="font-medium text-slate-700">
+                {azureDetails.availabilityZone || region || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">시작 시간</span>
+              <span className="font-medium text-slate-700">
+                {azureDetails.timeCreated ? formatDate(azureDetails.timeCreated) : 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">프로비저닝 상태</span>
+              <span className="font-medium text-slate-700">{azureDetails.provisioningState || 'N/A'}</span>
             </div>
           </>
         )}

@@ -4,6 +4,22 @@ import { getAzureAccounts, getAzureVirtualMachines, AzureVirtualMachine } from '
 
 export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba';
 
+export type AzureResourceDetails = {
+  provider: 'Azure';
+  vmSize: string;
+  osType: string;
+  computerName: string;
+  powerState: string;
+  provisioningState: string;
+  resourceGroup: string;
+  privateIp: string;
+  publicIp: string;
+  availabilityZone: string;
+  timeCreated: string;
+};
+
+export type ResourceDetails = AzureResourceDetails;
+
 export type ResourceItem = {
   id: string;
   name: string;
@@ -13,6 +29,7 @@ export type ResourceItem = {
   region: string;
   updatedAt: string;
   status: 'running' | 'stopped' | 'idle';
+  details?: ResourceDetails;
 };
 
 const MOCK_RESOURCES: ResourceItem[] = [
@@ -204,8 +221,21 @@ function convertAzureVmToResource(vm: AzureVirtualMachine): ResourceItem {
     service: 'Virtual Machines',
     cost: 0, // 비용 정보는 별도 API에서 가져와야 함
     region: vm.location,
-    updatedAt: new Date().toISOString(), // Azure API에서 업데이트 시간을 제공하지 않으면 현재 시간 사용
+    updatedAt: vm.timeCreated || new Date().toISOString(), // timeCreated가 있으면 사용
     status,
+    details: {
+      provider: 'Azure',
+      vmSize: vm.vmSize,
+      osType: vm.osType,
+      computerName: vm.computerName,
+      powerState: vm.powerState,
+      provisioningState: vm.provisioningState,
+      resourceGroup: vm.resourceGroup,
+      privateIp: vm.privateIp,
+      publicIp: vm.publicIp,
+      availabilityZone: vm.availabilityZone,
+      timeCreated: vm.timeCreated,
+    },
   };
 }
 

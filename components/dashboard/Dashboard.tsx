@@ -197,10 +197,28 @@ export function Dashboard() {
     retry: 1,
   });
 
-  // Azure 계정별 총 비용 계산 (USD 기준)
-  const totalAzureCostUsd = useMemo(() => {
-    if (!azureAccountCosts) return 0;
-    return azureAccountCosts.reduce((sum, account) => sum + account.amount, 0);
+  // Azure 계정별 총 비용 계산 (원래 통화 기준으로 합산, 이후 변환)
+  const totalAzureCost = useMemo(() => {
+    if (!azureAccountCosts) return { amount: 0, currency: 'USD' };
+    // 모든 계정의 통화가 같은지 확인 (일반적으로는 같을 것)
+    const currencies = new Set(azureAccountCosts.map(acc => acc.currency || 'USD'));
+    const primaryCurrency = currencies.size === 1 ? Array.from(currencies)[0] : 'USD';
+    
+    // 같은 통화로 합산
+    const totalAmount = azureAccountCosts.reduce((sum, account) => {
+      const accountCurrency = account.currency || 'USD';
+      if (accountCurrency === primaryCurrency) {
+        return sum + account.amount;
+      } else {
+        // 통화가 다르면 USD로 변환 후 합산
+        const amountInUsd = accountCurrency === 'KRW' 
+          ? convertCurrency(account.amount, 'KRW', 'USD')
+          : account.amount; // USD로 가정
+        return sum + amountInUsd;
+      }
+    }, 0);
+    
+    return { amount: totalAmount, currency: primaryCurrency };
   }, [azureAccountCosts]);
 
   // 안전한 기본값 + 좁은 타입 보장
@@ -218,11 +236,11 @@ export function Dashboard() {
   const totalCurrentMonthCost = useMemo(() => {
     // AWS 비용은 USD로 반환되므로, 선택된 currency에 맞게 변환
     const convertedAwsCost = convertCurrency(totalAwsCostUsd, 'USD', currency);
-    // Azure 비용도 USD로 반환되므로, 선택된 currency에 맞게 변환
-    const convertedAzureCost = convertCurrency(totalAzureCostUsd, 'USD', currency);
+    // Azure 비용은 원래 통화에서 선택된 currency로 변환
+    const convertedAzureCost = convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency);
     // costSeries의 비용과 변환된 AWS, Azure 비용을 합산
     return currentMonthCost + convertedAwsCost + convertedAzureCost;
-  }, [currentMonthCost, totalAwsCostUsd, totalAzureCostUsd, currency]);
+  }, [currentMonthCost, totalAwsCostUsd, totalAzureCost, currency]);
 
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
@@ -326,7 +344,7 @@ export function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               {/* AWS 계정 비용 카드 */}
               {awsAccounts && awsAccounts.length > 0 && (
                 costsError ? (
@@ -502,7 +520,7 @@ export function Dashboard() {
                     </CardContent>
                   </Card>
                 ) : azureAccountCosts && azureAccountCosts.length > 0 ? (
-                  totalAzureCostUsd > 0 ? (
+                  totalAzureCost.amount > 0 ? (
                     <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-4">
@@ -518,7 +536,7 @@ export function Dashboard() {
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-blue-600">
-                              {formatCurrency(convertCurrency(totalAzureCostUsd, 'USD', currency), currency)}
+                              {formatCurrency(convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency), currency)}
                             </p>
                           </div>
                         </div>
@@ -535,7 +553,7 @@ export function Dashboard() {
                                     {account.accountName}
                                   </p>
                                   <p className="text-lg font-bold text-gray-900">
-                                    {formatCurrency(convertCurrency(account.amount, account.currency || 'USD', currency), currency)}
+                                    {formatCurrency(convertCurrency(account.amount, (account.currency || 'USD') as 'KRW' | 'USD', currency), currency)}
                                   </p>
                                 </div>
                               ))}
