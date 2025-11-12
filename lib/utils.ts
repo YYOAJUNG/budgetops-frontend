@@ -53,8 +53,8 @@ export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'):
       maximumFractionDigits: 0,
     }).format(normalizedAmount);
     const result = `${formatted}원`;
-    // "-0원" 또는 "-0,000원" 같은 경우를 "0원"으로 변경
-    return result.replace(/^-0(,000)?원$/, '0$1원');
+    // "-0원" 또는 "-0,000원" 같은 경우를 "0원"으로 변경 (0으로 시작하는 음수는 모두 0으로 처리)
+    return result.replace(/^-0/, '0');
   } else {
     // USD는 "$1,000" 형태로 표시
     const formatted = new Intl.NumberFormat('en-US', {
