@@ -682,7 +682,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0">
+      <DialogContent className="w-full max-w-[800px] p-0 mx-4">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
