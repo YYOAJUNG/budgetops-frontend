@@ -163,14 +163,18 @@ export function Dashboard() {
     return awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
   }, [awsAccountCosts]);
 
-  // GCP 계정별 비용 (현재는 API가 없으므로 0으로 처리, 나중에 API 추가 시 업데이트)
+  // GCP 계정별 비용 조회
+  // TODO: GCP 비용 API 구현 필요
+  // - lib/api/gcp.ts에 getAllGcpAccountsCosts 함수 추가 필요
+  // - API 엔드포인트: GET /gcp/accounts/costs?startDate={startDate}&endDate={endDate}
+  // - 반환 타입: Array<{ accountId: number; accountName: string; totalCost: number }>
+  // - 현재는 API가 없으므로 0으로 처리
   const gcpAccountCosts: Array<{ accountId: number; accountName: string; totalCost: number }> = useMemo(() => {
     if (!gcpAccounts || gcpAccounts.length === 0) return [];
-    // TODO: GCP 비용 API 구현 시 실제 비용 데이터로 교체
     return gcpAccounts.map(account => ({
       accountId: account.id,
       accountName: account.name || account.projectId || `GCP Account ${account.id}`,
-      totalCost: 0, // GCP 비용 API 구현 전까지 0
+      totalCost: 0, // TODO: GCP 비용 API 구현 후 실제 비용 데이터로 교체
     }));
   }, [gcpAccounts]);
 
@@ -432,7 +436,7 @@ export function Dashboard() {
                       </div>
                     </div>
                     
-                    {gcpAccountCosts.length > 1 && (
+                    {gcpAccountCosts.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="grid gap-3 sm:grid-cols-2">
                           {gcpAccountCosts.map((account) => (
@@ -450,12 +454,6 @@ export function Dashboard() {
                           ))}
                         </div>
                       </div>
-                    )}
-                    
-                    {totalGcpCostUsd === 0 && (
-                      <p className="text-xs text-gray-500 mt-3">
-                        GCP 비용 데이터는 현재 준비 중입니다.
-                      </p>
                     )}
                   </CardContent>
                 </Card>

@@ -78,9 +78,14 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     }
   }
 
-  // GCP 계정 조회 (비용 API는 아직 없으므로 0으로 처리)
+  // GCP 계정 조회 및 비용 조회
+  // TODO: GCP 비용 API 구현 필요
+  // - lib/api/gcp.ts에 getAllGcpAccountsCosts 함수 추가 필요
+  // - API 엔드포인트: GET /gcp/accounts/costs?startDate={startDate}&endDate={endDate}
+  // - 반환 타입: Array<{ accountId: number; accountName: string; totalCost: number }>
+  // - 현재는 API가 없으므로 0으로 처리
   const gcpAccounts = await getGcpAccounts().catch(() => []);
-  const gcpTotalCost = 0; // TODO: GCP 비용 API 구현 시 업데이트
+  const gcpTotalCost = 0; // TODO: GCP 비용 API 구현 후 실제 비용 데이터로 교체
   const previousGcpTotalCost = 0;
 
   // AWS 비용을 선택된 통화로 변환
@@ -99,18 +104,21 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   const total = awsTotalInCurrency + gcpTotalCost;
   const previousTotal = previousAwsTotalInCurrency + previousGcpTotalCost;
 
+  // GCP 계정이 있으면 비용이 0원이어도 표시
+  const hasGcpAccounts = gcpAccounts.length > 0;
+
   return {
     total,
     byProvider: {
       ...(awsTotalInCurrency > 0 ? { AWS: awsTotalInCurrency } : {}),
-      ...(gcpTotalCost > 0 ? { GCP: gcpTotalCost } : {}),
+      ...(hasGcpAccounts ? { GCP: gcpTotalCost } : {}),  // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
     },
     byService,
-    previousPeriod: previousTotal > 0 ? {
+    previousPeriod: previousTotal > 0 || hasGcpAccounts ? { // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
       total: previousTotal,
       byProvider: {
         ...(previousAwsTotalInCurrency > 0 ? { AWS: previousAwsTotalInCurrency } : {}),
-        ...(previousGcpTotalCost > 0 ? { GCP: previousGcpTotalCost } : {}),
+        ...(hasGcpAccounts ? { GCP: previousGcpTotalCost } : {}),  // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
       },
       byService: previousByService,
     } : undefined,
