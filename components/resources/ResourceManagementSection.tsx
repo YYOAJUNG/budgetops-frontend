@@ -40,7 +40,7 @@ function formatDate(iso: string): string {
 function getServiceIcon(service: string) {
   switch (service) {
     case 'EC2':
-    case 'Compute Engine':
+    case 'Instance':
     case 'Virtual Machines':
       return Server;
     default:
@@ -338,6 +338,11 @@ export function ResourceManagementSection() {
                             {isEc2 && (
                               <div className="text-xs text-slate-500 font-mono mt-1">
                                 {ec2Instance.instanceId}
+                              </div>
+                            )}
+                            {resource.provider === 'GCP' && resource.service === 'Instance' && (
+                              <div className="text-xs text-slate-500 font-mono mt-1">
+                                {resource.id}
                               </div>
                             )}
                           </div>
