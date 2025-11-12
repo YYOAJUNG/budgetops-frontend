@@ -27,7 +27,7 @@ import {
   getAwsAccounts,
 } from '@/lib/api/aws';
 
-import { getAllGcpResources } from '@/lib/api/gcp';
+import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
 import { ResourceManagementSection } from './ResourceManagementSection';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
@@ -108,6 +108,19 @@ export function ResourceExplorer() {
     queryFn: getAllGcpResources,
     retry: 1,
   });
+
+  // GCP 리소스를 resourceId로 인덱싱된 Map으로 변환
+  const gcpResourceMap = useMemo(() => {
+    const map = new Map<string, GcpResource>();
+    if (gcpAccountResources) {
+      for (const accountResources of gcpAccountResources) {
+        for (const resource of accountResources.resources) {
+          map.set(resource.resourceId, resource);
+        }
+      }
+    }
+    return map;
+  }, [gcpAccountResources]);
 
   const [providerFilter, setProviderFilter] = useState<string[]>([]);
   const [serviceFilter, setServiceFilter] = useState<string[]>([]);
@@ -360,11 +373,15 @@ export function ResourceExplorer() {
                 accountId = activeAccount.id;
               }
             }
+            // GCP 리소스인 경우 상세 정보 찾기
+            const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
+            
             return (
               <ResourceCard 
                 key={resource.id} 
                 resource={resource} 
                 ec2Instance={ec2Instance}
+                gcpResource={gcpResource}
                 accountId={accountId}
                 region={resource.region}
               />
@@ -379,16 +396,19 @@ export function ResourceExplorer() {
 function ResourceCard({ 
   resource, 
   ec2Instance,
+  gcpResource,
   accountId,
   region
 }: { 
   resource: ResourceItem;
   ec2Instance?: AwsEc2Instance;
+  gcpResource?: GcpResource;
   accountId?: number | null;
   region?: string;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
+  const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
 
   return (
     <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -422,6 +442,11 @@ function ResourceCard({
             {ec2Instance.instanceId}
           </div>
         )}
+        {isGcpInstance && (
+          <div className="text-xs text-slate-500 font-mono">
+            {gcpResource.resourceId}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-600">
         {isEc2 && (
@@ -442,24 +467,70 @@ function ResourceCard({
                 {ec2Instance.privateIp || 'N/A'}
               </span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">가용 영역</span>
+              <span className="font-medium text-slate-700">
+                {ec2Instance.availabilityZone}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">시작 시간</span>
+              <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
+            </div>
           </>
         )}
-        {resource.cost > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">월간 비용</span>
-            <span className="text-base font-semibold text-slate-900">{formatCurrency(resource.cost)}</span>
-          </div>
+        {isGcpInstance && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">인스턴스 타입</span>
+              <span className="font-medium text-slate-900">
+                {gcpResource.additionalAttributes?.machineType || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">퍼블릭 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {gcpResource.additionalAttributes?.externalIPs?.[0] || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">프라이빗 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {gcpResource.additionalAttributes?.internalIPs?.[0] || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">가용 영역</span>
+              <span className="font-medium text-slate-700">
+                {resource.region}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">업데이트</span>
+              <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
+            </div>
+          </>
         )}
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">{isEc2 ? '가용 영역' : '리전'}</span>
-          <span className="font-medium text-slate-700">
-            {isEc2 ? ec2Instance.availabilityZone : resource.region}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">{isEc2 ? '시작 시간' : '업데이트'}</span>
-          <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
-        </div>
+        {!isEc2 && !isGcpInstance && (
+          <>
+            {resource.cost > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">월간 비용</span>
+                <span className="text-base font-semibold text-slate-900">{formatCurrency(resource.cost)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">리전</span>
+              <span className="font-medium text-slate-700">
+                {resource.region}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">업데이트</span>
+              <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
+            </div>
+          </>
+        )}
         {isEc2 && accountId && (
           <div className="pt-3 border-t border-slate-200">
             <Button
