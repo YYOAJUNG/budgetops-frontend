@@ -43,13 +43,18 @@ export function convertCurrency(
 }
 
 export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
+  // -0을 0으로 변환 (Object.is를 사용하여 -0을 정확히 감지)
+  const normalizedAmount = Object.is(amount, -0) ? 0 : amount;
+  
   if (currency === 'KRW') {
     // 한국 원화는 "1,000원" 형태로 표시
     const formatted = new Intl.NumberFormat('ko-KR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
-    return `${formatted}원`;
+    }).format(normalizedAmount);
+    const result = `${formatted}원`;
+    // "-0원" 같은 경우를 "0원"으로 변경
+    return result.replace(/^-0원$/, '0원');
   } else {
     // USD는 "$1,000" 형태로 표시
     const formatted = new Intl.NumberFormat('en-US', {
@@ -57,8 +62,9 @@ export function formatCurrency(amount: number, currency: 'KRW' | 'USD' = 'KRW'):
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
-    return formatted.replace(/^-/, ''); // "-$0" 같은 경우를 "$0"으로 변경
+    }).format(normalizedAmount);
+    // "-$0" 같은 경우를 "$0"으로 변경
+    return formatted.replace(/^-/, '');
   }
 }
 
@@ -68,40 +74,5 @@ export function formatNumber(num: number): string {
 
 export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
-}
-
-/**
- * 금액을 축약 형식으로 표시 (예: ₩4.2M)
- */
-export function formatCurrencyCompact(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
-  if (currency === 'KRW') {
-    if (amount >= 1000000) {
-      return `₩${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `₩${(amount / 1000).toFixed(1)}K`;
-    }
-    return `${amount.toLocaleString()}원`;
-  } else {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}K`;
-    }
-    return `$${amount.toLocaleString()}`;
-  }
-}
-
-/**
- * HHI (Herfindahl-Hirschman Index) 계산
- * 집중도 측정: 0~10,000 (높을수록 집중도 높음)
- */
-export function calculateHHI(shares: number[]): number {
-  const sum = shares.reduce((acc, share) => acc + share, 0);
-  if (sum === 0) return 0;
-  
-  return shares.reduce((acc, share) => {
-    const percentage = (share / sum) * 100;
-    return acc + Math.pow(percentage, 2);
-  }, 0);
 }
 
