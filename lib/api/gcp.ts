@@ -137,3 +137,38 @@ export async function getAllGcpResources(): Promise<GcpAccountResources[]> {
   }
 }
 
+export interface GcpMetricDataPoint {
+  timestamp: string;
+  value: number | null;
+  unit: string;
+}
+
+export interface GcpInstanceMetrics {
+  resourceId: string;
+  resourceType: string;
+  region: string;
+  cpuUtilization: GcpMetricDataPoint[];
+  networkIn: GcpMetricDataPoint[];
+  networkOut: GcpMetricDataPoint[];
+  memoryUtilization: GcpMetricDataPoint[];
+}
+
+/**
+ * GCP 인스턴스의 메트릭 조회
+ * @param resourceId GCP 리소스 ID (인스턴스 ID)
+ * @param hours 조회할 시간 범위 (기본값: 1시간)
+ */
+export async function getGcpInstanceMetrics(
+  resourceId: string,
+  hours?: number
+): Promise<GcpInstanceMetrics> {
+  const params: any = {};
+  if (hours) params.hours = hours;
+  
+  const { data } = await api.get<GcpInstanceMetrics>(
+    `/gcp/resources/${resourceId}/metrics`,
+    { params }
+  );
+  return data;
+}
+
