@@ -26,6 +26,8 @@ import {
   AwsEc2Instance, 
   getAwsAccounts,
 } from '@/lib/api/aws';
+
+import { getAllGcpResources } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
 import { ResourceManagementSection } from './ResourceManagementSection';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
@@ -97,6 +99,13 @@ export function ResourceExplorer() {
     queryKey: ['ec2-instances'],
     queryFn: getAllEc2Instances,
     enabled: activeAwsAccounts.length > 0, // AWS 활성 계정이 있을 때만 조회
+    retry: 1,
+  });
+
+  // GCP 리소스 조회
+  const { data: gcpAccountResources, refetch: refetchGcp } = useQuery({
+    queryKey: ['gcp-resources'],
+    queryFn: getAllGcpResources,
     retry: 1,
   });
 
@@ -253,7 +262,9 @@ export function ResourceExplorer() {
               onClick={() => {
                 refetch();
                 refetchEc2();
+                refetchGcp();
                 queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+                queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
                 queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
                 queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
               }}

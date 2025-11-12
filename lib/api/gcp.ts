@@ -96,3 +96,44 @@ export async function deleteGcpAccount(id: number): Promise<void> {
   await api.delete(`/gcp/accounts/${id}`);
 }
 
+/**
+ * GCP 리소스 타입 정의
+ */
+export interface GcpResource {
+  id: number;
+  resourceId: string;
+  resourceName: string;
+  resourceType: string;
+  resourceTypeShort: string;
+  monthlyCost: number | null;
+  region: string;
+  status: string;
+  lastUpdated: string;
+  additionalAttributes?: {
+    externalIPs?: string[];
+    internalIPs?: string[];
+    machineType?: string;
+    [key: string]: any;
+  };
+}
+
+export interface GcpAccountResources {
+  accountId: number;
+  accountName: string | null;
+  projectId: string;
+  resources: GcpResource[];
+}
+
+/**
+ * 모든 GCP 계정의 리소스 목록 조회
+ */
+export async function getAllGcpResources(): Promise<GcpAccountResources[]> {
+  try {
+    const { data } = await api.get<GcpAccountResources[]>('/gcp/resources');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch GCP resources:', error);
+    return [];
+  }
+}
+

@@ -14,6 +14,7 @@ import {
   startEc2Instance,
   terminateEc2Instance,
 } from '@/lib/api/aws';
+import { getAllGcpResources } from '@/lib/api/gcp';
 import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import {
@@ -111,6 +112,13 @@ export function ResourceManagementSection() {
     retry: 1,
   });
 
+  // GCP 리소스 조회
+  const { data: gcpAccountResources, refetch: refetchGcp } = useQuery({
+    queryKey: ['gcp-resources'],
+    queryFn: getAllGcpResources,
+    retry: 1,
+  });
+
   // 리소스와 EC2 인스턴스 매핑
   const resourcesWithDetails = useMemo(() => {
     if (!resources || !ec2Data) return [];
@@ -140,6 +148,7 @@ export function ResourceManagementSection() {
     try {
       await stopEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 정지 오류:', error);
@@ -154,6 +163,7 @@ export function ResourceManagementSection() {
     try {
       await startEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 시작 오류:', error);
@@ -172,6 +182,7 @@ export function ResourceManagementSection() {
     try {
       await terminateEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 삭제 오류:', error);
@@ -228,7 +239,9 @@ export function ResourceManagementSection() {
                 onClick={() => {
                   refetch();
                   refetchEc2();
+                  refetchGcp();
                   queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+                  queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
                 }}
                 disabled={isFetching}
                 className="gap-2"
@@ -274,6 +287,7 @@ export function ResourceManagementSection() {
                   onClick={() => {
                     refetch();
                     refetchEc2();
+                    refetchGcp();
                   }}
                   className="mt-3"
                 >
@@ -414,7 +428,9 @@ export function ResourceManagementSection() {
           onSuccess={async () => {
             await refetch();
             await refetchEc2();
+            await refetchGcp();
             queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+            queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
             queryClient.invalidateQueries({ queryKey: ['resources'] });
           }}
         />
