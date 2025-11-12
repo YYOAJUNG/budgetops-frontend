@@ -97,6 +97,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
 import { useContextStore } from '@/store/context';
+import { useUIStore } from '@/store/ui';
 import { formatCurrency, convertCurrency } from '@/lib/utils';
 import { DollarSign, Target, AlertTriangle, Lightbulb, Cloud, Bot, AlertCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -113,6 +114,7 @@ type Recommendation = { saving: number };
 export function Dashboard() {
   const { tenantId, from, to, currency } = useContextStore();
   const router = useRouter();
+  const { toggleAIChat } = useUIStore();
 
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
@@ -250,6 +252,7 @@ export function Dashboard() {
             <Button
               variant="outline"
               className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              onClick={toggleAIChat}
             >
               <Bot className="mr-2 h-4 w-4" />
               코파일럿 열기
