@@ -38,6 +38,7 @@ export interface TestIntegrationResponse {
 }
 
 export interface SaveIntegrationRequest {
+  name?: string; // 사용자가 입력한 계정 이름
   serviceAccountId: string;
   serviceAccountKeyJson: string;
   billingAccountId?: string;
