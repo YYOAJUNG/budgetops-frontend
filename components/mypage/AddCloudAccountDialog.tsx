@@ -434,7 +434,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       );
     } else if (selectedProvider === 'Azure') {
       return (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <Label htmlFor="accountName">계정 이름 *</Label>
             <Input
@@ -444,42 +444,145 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
             />
           </div>
-          <div>
-            <Label htmlFor="subscriptionId">구독 ID *</Label>
-            <Input
-              id="subscriptionId"
-              placeholder="12345678-1234-1234-1234-123456789012"
-              value={credentials.subscriptionId || ''}
-              onChange={(e) => setCredentials({ ...credentials, subscriptionId: e.target.value })}
-            />
+
+          {/* Step 1 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">1. Microsoft Entra ID에서 애플리케이션 등록</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Azure Portal &gt; Microsoft Entra ID(구 Azure AD)에서 앱을 등록해 주세요. 등록이 완료되면 아래 값을 복사해 둡니다.
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+              <li>테넌트 ID (Directory / Tenant ID)</li>
+              <li>클라이언트 ID (Application / Client ID)</li>
+            </ul>
+            <div className="grid gap-4 md:grid-cols-2 mt-4">
+              <div>
+                <Label htmlFor="tenantIdStep">테넌트 ID *</Label>
+                <Input
+                  id="tenantIdStep"
+                  placeholder="87654321-4321-4321-4321-210987654321"
+                  value={credentials.tenantId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, tenantId: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="clientIdStep">클라이언트 ID *</Label>
+                <Input
+                  id="clientIdStep"
+                  placeholder="11111111-1111-1111-1111-111111111111"
+                  value={credentials.clientId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, clientId: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <a
+                href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 앱 등록 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+            </div>
           </div>
-          <div>
-            <Label htmlFor="tenantId">테넌트 ID *</Label>
-            <Input
-              id="tenantId"
-              placeholder="87654321-4321-4321-4321-210987654321"
-              value={credentials.tenantId || ''}
-              onChange={(e) => setCredentials({ ...credentials, tenantId: e.target.value })}
-            />
+
+          {/* Step 2 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">2. 클라이언트 비밀 생성</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              앱 등록 상세 &gt; 인증서 및 비밀(Certificates &amp; secrets)에서 새 클라이언트 비밀을 생성해 주세요.
+              <br />
+              생성 직후 표시되는 <strong>비밀 값(Value)</strong> 을 Budgetops에 입력해야 합니다. Secret ID가 아닌지 확인해 주세요.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="clientSecretInline">클라이언트 비밀 값 *</Label>
+              <Input
+                id="clientSecretInline"
+                type="password"
+                placeholder="agk**~**_12AB34CEWFDKLGOELS****"
+                value={credentials.clientSecret || ''}
+                onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="clientId">클라이언트 ID *</Label>
-            <Input
-              id="clientId"
-              placeholder="11111111-1111-1111-1111-111111111111"
-              value={credentials.clientId || ''}
-              onChange={(e) => setCredentials({ ...credentials, clientId: e.target.value })}
-            />
+
+          {/* Step 3 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">3. 구독에 역할 할당</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              연결하려는 Subscription에서 서비스 프린시펄에게 다음 역할을 부여해 주세요.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Reader</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Cost Management Reader</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Monitoring Reader</code>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">
+              권한 반영까지 최대 수 분 정도 소요될 수 있습니다. 오류가 발생하면 잠시 후 다시 시도해 주세요.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                href="https://portal.azure.com/#view/Microsoft_Azure_Billing/ModernBillingMenuBlade/~/subscriptions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 구독 목록 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+              <a
+                href="https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 액세스 제어(IAM) 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+            </div>
+            <div className="mt-6 space-y-2">
+              <Label htmlFor="subscriptionIdInline">구독 ID *</Label>
+              <Input
+                id="subscriptionIdInline"
+                placeholder="12345678-1234-1234-1234-123456789012"
+                value={credentials.subscriptionId || ''}
+                onChange={(e) => setCredentials({ ...credentials, subscriptionId: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="clientSecret">Client 값 *</Label>
-            <Input
-              id="clientSecret"
-              type="password"
-              placeholder="agk**~**_12AB34CEWFDKLGOELS****"
-              value={credentials.clientSecret || ''}
-              onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })}
-            />
+
+          {/* Step 4 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">4. Budgetops에서 계정 연동</h3>
+            <p className="text-sm text-gray-600">
+              위 단계에서 준비한 구독 ID · 테넌트 ID · 클라이언트 ID · 클라이언트 비밀 값을 모두 입력하고 <strong>계정 연동</strong> 버튼을 눌러 주세요.
+            </p>
+          </div>
+
+          <div className="pt-2 text-xs text-gray-500">
+            자세한 단계별 가이드는{' '}
+            <a
+              href="https://github.com/YYOAJUNG/budgetops-frontend/blob/main/docs/azure-account-tutorial.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              사내 문서
+            </a>{' '}
+            또는{' '}
+            <a
+              href="https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Microsoft 공식 문서
+            </a>
+            를 참고해 주세요.
           </div>
         </div>
       );

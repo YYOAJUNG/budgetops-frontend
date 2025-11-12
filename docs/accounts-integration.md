@@ -39,6 +39,7 @@
 - **Client ID**: Azure 애플리케이션 클라이언트 ID (필수)
 - **Client Secret**: Azure 애플리케이션 클라이언트 시크릿 (필수)
 - **Tenant ID**: Azure 테넌트 ID (필수)
+- **튜토리얼**: [Azure 계정 연동 안내](./azure-account-tutorial.md)
 
 #### NCP
 - **Access Key**: 네이버 클라우드 플랫폼 액세스 키 (필수)
