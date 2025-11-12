@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/layout/DateRangePicker';
 import { useQuery } from '@tanstack/react-query';
 import { useContextStore } from '@/store/context';
-import { formatCurrency, formatCurrencyCompact, formatPercent, calculateHHI } from '@/lib/utils';
+import { formatCurrency, formatCurrencyCompact, formatPercent, calculateHHI, convertCurrency } from '@/lib/utils';
 import { ArrowUp, ArrowDown, Info, TrendingUp, TrendingDown } from 'lucide-react';
 import { Tooltip } from '@/components/ui/tooltip';
+import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
+import { getGcpAccounts } from '@/lib/api/gcp';
 
 type CostsResponse = {
   total: number;
@@ -21,34 +23,98 @@ type CostsResponse = {
   };
 };
 
-// 임시 목 데이터 (전월 데이터 포함)
-function mockFetchCosts(from: string, to: string): Promise<CostsResponse> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        total: 12894000,
-        byProvider: { AWS: 7800000, GCP: 3984000, Azure: 1200000 },
-        byService: [
-          { service: 'EC2', amount: 4200000 },
-          { service: 'S3', amount: 1200000 },
-          { service: 'RDS', amount: 900000 },
-          { service: 'BigQuery', amount: 2400000 },
-          { service: 'Cloud Storage', amount: 640000 },
-        ],
-        previousPeriod: {
-          total: 12000000,
-          byProvider: { AWS: 7200000, GCP: 3600000, Azure: 1200000 },
-          byService: [
-            { service: 'EC2', amount: 4000000 },
-            { service: 'S3', amount: 1100000 },
-            { service: 'RDS', amount: 850000 },
-            { service: 'BigQuery', amount: 2200000 },
-            { service: 'Cloud Storage', amount: 600000 },
-          ],
-        },
+/**
+ * 실제 비용 데이터 조회
+ */
+async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Promise<CostsResponse> {
+  // 날짜 범위 계산 (전월 데이터용)
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  const periodDays = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
+  const previousFromDate = new Date(fromDate);
+  previousFromDate.setDate(previousFromDate.getDate() - periodDays);
+  const previousToDate = new Date(fromDate);
+  const previousFrom = previousFromDate.toISOString().split('T')[0];
+  const previousTo = previousToDate.toISOString().split('T')[0];
+
+  // AWS 계정 및 비용 조회
+  const awsAccounts = await getAwsAccounts().catch(() => []);
+  const activeAwsAccounts = awsAccounts.filter(acc => acc.active);
+  
+  let awsTotalCost = 0;
+  const awsServiceCosts: Record<string, number> = {};
+  let previousAwsTotalCost = 0;
+  const previousAwsServiceCosts: Record<string, number> = {};
+
+  // AWS 계정별 비용 조회
+  for (const account of activeAwsAccounts) {
+    try {
+      // 현재 기간 비용
+      const dailyCosts = await getAwsAccountCosts(account.id, from, to).catch(() => []);
+      const accountTotal = dailyCosts.reduce((sum, day) => sum + day.totalCost, 0);
+      awsTotalCost += accountTotal;
+      
+      // 서비스별 비용 집계
+      dailyCosts.forEach(day => {
+        day.services.forEach(service => {
+          const costInKrw = convertCurrency(service.cost, 'USD', currency);
+          awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInKrw;
+        });
       });
-    }, 400);
-  });
+
+      // 전월 비용
+      const previousDailyCosts = await getAwsAccountCosts(account.id, previousFrom, previousTo).catch(() => []);
+      const previousAccountTotal = previousDailyCosts.reduce((sum, day) => sum + day.totalCost, 0);
+      previousAwsTotalCost += previousAccountTotal;
+      
+      previousDailyCosts.forEach(day => {
+        day.services.forEach(service => {
+          const costInKrw = convertCurrency(service.cost, 'USD', currency);
+          previousAwsServiceCosts[service.service] = (previousAwsServiceCosts[service.service] || 0) + costInKrw;
+        });
+      });
+    } catch (error) {
+      console.error(`Failed to fetch costs for AWS account ${account.id}:`, error);
+    }
+  }
+
+  // GCP 계정 조회 (비용 API는 아직 없으므로 0으로 처리)
+  const gcpAccounts = await getGcpAccounts().catch(() => []);
+  const gcpTotalCost = 0; // TODO: GCP 비용 API 구현 시 업데이트
+  const previousGcpTotalCost = 0;
+
+  // AWS 비용을 선택된 통화로 변환
+  const awsTotalInCurrency = convertCurrency(awsTotalCost, 'USD', currency);
+  const previousAwsTotalInCurrency = convertCurrency(previousAwsTotalCost, 'USD', currency);
+
+  // 서비스별 비용 배열로 변환
+  const byService = Object.entries(awsServiceCosts)
+    .map(([service, amount]) => ({ service, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const previousByService = Object.entries(previousAwsServiceCosts)
+    .map(([service, amount]) => ({ service, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const total = awsTotalInCurrency + gcpTotalCost;
+  const previousTotal = previousAwsTotalInCurrency + previousGcpTotalCost;
+
+  return {
+    total,
+    byProvider: {
+      ...(awsTotalInCurrency > 0 ? { AWS: awsTotalInCurrency } : {}),
+      ...(gcpTotalCost > 0 ? { GCP: gcpTotalCost } : {}),
+    },
+    byService,
+    previousPeriod: previousTotal > 0 ? {
+      total: previousTotal,
+      byProvider: {
+        ...(previousAwsTotalInCurrency > 0 ? { AWS: previousAwsTotalInCurrency } : {}),
+        ...(previousGcpTotalCost > 0 ? { GCP: previousGcpTotalCost } : {}),
+      },
+      byService: previousByService,
+    } : undefined,
+  };
 }
 
 // CSP별 비용 카드 컴포넌트
@@ -342,11 +408,11 @@ function ServiceCostBar({
 
 export function CostsSummary() {
   const router = useRouter();
-  const { from, to } = useContextStore();
+  const { from, to, currency } = useContextStore();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['costsSummary', { from, to }],
-    queryFn: () => mockFetchCosts(from, to),
+    queryKey: ['costsSummary', { from, to, currency }],
+    queryFn: () => fetchCosts(from, to, currency),
   });
 
   const totalAmount = data?.total ?? 0;

@@ -236,7 +236,7 @@ export function ResourceManagementSection() {
                 <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                 새로고침
               </Button>
-              {activeAccount && (
+              {/* {activeAccount && (
                 <Button
                   size="sm"
                   onClick={() => setShowCreateDialog(true)}
@@ -245,7 +245,7 @@ export function ResourceManagementSection() {
                   <Plus className="h-4 w-4" />
                   인스턴스 생성
                 </Button>
-              )}
+              )} */}
             </div>
           </div>
         </CardHeader>
