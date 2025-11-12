@@ -30,6 +30,8 @@ export interface AzureVirtualMachine {
   computerName: string;
   privateIp: string;
   publicIp: string;
+  availabilityZone: string;
+  timeCreated: string;
 }
 
 export interface AzureDailyCost {

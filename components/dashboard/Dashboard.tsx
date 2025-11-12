@@ -103,6 +103,7 @@ import { DollarSign, Target, AlertTriangle, Lightbulb, Cloud, Bot, AlertCircle }
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
+import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 
@@ -134,7 +135,13 @@ export function Dashboard() {
     queryFn: getGcpAccounts,
   });
   
-  const hasCloudAccounts = (awsAccounts?.length ?? 0) > 0 || (gcpAccounts?.length ?? 0) > 0;
+  // Azure 계정 목록 조회
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+  });
+  
+  const hasCloudAccounts = (awsAccounts?.length ?? 0) > 0 || (gcpAccounts?.length ?? 0) > 0 || (azureAccounts?.length ?? 0) > 0;
 
   // 최근 30일 날짜 계산
   const endDate = useMemo(() => {
@@ -182,6 +189,38 @@ export function Dashboard() {
     return gcpAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
   }, [gcpAccountCosts]);
 
+  // Azure 계정별 비용 조회 (최근 30일)
+  const { data: azureAccountCosts, isLoading: isLoadingAzureCosts, error: azureCostsError } = useQuery({
+    queryKey: ['azureAccountCosts', startDate, endDate],
+    queryFn: () => getAllAzureAccountsCosts(startDate, endDate),
+    enabled: (azureAccounts?.length ?? 0) > 0,
+    retry: 1,
+  });
+
+  // Azure 계정별 총 비용 계산 (원래 통화 기준으로 합산, 이후 변환)
+  const totalAzureCost = useMemo(() => {
+    if (!azureAccountCosts) return { amount: 0, currency: 'USD' };
+    // 모든 계정의 통화가 같은지 확인 (일반적으로는 같을 것)
+    const currencies = new Set(azureAccountCosts.map(acc => acc.currency || 'USD'));
+    const primaryCurrency = currencies.size === 1 ? Array.from(currencies)[0] : 'USD';
+    
+    // 같은 통화로 합산
+    const totalAmount = azureAccountCosts.reduce((sum, account) => {
+      const accountCurrency = account.currency || 'USD';
+      if (accountCurrency === primaryCurrency) {
+        return sum + account.amount;
+      } else {
+        // 통화가 다르면 USD로 변환 후 합산
+        const amountInUsd = accountCurrency === 'KRW' 
+          ? convertCurrency(account.amount, 'KRW', 'USD')
+          : account.amount; // USD로 가정
+        return sum + amountInUsd;
+      }
+    }, 0);
+    
+    return { amount: totalAmount, currency: primaryCurrency };
+  }, [azureAccountCosts]);
+
   // 안전한 기본값 + 좁은 타입 보장
   const costSeries = (costSeriesRaw ?? []) as CostPoint[];
   const budgets = (budgetsRaw ?? []) as Budget[];
@@ -193,13 +232,15 @@ export function Dashboard() {
   const costChange =
     previousMonthCost > 0 ? ((currentMonthCost - previousMonthCost) / previousMonthCost) * 100 : 0;
 
-  // 이번 달 총 비용에 AWS 비용도 포함 (통화 변환 적용)
+  // 이번 달 총 비용에 AWS, Azure 비용도 포함 (통화 변환 적용)
   const totalCurrentMonthCost = useMemo(() => {
     // AWS 비용은 USD로 반환되므로, 선택된 currency에 맞게 변환
     const convertedAwsCost = convertCurrency(totalAwsCostUsd, 'USD', currency);
-    // costSeries의 비용과 변환된 AWS 비용을 합산
-    return currentMonthCost + convertedAwsCost;
-  }, [currentMonthCost, totalAwsCostUsd, currency]);
+    // Azure 비용은 원래 통화에서 선택된 currency로 변환
+    const convertedAzureCost = convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency);
+    // costSeries의 비용과 변환된 AWS, Azure 비용을 합산
+    return currentMonthCost + convertedAwsCost + convertedAzureCost;
+  }, [currentMonthCost, totalAwsCostUsd, totalAzureCost, currency]);
 
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
@@ -296,7 +337,7 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">※ 프리티어 소진은 별도로 표시되지 않습니다</p>
           </div>
           
-          {isLoadingCosts ? (
+          {(isLoadingCosts || isLoadingAzureCosts) ? (
             <Card className="shadow-lg border-0 bg-white">
               <CardContent className="py-8">
                 <div className="text-center text-gray-600">비용 데이터를 불러오는 중...</div>
@@ -459,8 +500,118 @@ export function Dashboard() {
                 </Card>
               )}
 
+              {/* Azure 계정 비용 카드 */}
+              {azureAccounts && azureAccounts.length > 0 && (
+                azureCostsError ? (
+                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-red-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-red-900 mb-1">Azure 비용 데이터 조회 실패</h4>
+                          <p className="text-sm text-red-700">
+                            {azureCostsError instanceof Error ? azureCostsError.message : '비용 데이터를 불러오는 중 오류가 발생했습니다.'}
+                          </p>
+                          <p className="text-xs text-red-600 mt-2">
+                            Azure Cost Management 권한이 활성화되어 있는지 확인하세요.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : azureAccountCosts && azureAccountCosts.length > 0 ? (
+                  totalAzureCost.amount > 0 ? (
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-gray-900">Azure</h4>
+                              <p className="text-sm text-gray-600">{azureAccountCosts.length}개 계정</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {formatCurrency(convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency), currency)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {azureAccountCosts.length > 1 && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {azureAccountCosts.map((account: AzureAccountCost) => (
+                                <div
+                                  key={account.accountId}
+                                  className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                                >
+                                  <p className="text-sm font-medium text-gray-700 mb-1">
+                                    {account.accountName}
+                                  </p>
+                                  <p className="text-lg font-bold text-gray-900">
+                                    {formatCurrency(convertCurrency(account.amount, (account.currency || 'USD') as 'KRW' | 'USD', currency), currency)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-gray-900">Azure</h4>
+                              <p className="text-sm text-gray-600">{azureAccountCosts.length}개 계정</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {formatCurrency(0, currency)}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
+                          최근 30일간 비용이 발생하지 않았습니다.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )
+                ) : (
+                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-yellow-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-yellow-900 mb-1">Azure 비용 데이터 없음</h4>
+                          <p className="text-sm text-yellow-700">
+                            최근 30일간의 비용 데이터가 없습니다. 다음을 확인하세요:
+                          </p>
+                          <ul className="text-xs text-yellow-600 mt-2 list-disc list-inside space-y-1">
+                            <li>Azure Cost Management가 활성화되어 있는지 확인</li>
+                            <li>서비스 프린시펄에 Cost Management Reader 권한이 있는지 확인</li>
+                            <li>비용이 발생한 리소스가 있는지 확인</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              )}
+
               {/* 계정이 없는 경우 */}
-              {(!awsAccounts || awsAccounts.length === 0) && (!gcpAccounts || gcpAccounts.length === 0) && (
+              {(!awsAccounts || awsAccounts.length === 0) && (!gcpAccounts || gcpAccounts.length === 0) && (!azureAccounts || azureAccounts.length === 0) && (
                 <Card className="shadow-lg border-0 bg-white">
                   <CardContent className="py-8">
                     <div className="text-center text-gray-600">
