@@ -136,6 +136,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         }
 
         const saveResult = await saveGcpIntegration({
+          name: credentials.accountName.trim(), // 사용자가 입력한 계정 이름 전송
           serviceAccountId: credentials.serviceAccountId.trim(),
           serviceAccountKeyJson: credentials.jsonKeyContent,
           billingAccountId: credentials.billingAccountId.trim(),
