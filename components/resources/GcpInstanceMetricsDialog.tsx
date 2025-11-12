@@ -283,6 +283,93 @@ export function GcpInstanceMetricsDialog({
                 </CardContent>
               </Card>
 
+              {/* Memory Utilization */}
+              {hasMemoryData ? (
+                <Card className="border-slate-200 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <MemoryStick className="h-5 w-5 text-purple-600" />
+                        </div>
+                        메모리 사용률
+                      </CardTitle>
+                      {memoryChartData.length > 0 && (
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-slate-600">
+                            <span className="text-slate-400">현재:</span>{' '}
+                            <span className="font-semibold text-slate-900">{memoryStats.current.toFixed(1)}%</span>
+                          </div>
+                          <div className="text-slate-600">
+                            <span className="text-slate-400">평균:</span>{' '}
+                            <span className="font-medium">{memoryStats.avg.toFixed(1)}%</span>
+                          </div>
+                          <div className="text-slate-600">
+                            <span className="text-slate-400">최대:</span>{' '}
+                            <span className="font-medium">{memoryStats.max.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {memoryChartData.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 text-sm">
+                        메모리 메트릭 데이터가 없습니다.
+                      </div>
+                    ) : (
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={memoryChartData}>
+                            <defs>
+                              <linearGradient id="memoryGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis
+                              dataKey="time"
+                              stroke="#94a3b8"
+                              fontSize={11}
+                              tickLine={false}
+                              tickMargin={8}
+                            />
+                            <YAxis
+                              stroke="#94a3b8"
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(value) => `${value}%`}
+                              domain={[0, 100]}
+                              tickMargin={8}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                              }}
+                              formatter={(value: number) => [`${value.toFixed(2)}%`, '메모리 사용률']}
+                              labelStyle={{ color: '#64748b', fontWeight: 600, marginBottom: '4px' }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#8b5cf6"
+                              strokeWidth={2.5}
+                              fill="url(#memoryGradient)"
+                              name="메모리 사용률"
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
+
               {/* Network In/Out */}
               <Card className="border-slate-200 shadow-sm">
                 <CardHeader className="pb-4">
@@ -392,93 +479,6 @@ export function GcpInstanceMetricsDialog({
                   )}
                 </CardContent>
               </Card>
-
-              {/* Memory Utilization */}
-              {hasMemoryData ? (
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <MemoryStick className="h-5 w-5 text-purple-600" />
-                        </div>
-                        메모리 사용률
-                      </CardTitle>
-                      {memoryChartData.length > 0 && (
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="text-slate-600">
-                            <span className="text-slate-400">현재:</span>{' '}
-                            <span className="font-semibold text-slate-900">{memoryStats.current.toFixed(1)}%</span>
-                          </div>
-                          <div className="text-slate-600">
-                            <span className="text-slate-400">평균:</span>{' '}
-                            <span className="font-medium">{memoryStats.avg.toFixed(1)}%</span>
-                          </div>
-                          <div className="text-slate-600">
-                            <span className="text-slate-400">최대:</span>{' '}
-                            <span className="font-medium">{memoryStats.max.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {memoryChartData.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 text-sm">
-                        메모리 메트릭 데이터가 없습니다.
-                      </div>
-                    ) : (
-                      <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={memoryChartData}>
-                            <defs>
-                              <linearGradient id="memoryGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                            <XAxis
-                              dataKey="time"
-                              stroke="#94a3b8"
-                              fontSize={11}
-                              tickLine={false}
-                              tickMargin={8}
-                            />
-                            <YAxis
-                              stroke="#94a3b8"
-                              fontSize={11}
-                              tickLine={false}
-                              axisLine={false}
-                              tickFormatter={(value) => `${value}%`}
-                              domain={[0, 100]}
-                              tickMargin={8}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: 'white',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                              }}
-                              formatter={(value: number) => [`${value.toFixed(2)}%`, '메모리 사용률']}
-                              labelStyle={{ color: '#64748b', fontWeight: 600, marginBottom: '4px' }}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="value"
-                              stroke="#8b5cf6"
-                              strokeWidth={2.5}
-                              fill="url(#memoryGradient)"
-                              name="메모리 사용률"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : null}
             </div>
           )}
         </div>
