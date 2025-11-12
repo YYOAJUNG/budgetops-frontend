@@ -97,7 +97,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       name: 'Microsoft Azure',
       logo: (
         <img
-          src="https://upload.wikimedia.org/wikipedia/commons/a/a8/Microsoft_Azure_Logo.svg"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/2048px-Microsoft_Azure.svg.png"
           alt="Azure"
           className="w-24 h-24 object-contain"
         />
@@ -437,13 +437,13 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             <Label htmlFor="accountName">계정 이름 *</Label>
             <Input
               id="accountName"
-              placeholder="예: Production Azure"
+              placeholder="예: Production Azure(원하는 이름)"
               value={credentials.accountName}
               onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
             />
           </div>
           <div>
-            <Label htmlFor="subscriptionId">Subscription ID *</Label>
+            <Label htmlFor="subscriptionId">구독 ID *</Label>
             <Input
               id="subscriptionId"
               placeholder="12345678-1234-1234-1234-123456789012"
@@ -452,7 +452,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="tenantId">Tenant ID *</Label>
+            <Label htmlFor="tenantId">테넌트 ID *</Label>
             <Input
               id="tenantId"
               placeholder="87654321-4321-4321-4321-210987654321"
@@ -461,7 +461,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="clientId">Client ID *</Label>
+            <Label htmlFor="clientId">클라이언트 ID *</Label>
             <Input
               id="clientId"
               placeholder="11111111-1111-1111-1111-111111111111"
@@ -470,11 +470,11 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             />
           </div>
           <div>
-            <Label htmlFor="clientSecret">Client Secret *</Label>
+            <Label htmlFor="clientSecret">Client 값 *</Label>
             <Input
               id="clientSecret"
               type="password"
-              placeholder="your-client-secret"
+              placeholder="agk**~**_12AB34CEWFDKLGOELS****"
               value={credentials.clientSecret || ''}
               onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })}
             />
