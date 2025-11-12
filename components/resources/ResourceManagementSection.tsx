@@ -14,9 +14,10 @@ import {
   startEc2Instance,
   terminateEc2Instance,
 } from '@/lib/api/aws';
-import { getAllGcpResources } from '@/lib/api/gcp';
+import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
+import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import {
   Server,
   Play,
@@ -77,9 +78,15 @@ export function ResourceManagementSection() {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
+  const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
+    region?: string;
+  } | null>(null);
+  const [selectedGcpResource, setSelectedGcpResource] = useState<{
+    resourceId: string;
+    instanceName: string;
     region?: string;
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
@@ -118,6 +125,19 @@ export function ResourceManagementSection() {
     queryFn: getAllGcpResources,
     retry: 1,
   });
+
+  // GCP 리소스를 resourceId로 인덱싱된 Map으로 변환
+  const gcpResourceMap = useMemo(() => {
+    const map = new Map<string, GcpResource>();
+    if (gcpAccountResources) {
+      for (const accountResources of gcpAccountResources) {
+        for (const resource of accountResources.resources) {
+          map.set(resource.resourceId, resource);
+        }
+      }
+    }
+    return map;
+  }, [gcpAccountResources]);
 
   // 리소스와 EC2 인스턴스 매핑
   const resourcesWithDetails = useMemo(() => {
@@ -195,6 +215,11 @@ export function ResourceManagementSection() {
   const handleShowMetrics = (instance: AwsEc2Instance, accountId: number, region?: string) => {
     setSelectedInstance({ instance, accountId, region });
     setShowMetricsDialog(true);
+  };
+
+  const handleShowGcpMetrics = (resourceId: string, instanceName: string, region?: string) => {
+    setSelectedGcpResource({ resourceId, instanceName, region });
+    setShowGcpMetricsDialog(true);
   };
 
   const activeAccount = activeAccounts.length > 0 ? activeAccounts[0] : null;
@@ -318,6 +343,8 @@ export function ResourceManagementSection() {
                   {resourcesWithDetails.map(({ resource, ec2Instance, accountId }) => {
                     const ServiceIcon = getServiceIcon(resource.service);
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
+                    const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance';
+                    const gcpResource = isGcpInstance ? gcpResourceMap.get(resource.id) : undefined;
                     const isOperating = operatingInstanceId === resource.id;
 
                     return (
@@ -409,6 +436,22 @@ export function ResourceManagementSection() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
+                            ) : isGcpInstance && gcpResource ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleShowGcpMetrics(
+                                    gcpResource.resourceId,
+                                    gcpResource.resourceName || gcpResource.resourceId,
+                                    resource.region
+                                  )
+                                }
+                                className="h-8 px-2"
+                                title="메트릭 보기"
+                              >
+                                <Activity className="h-4 w-4 text-blue-600" />
+                              </Button>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -449,6 +492,16 @@ export function ResourceManagementSection() {
           instanceId={selectedInstance.instance.instanceId}
           instanceName={selectedInstance.instance.name || selectedInstance.instance.instanceId}
           region={selectedInstance.region}
+        />
+      )}
+
+      {selectedGcpResource && (
+        <GcpInstanceMetricsDialog
+          open={showGcpMetricsDialog}
+          onOpenChange={setShowGcpMetricsDialog}
+          resourceId={selectedGcpResource.resourceId}
+          instanceName={selectedGcpResource.instanceName}
+          region={selectedGcpResource.region}
         />
       )}
     </>

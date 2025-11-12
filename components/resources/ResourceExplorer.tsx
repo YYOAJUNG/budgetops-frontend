@@ -31,6 +31,7 @@ import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
 import { ResourceManagementSection } from './ResourceManagementSection';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
+import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity } from 'lucide-react';
 
 const SORT_OPTIONS = [
@@ -407,6 +408,7 @@ function ResourceCard({
   region?: string;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
+  const [showGcpMetrics, setShowGcpMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
   const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
 
@@ -531,13 +533,19 @@ function ResourceCard({
             </div>
           </>
         )}
-        {isEc2 && accountId && (
+        {((isEc2 && accountId) || isGcpInstance) && (
           <div className="pt-3 border-t border-slate-200">
             <Button
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => setShowMetrics(true)}
+              onClick={() => {
+                if (isEc2) {
+                  setShowMetrics(true);
+                } else if (isGcpInstance) {
+                  setShowGcpMetrics(true);
+                }
+              }}
             >
               <Activity className="mr-2 h-4 w-4" />
               메트릭 보기
@@ -552,6 +560,15 @@ function ResourceCard({
           accountId={accountId}
           instanceId={ec2Instance.instanceId}
           instanceName={ec2Instance.name || ec2Instance.instanceId}
+          region={region}
+        />
+      )}
+      {isGcpInstance && gcpResource && (
+        <GcpInstanceMetricsDialog
+          open={showGcpMetrics}
+          onOpenChange={setShowGcpMetrics}
+          resourceId={gcpResource.resourceId}
+          instanceName={gcpResource.resourceName || gcpResource.resourceId}
           region={region}
         />
       )}
