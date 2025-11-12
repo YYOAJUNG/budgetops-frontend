@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { testGcpIntegration, saveGcpIntegration } from '@/lib/api/gcp';
 import { createAwsAccount } from '@/lib/api/aws';
 import { createAzureAccount } from '@/lib/api/azure';
+import { FEEDBACK_LINK } from '@/constants/navigation';
 
 interface AddCloudAccountDialogProps {
   open: boolean;
@@ -735,7 +736,12 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 </div>
                 <p className="text-sm text-gray-600">
                   원하는 클라우드 서비스가 없으신가요?{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <a 
+                    href={FEEDBACK_LINK} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
                     BudgetOps에게 알려 주세요.
                   </a>
                 </p>
