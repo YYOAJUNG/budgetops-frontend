@@ -438,7 +438,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             <Label htmlFor="accountName">계정 이름 *</Label>
             <Input
               id="accountName"
-              placeholder="예: Production Azure(원하는 이름)"
+              placeholder="예: Production Azure"
               value={credentials.accountName}
               onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
             />
