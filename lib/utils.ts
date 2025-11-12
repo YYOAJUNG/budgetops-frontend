@@ -76,3 +76,56 @@ export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`
 }
 
+/**
+ * 간단한 형태의 통화 포맷팅 (예: "1.2M원", "500K원")
+ */
+export function formatCurrencyCompact(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
+  const normalizedAmount = Object.is(amount, -0) ? 0 : amount;
+  const absAmount = Math.abs(normalizedAmount);
+  
+  if (currency === 'KRW') {
+    if (absAmount >= 100000000) {
+      // 1억 이상: "1.2억원"
+      return `${(normalizedAmount / 100000000).toFixed(1)}억원`;
+    } else if (absAmount >= 10000) {
+      // 1만 이상: "1.2만원"
+      return `${(normalizedAmount / 10000).toFixed(1)}만원`;
+    } else if (absAmount >= 1000) {
+      // 1천 이상: "1.2천원"
+      return `${(normalizedAmount / 1000).toFixed(1)}천원`;
+    } else {
+      return `${Math.round(normalizedAmount)}원`;
+    }
+  } else {
+    // USD
+    if (absAmount >= 1000000) {
+      return `$${(normalizedAmount / 1000000).toFixed(1)}M`;
+    } else if (absAmount >= 1000) {
+      return `$${(normalizedAmount / 1000).toFixed(1)}K`;
+    } else {
+      return `$${Math.round(normalizedAmount)}`;
+    }
+  }
+}
+
+/**
+ * HHI (Herfindahl-Hirschman Index) 계산
+ * 시장 집중도를 측정하는 지수: Σ(시장점유율²) × 100
+ * @param amounts 각 공급자의 금액 배열
+ * @returns HHI 값 (0 ~ 10000)
+ */
+export function calculateHHI(amounts: number[]): number {
+  if (amounts.length === 0) return 0;
+  
+  const total = amounts.reduce((sum, amount) => sum + amount, 0);
+  if (total === 0) return 0;
+  
+  // 각 공급자의 시장점유율을 계산하고 제곱한 후 합산
+  const hhi = amounts.reduce((sum, amount) => {
+    const marketShare = (amount / total) * 100; // 퍼센트로 변환
+    return sum + (marketShare * marketShare);
+  }, 0);
+  
+  return hhi;
+}
+
