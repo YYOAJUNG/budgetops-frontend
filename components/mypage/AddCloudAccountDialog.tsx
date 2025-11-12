@@ -515,24 +515,15 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
 
           <div>
             <p className="text-sm text-gray-600 mb-3">아래 4개의 역할을 부여해 주세요.</p>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>기본 &gt; 뷰어</span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>모니터링 &gt; 모니터링 뷰어</span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>BigQuery &gt; BigQuery 데이터 뷰어</span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2">•</span>
-                <span>BigQuery &gt; BigQuery 작업 사용자</span>
-              </li>
-            </ul>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">기본 &gt; 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">모니터링 &gt; 모니터링 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">BigQuery &gt; BigQuery 데이터 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">BigQuery &gt; BigQuery 작업 사용자</code>
+            </div>
           </div>
 
           <div>
