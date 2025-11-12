@@ -26,6 +26,7 @@ import {
   AwsEc2Instance, 
   getAwsAccounts,
 } from '@/lib/api/aws';
+import { getAzureAccounts } from '@/lib/api/azure';
 import { ResourceManagementSection } from './ResourceManagementSection';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity } from 'lucide-react';
@@ -64,18 +65,30 @@ export function ResourceExplorer() {
     staleTime: 0, // 항상 최신 데이터 가져오기
     gcTime: 0, // 캐시 시간 최소화
   });
+
+  // Azure 계정 목록 조회
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
   
   // 활성 계정만 필터링
-  const activeAccounts = useMemo(() => {
+  const activeAwsAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account) => account.active === true);
   }, [awsAccounts]);
+
+  const activeAzureAccounts = useMemo(() => {
+    return (azureAccounts || []).filter((account) => account.active === true);
+  }, [azureAccounts]);
   
-  const hasAwsAccounts = activeAccounts.length > 0;
+  const hasActiveAccounts = activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0;
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
-    enabled: hasAwsAccounts, // 활성 계정이 있을 때만 조회
+    enabled: hasActiveAccounts, // 활성 계정이 있을 때만 조회
     retry: 1,
   });
 
@@ -83,7 +96,7 @@ export function ResourceExplorer() {
   const { data: ec2Data, refetch: refetchEc2, error: ec2Error } = useQuery({
     queryKey: ['ec2-instances'],
     queryFn: getAllEc2Instances,
-    enabled: hasAwsAccounts, // 활성 계정이 있을 때만 조회
+    enabled: activeAwsAccounts.length > 0, // AWS 활성 계정이 있을 때만 조회
     retry: 1,
   });
 
@@ -241,6 +254,8 @@ export function ResourceExplorer() {
                 refetch();
                 refetchEc2();
                 queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+                queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+                queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
               }}
               disabled={isFetching}
             >
@@ -277,7 +292,7 @@ export function ResourceExplorer() {
         )}
       </div>
 
-      {!hasAwsAccounts ? (
+      {!hasActiveAccounts ? (
         <Card className="border-2 border-blue-200 bg-blue-50">
           <CardContent className="p-8 text-center">
             <div className="flex flex-col items-center gap-4">
@@ -289,9 +304,9 @@ export function ResourceExplorer() {
                   클라우드 계정을 먼저 연결하세요
                 </h3>
                 <p className="text-sm text-blue-700 mb-4">
-                  리소스를 조회하려면 AWS 계정 연동이 필요합니다.
+                  리소스를 조회하려면 AWS, Azure, GCP 계정 연동이 필요합니다.
                   <br />
-                  계정을 연결하면 EC2 인스턴스 등 리소스를 자동으로 조회할 수 있습니다.
+                  계정을 연결하면 EC2 인스턴스, Virtual Machines 등 리소스를 자동으로 조회할 수 있습니다.
                 </p>
                 <Button
                   onClick={() => router.push('/mypage?addCloudAccount=1')}
