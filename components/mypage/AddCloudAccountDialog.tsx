@@ -673,7 +673,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[800px] p-0 mx-4">
+      <DialogContent className="w-[calc(100%-2rem)] sm:w-[700px] sm:min-w-[700px] max-w-[700px] p-0 mx-4 sm:mx-auto">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -701,7 +701,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         </div>
 
         {/* 본문 */}
-        <div className="p-6">
+        <div className="p-6 w-full">
           {step === 'select' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>

@@ -15,4 +15,4 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   // { name: 'AI 어시스턴트', href: '/copilot', icon: Sparkles },
 ];
 
-export const FEEDBACK_LINK = 'https://docs.google.com/forms/d/1qk64qDj26qbyUApxVwnG1mr_WgqVT1yRiSD1QIy6lA8/viewform?edit_requested=true';
+export const FEEDBACK_LINK = 'https://docs.google.com/forms/d/e/1FAIpQLSdLn9E_4_gY76djsPt_AJbpV7Y7IbYLcldjPOFPVACaaiBPSw/viewform';
