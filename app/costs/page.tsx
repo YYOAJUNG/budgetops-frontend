@@ -5,6 +5,7 @@ import { CostsSummary } from '@/components/costs/CostsSummary';
 import { RecommendationCards } from '@/components/costs/RecommendationCards';
 import { useQuery } from '@tanstack/react-query';
 import { getAllEc2Instances } from '@/lib/api/aws';
+import { getAllGcpResources } from '@/lib/api/gcp';
 
 export default function CostsPage() {
   // EC2 인스턴스 조회 (리소스 ID 수집용)
@@ -13,7 +14,22 @@ export default function CostsPage() {
     queryFn: getAllEc2Instances,
   });
 
+  // GCP 리소스 조회 (리소스 ID 수집용)
+  const { data: gcpAccountResources } = useQuery({
+    queryKey: ['gcp-resources'],
+    queryFn: getAllGcpResources,
+  });
+
+  // TODO: GCP 리소스도 추천 액션 카드에 포함시키기
+  // const awsResourceIds = ec2Instances?.map(instance => instance.instanceId) || [];
+  // const gcpResourceIds = gcpAccountResources?.flatMap(accountResources =>
+  //   accountResources.resources.map(resource => resource.resourceId)
+  // ) || [];
+  // const resourceIds = [...awsResourceIds, ...gcpResourceIds];
+
   const resourceIds = ec2Instances?.map(instance => instance.instanceId) || [];
+
+  
 
   return (
     <MainLayout>

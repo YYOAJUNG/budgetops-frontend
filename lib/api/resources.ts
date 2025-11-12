@@ -1,4 +1,5 @@
 import { getAllEc2Instances, AwsEc2Instance } from './aws';
+import { getAllGcpResources, GcpResource } from './gcp';
 
 export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba';
 
@@ -142,36 +143,61 @@ function convertEc2ToResource(instance: AwsEc2Instance): ResourceItem {
   };
 }
 
+/**
+ * GCP 리소스를 ResourceItem으로 변환
+ */
+function convertGcpResourceToResource(
+  resource: GcpResource,
+  projectId: string
+): ResourceItem {
+  // 상태 매핑
+  const statusMap: Record<string, 'running' | 'stopped' | 'idle'> = {
+    RUNNING: 'running',
+    STOPPED: 'stopped',
+    STOPPING: 'stopped',
+    STARTING: 'idle',
+    SUSPENDED: 'stopped',
+    SUSPENDING: 'stopped',
+    TERMINATED: 'stopped',
+  };
+
+  // 리소스 타입에 따른 서비스명 매핑 - TODO: 추후 추가 예정
+  const serviceMap: Record<string, string> = {
+    'compute.googleapis.com/Instance': 'Instance',
+    // 'container.googleapis.com/Cluster': 'Kubernetes Engine',
+    // 'storage.googleapis.com/Bucket': 'Cloud Storage',
+    // 'bigquery.googleapis.com/Dataset': 'BigQuery',
+  };
+
+  const service = serviceMap[resource.resourceType] || 'Unknown';
+
+  return {
+    id: resource.resourceId,
+    name: resource.resourceName,
+    provider: 'GCP',
+    service,
+    cost: resource.monthlyCost || 0,
+    region: resource.region,
+    updatedAt: resource.lastUpdated,
+    status: statusMap[resource.status] || '-',
+  };
+}
+
 export async function getResources(): Promise<ResourceItem[]> {
   try {
-    // 실제 EC2 데이터만 조회
+    // AWS EC2 리소스 조회
     const ec2Instances = await getAllEc2Instances();
     const ec2Resources = ec2Instances.map(convertEc2ToResource);
 
-    // 요청된 더미 GCP 리소스 추가
-    const gcpDummy: ResourceItem = {
-      id: 'gcp-elated-bison-476314-f8-my-test-instance',
-      name: 'my-test-instance',
-      provider: 'GCP',
-      service: 'Compute Engine',
-      cost: 0,
-      region: 'us-central1',
-      updatedAt: '2025-11-10T10:32:11.857676Z',
-      status: 'running',
-    };
+    // GCP 리소스 조회
+    const gcpAccountResources = await getAllGcpResources();
+    const gcpResources = gcpAccountResources.flatMap((accountResources) =>
+      accountResources.resources.map((resource) =>
+        convertGcpResourceToResource(resource, accountResources.projectId)
+      )
+    );
 
-    const gcpDummy2: ResourceItem = {
-      id: 'gcp-jjp-backend-southamerica-west1',
-      name: 'jjp-backend',
-      provider: 'GCP',
-      service: 'Compute Engine',
-      cost: 0,
-      region: 'southamerica-west1',
-      updatedAt: '2025-11-10T10:35:17.664537Z',
-      status: 'running',
-    };
-
-    return [...ec2Resources, gcpDummy, gcpDummy2];
+    return [...ec2Resources, ...gcpResources];
   } catch (error) {
     console.error('Failed to fetch resources:', error);
     // 에러 시 빈 배열 반환
