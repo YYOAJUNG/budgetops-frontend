@@ -540,26 +540,23 @@ export function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        
-                        {azureAccountCosts.length > 1 && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {azureAccountCosts.map((account: AzureAccountCost) => (
-                                <div
-                                  key={account.accountId}
-                                  className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                                >
-                                  <p className="text-sm font-medium text-gray-700 mb-1">
-                                    {account.accountName}
-                                  </p>
-                                  <p className="text-lg font-bold text-gray-900">
-                                    {formatCurrency(convertCurrency(account.amount, (account.currency || 'USD') as 'KRW' | 'USD', currency), currency)}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {azureAccountCosts.map((account: AzureAccountCost) => (
+                              <div
+                                key={account.accountId}
+                                className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                              >
+                                <p className="text-sm font-medium text-gray-700 mb-1">
+                                  {account.accountName}
+                                </p>
+                                <p className="text-lg font-bold text-gray-900">
+                                  {formatCurrency(convertCurrency(account.amount, (account.currency || 'USD') as 'KRW' | 'USD', currency), currency)}
+                                </p>
+                              </div>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </CardContent>
                     </Card>
                   ) : (
@@ -585,6 +582,23 @@ export function Dashboard() {
                         <p className="text-xs text-gray-500 mt-3">
                           최근 30일간 비용이 발생하지 않았습니다.
                         </p>
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {azureAccountCosts.map((account: AzureAccountCost) => (
+                              <div
+                                key={account.accountId}
+                                className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                              >
+                                <p className="text-sm font-medium text-gray-700 mb-1">
+                                  {account.accountName}
+                                </p>
+                                <p className="text-lg font-bold text-gray-900">
+                                  {formatCurrency(convertCurrency(account.amount, (account.currency || 'USD') as 'KRW' | 'USD', currency), currency)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   )
