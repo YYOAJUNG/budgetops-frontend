@@ -1,4 +1,5 @@
 import { getAllEc2Instances, AwsEc2Instance } from './aws';
+import { getAzureAccounts, getAzureVirtualMachines, AzureVirtualMachine } from './azure';
 
 export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba';
 
@@ -142,11 +143,61 @@ function convertEc2ToResource(instance: AwsEc2Instance): ResourceItem {
   };
 }
 
+/**
+ * Azure VM을 ResourceItem으로 변환
+ */
+function convertAzureVmToResource(vm: AzureVirtualMachine): ResourceItem {
+  // Azure powerState 매핑 (예: "VM running" -> "running")
+  const powerState = vm.powerState?.toLowerCase() || '';
+  let status: 'running' | 'stopped' | 'idle' = 'idle';
+  if (powerState.includes('running')) {
+    status = 'running';
+  } else if (powerState.includes('stopped') || powerState.includes('deallocated')) {
+    status = 'stopped';
+  }
+
+  return {
+    id: vm.id,
+    name: vm.name,
+    provider: 'Azure',
+    service: 'Virtual Machines',
+    cost: 0, // 비용 정보는 별도 API에서 가져와야 함
+    region: vm.location,
+    updatedAt: new Date().toISOString(), // Azure API에서 업데이트 시간을 제공하지 않으면 현재 시간 사용
+    status,
+  };
+}
+
 export async function getResources(): Promise<ResourceItem[]> {
   try {
-    // 실제 EC2 데이터만 조회
-    const ec2Instances = await getAllEc2Instances();
-    const ec2Resources = ec2Instances.map(convertEc2ToResource);
+    const resources: ResourceItem[] = [];
+
+    // AWS EC2 인스턴스 조회
+    try {
+      const ec2Instances = await getAllEc2Instances();
+      const ec2Resources = ec2Instances.map(convertEc2ToResource);
+      resources.push(...ec2Resources);
+    } catch (error) {
+      console.warn('Failed to fetch AWS EC2 instances:', error);
+    }
+
+    // Azure Virtual Machines 조회
+    try {
+      const azureAccounts = await getAzureAccounts();
+      const activeAzureAccounts = azureAccounts.filter(acc => acc.active);
+      
+      for (const account of activeAzureAccounts) {
+        try {
+          const vms = await getAzureVirtualMachines(account.id);
+          const vmResources = vms.map(convertAzureVmToResource);
+          resources.push(...vmResources);
+        } catch (error) {
+          console.warn(`Failed to fetch Azure VMs for account ${account.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Azure accounts:', error);
+    }
 
     // 요청된 더미 GCP 리소스 추가
     const gcpDummy: ResourceItem = {
@@ -171,7 +222,9 @@ export async function getResources(): Promise<ResourceItem[]> {
       status: 'running',
     };
 
-    return [...ec2Resources, gcpDummy, gcpDummy2];
+    resources.push(gcpDummy, gcpDummy2);
+
+    return resources;
   } catch (error) {
     console.error('Failed to fetch resources:', error);
     // 에러 시 빈 배열 반환
