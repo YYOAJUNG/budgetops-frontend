@@ -49,8 +49,8 @@ export function CloudAccountConnection() {
       (gcpAccounts || []).map((g: GcpAccount) => ({
         id: String(g.id),
         provider: 'GCP',
-        accountName: g.serviceAccountName,
-        accountId: g.projectId,
+        accountName: g.name || g.serviceAccountName, // 사용자가 입력한 계정 이름, 없으면 serviceAccountName 사용
+        accountId: `${g.serviceAccountName}@${g.projectId}`, // serviceaccountname@projectid 형식
         status: 'connected' as const,
         lastSync: g.createdAt || new Date().toISOString(),
         monthlyCost: 0,

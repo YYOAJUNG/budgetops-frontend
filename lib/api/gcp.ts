@@ -2,6 +2,7 @@ import { api } from './client';
 
 export interface GcpAccount {
   id: number;
+  name?: string; // 사용자가 연동 시 입력한 계정 이름
   serviceAccountName: string;
   projectId: string;
   createdAt: string;
