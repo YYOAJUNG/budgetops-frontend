@@ -10,9 +10,10 @@ interface StatCardProps {
   };
   icon?: React.ReactNode;
   className?: string;
+  additionalInfo?: React.ReactNode;
 }
 
-export function StatCard({ title, value, change, icon, className }: StatCardProps) {
+export function StatCard({ title, value, change, icon, className, additionalInfo }: StatCardProps) {
   return (
     <Card className={cn('shadow-lg border-0 bg-white', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -28,6 +29,11 @@ export function StatCard({ title, value, change, icon, className }: StatCardProp
           )}>
             {change.value >= 0 ? '+' : ''}{change.value}% {change.label}
           </p>
+        )}
+        {additionalInfo && (
+          <div className="mt-2 space-y-1">
+            {additionalInfo}
+          </div>
         )}
       </CardContent>
     </Card>

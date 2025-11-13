@@ -99,13 +99,14 @@ import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/l
 import { useContextStore } from '@/store/context';
 import { useUIStore } from '@/store/ui';
 import { formatCurrency, convertCurrency } from '@/lib/utils';
-import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift } from 'lucide-react';
+import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift, X, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 /** 최소한의 로컬 타입 (API 타입이 있으면 그걸 import 해도 됨) */
 type CostPoint = { amount: number };
@@ -116,6 +117,7 @@ export function Dashboard() {
   const { tenantId, from, to, currency } = useContextStore();
   const router = useRouter();
   const { toggleAIChat } = useUIStore();
+  const [showFreeTierDialog, setShowFreeTierDialog] = useState(false);
 
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
@@ -233,43 +235,68 @@ export function Dashboard() {
       const { getAwsAccountCosts } = await import('@/lib/api/aws');
       const costsPromises = awsAccounts
         .filter(acc => acc.active)
-        .map(account => getAwsAccountCosts(account.id, startDate, endDate));
+        .map(async (account) => {
+          const costs = await getAwsAccountCosts(account.id, startDate, endDate);
+          return { accountId: account.id, accountName: account.name, costs };
+        });
       
-      const allCosts = await Promise.all(costsPromises);
-      return allCosts.flat();
+      return await Promise.all(costsPromises);
     },
     enabled: (awsAccounts?.length ?? 0) > 0,
   });
   
-  // 프리티어 사용 현황 계산
-  const freeTierUsage = useMemo(() => {
+  // 계정별 프리티어 사용 현황 계산
+  const accountFreeTierUsage = useMemo(() => {
     if (!awsAccountDetailedCosts || awsAccountDetailedCosts.length === 0) {
+      return [];
+    }
+    
+    const accountUsageList: Array<{ name: string; usage: number; limit: number; percentage: number }> = [];
+    
+    // 각 계정별로 프리티어 정보 수집
+    awsAccountDetailedCosts.forEach(({ accountId, accountName, costs }) => {
+      let usage = 0;
+      let limit = 0;
+      
+      costs.forEach(dailyCost => {
+        dailyCost.services.forEach(service => {
+          if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive) {
+            usage += service.freeTierInfo.usage;
+            limit += service.freeTierInfo.freeTierLimit;
+          }
+        });
+      });
+      
+      if (limit > 0) {
+        accountUsageList.push({
+          name: accountName,
+          usage,
+          limit,
+          percentage: Math.min((usage / limit) * 100, 100),
+        });
+      }
+    });
+    
+    return accountUsageList;
+  }, [awsAccountDetailedCosts]);
+  
+  // 전체 프리티어 사용 현황 계산
+  const freeTierUsage = useMemo(() => {
+    if (accountFreeTierUsage.length === 0) {
       return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
     }
     
-    let totalUsage = 0;
-    let totalLimit = 0;
-    let hasActiveFreeTier = false;
-    
-    awsAccountDetailedCosts.forEach(dailyCost => {
-      dailyCost.services.forEach(service => {
-        if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive) {
-          hasActiveFreeTier = true;
-          totalUsage += service.freeTierInfo.usage;
-          totalLimit += service.freeTierInfo.freeTierLimit;
-        }
-      });
-    });
-    
+    const totalUsage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.usage, 0);
+    const totalLimit = accountFreeTierUsage.reduce((sum, acc) => sum + acc.limit, 0);
     const percentage = totalLimit > 0 ? (totalUsage / totalLimit) * 100 : 0;
     
     return {
       totalUsage,
       totalLimit,
       percentage: Math.min(percentage, 100),
-      isActive: hasActiveFreeTier,
+      isActive: true,
     };
-  }, [awsAccountDetailedCosts]);
+  }, [accountFreeTierUsage]);
 
   const currentMonthCost = costSeries.at(-1)?.amount ?? 0;
   const previousMonthCost = costSeries.at(-2)?.amount ?? 0;
@@ -334,6 +361,15 @@ export function Dashboard() {
             label: `${freeTierUsage.totalUsage.toFixed(0)}/${freeTierUsage.totalLimit.toFixed(0)}`,
           } : undefined}
           icon={<Gift className="h-4 w-4" />}
+          additionalInfo={accountFreeTierUsage.length > 0 ? (
+            <div className="space-y-0.5">
+              {accountFreeTierUsage.map((account, idx) => (
+                <p key={idx} className="text-xs text-gray-600">
+                  {account.name} / {account.percentage.toFixed(1)}%
+                </p>
+              ))}
+            </div>
+          ) : undefined}
         />
         <StatCard
           title="예상 절감액"
@@ -493,13 +529,24 @@ export function Dashboard() {
                           </div>
                         </div>
                         {freeTierUsage.isActive ? (
-                          <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                            <p className="text-xs text-green-800 font-medium mb-1">
-                              프리티어 범위 내 사용 중
-                            </p>
-                            <p className="text-xs text-green-700">
-                              사용률: {freeTierUsage.percentage.toFixed(1)}% ({freeTierUsage.totalUsage.toFixed(0)}/{freeTierUsage.totalLimit.toFixed(0)})
-                            </p>
+                          <div className="mt-3 space-y-2">
+                            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                              <p className="text-xs text-green-800 font-medium mb-1">
+                                프리티어 범위 내 사용 중
+                              </p>
+                              <p className="text-xs text-green-700">
+                                사용률: {freeTierUsage.percentage.toFixed(1)}% ({freeTierUsage.totalUsage.toFixed(0)}/{freeTierUsage.totalLimit.toFixed(0)})
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs border-green-200 text-green-700 hover:bg-green-50"
+                              onClick={() => setShowFreeTierDialog(true)}
+                            >
+                              자세히 보기
+                              <ChevronRight className="h-3 w-3 ml-1" />
+                            </Button>
                           </div>
                         ) : (
                           <p className="text-xs text-gray-500 mt-3">
@@ -714,6 +761,81 @@ export function Dashboard() {
           )}
         </div>
       )}
+
+      {/* 프리티어 상세 정보 다이얼로그 */}
+      <Dialog open={showFreeTierDialog} onOpenChange={setShowFreeTierDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold text-gray-900">
+                프리티어 사용 현황
+              </DialogTitle>
+              <button
+                onClick={() => setShowFreeTierDialog(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+          </DialogHeader>
+          
+          <div className="mt-4 space-y-4">
+            {accountFreeTierUsage.length > 0 ? (
+              <>
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-green-900">전체 사용률</span>
+                    <span className="text-lg font-bold text-green-700">
+                      {freeTierUsage.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <div className="w-full bg-green-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(freeTierUsage.percentage, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-green-700 mt-1">
+                      {freeTierUsage.totalUsage.toFixed(0)} / {freeTierUsage.totalLimit.toFixed(0)} 사용
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">계정별 사용률</h3>
+                  <div className="space-y-3">
+                    {accountFreeTierUsage.map((account, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-900">{account.name}</span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            {account.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-500 h-1.5 rounded-full transition-all"
+                            style={{ width: `${Math.min(account.percentage, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {account.usage.toFixed(0)} / {account.limit.toFixed(0)} 사용
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Gift className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                <p className="text-sm">프리티어 사용 정보가 없습니다.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
