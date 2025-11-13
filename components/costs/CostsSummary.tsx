@@ -6,19 +6,32 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/layout/DateRangePicker';
 import { useQuery } from '@tanstack/react-query';
 import { useContextStore } from '@/store/context';
-import { formatCurrency, formatCurrencyCompact, formatPercent, calculateHHI, convertCurrency } from '@/lib/utils';
-import { ArrowUp, ArrowDown, Info, TrendingUp, TrendingDown } from 'lucide-react';
-import { Tooltip } from '@/components/ui/tooltip';
+import { formatCurrency, formatCurrencyCompact, formatPercent, convertCurrency } from '@/lib/utils';
+import { ArrowUp, ArrowDown, TrendingUp, TrendingDown } from 'lucide-react';
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
+import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+type ProviderAccount = {
+  name: string;
+  amount: number;
+};
+
+type ProviderCost = {
+  provider: string;
+  amount: number;
+  accounts: ProviderAccount[];
+  previousAmount?: number;
+};
 
 type CostsResponse = {
   total: number;
-  byProvider: Record<string, number>;
+  providers: ProviderCost[];
   byService: Array<{ service: string; amount: number }>;
   previousPeriod?: {
     total: number;
-    byProvider: Record<string, number>;
+    providers: ProviderCost[];
     byService: Array<{ service: string; amount: number }>;
   };
 };
@@ -27,7 +40,6 @@ type CostsResponse = {
  * 실제 비용 데이터 조회
  */
 async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Promise<CostsResponse> {
-  // 날짜 범위 계산 (전월 데이터용)
   const fromDate = new Date(from);
   const toDate = new Date(to);
   const periodDays = Math.ceil((toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -37,260 +49,111 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   const previousFrom = previousFromDate.toISOString().split('T')[0];
   const previousTo = previousToDate.toISOString().split('T')[0];
 
-  // AWS 계정 및 비용 조회
+  // AWS 비용
   const awsAccounts = await getAwsAccounts().catch(() => []);
-  const activeAwsAccounts = awsAccounts.filter(acc => acc.active);
-  
-  let awsTotalCost = 0;
+  const activeAwsAccounts = awsAccounts.filter((acc) => acc.active);
+  const awsAccountTotals: Record<number, number> = {};
   const awsServiceCosts: Record<string, number> = {};
+  let awsTotalCost = 0;
   let previousAwsTotalCost = 0;
-  const previousAwsServiceCosts: Record<string, number> = {};
 
-  // AWS 계정별 비용 조회
   for (const account of activeAwsAccounts) {
     try {
-      // 현재 기간 비용
       const dailyCosts = await getAwsAccountCosts(account.id, from, to).catch(() => []);
       const accountTotal = dailyCosts.reduce((sum, day) => sum + day.totalCost, 0);
+      awsAccountTotals[account.id] = accountTotal;
       awsTotalCost += accountTotal;
-      
-      // 서비스별 비용 집계
-      dailyCosts.forEach(day => {
-        day.services.forEach(service => {
-          const costInKrw = convertCurrency(service.cost, 'USD', currency);
-          awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInKrw;
+
+      dailyCosts.forEach((day) => {
+        day.services.forEach((service) => {
+          const costInCurrency = convertCurrency(service.cost, 'USD', currency);
+          awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInCurrency;
         });
       });
 
-      // 전월 비용
       const previousDailyCosts = await getAwsAccountCosts(account.id, previousFrom, previousTo).catch(() => []);
       const previousAccountTotal = previousDailyCosts.reduce((sum, day) => sum + day.totalCost, 0);
       previousAwsTotalCost += previousAccountTotal;
-      
-      previousDailyCosts.forEach(day => {
-        day.services.forEach(service => {
-          const costInKrw = convertCurrency(service.cost, 'USD', currency);
-          previousAwsServiceCosts[service.service] = (previousAwsServiceCosts[service.service] || 0) + costInKrw;
-        });
-      });
     } catch (error) {
       console.error(`Failed to fetch costs for AWS account ${account.id}:`, error);
     }
   }
 
-  // GCP 계정 조회 및 비용 조회
-  // TODO: GCP 비용 API 구현 필요
-  // - lib/api/gcp.ts에 getAllGcpAccountsCosts 함수 추가 필요
-  // - API 엔드포인트: GET /gcp/accounts/costs?startDate={startDate}&endDate={endDate}
-  // - 반환 타입: Array<{ accountId: number; accountName: string; totalCost: number }>
-  // - 현재는 API가 없으므로 0으로 처리
+  // Azure 비용
+  const azureAccounts = await getAzureAccounts().catch(() => []);
+  const activeAzureAccounts = azureAccounts.filter((acc) => acc.active);
+  let azureAccountTotals: AzureAccountCost[] = [];
+  if (activeAzureAccounts.length > 0) {
+    azureAccountTotals = await getAllAzureAccountsCosts(from, to).catch(() => []);
+  }
+
+  // GCP 비용 (미구현)
   const gcpAccounts = await getGcpAccounts().catch(() => []);
-  const gcpTotalCost = 0; // TODO: GCP 비용 API 구현 후 실제 비용 데이터로 교체
+  const gcpTotalCost = 0;
   const previousGcpTotalCost = 0;
 
-  // AWS 비용을 선택된 통화로 변환
   const awsTotalInCurrency = convertCurrency(awsTotalCost, 'USD', currency);
   const previousAwsTotalInCurrency = convertCurrency(previousAwsTotalCost, 'USD', currency);
+  const azureTotalInCurrency = azureAccountTotals.reduce(
+    (sum, account) => sum + convertCurrency(account.amount, (account.currency || 'USD') as 'USD' | 'KRW', currency),
+    0
+  );
 
-  // 서비스별 비용 배열로 변환
   const byService = Object.entries(awsServiceCosts)
     .map(([service, amount]) => ({ service, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  const previousByService = Object.entries(previousAwsServiceCosts)
-    .map(([service, amount]) => ({ service, amount }))
-    .sort((a, b) => b.amount - a.amount);
+  const previousByService: Array<{ service: string; amount: number }> = [];
 
-  const total = awsTotalInCurrency + gcpTotalCost;
-  const previousTotal = previousAwsTotalInCurrency + previousGcpTotalCost;
+  const providers: ProviderCost[] = [];
+  if (activeAwsAccounts.length > 0) {
+    providers.push({
+      provider: 'AWS',
+      amount: awsTotalInCurrency,
+      accounts: activeAwsAccounts.map((account) => ({
+        name: account.name,
+        amount: convertCurrency(awsAccountTotals[account.id] ?? 0, 'USD', currency),
+      })),
+      previousAmount: previousAwsTotalInCurrency,
+    });
+  }
+  if (activeAzureAccounts.length > 0) {
+    providers.push({
+      provider: 'Azure',
+      amount: azureTotalInCurrency,
+      accounts: azureAccountTotals.map((account) => ({
+        name: account.accountName,
+        amount: convertCurrency(account.amount, (account.currency || 'USD') as 'USD' | 'KRW', currency),
+      })),
+    });
+  }
+  if (gcpAccounts.length > 0) {
+    providers.push({
+      provider: 'GCP',
+      amount: gcpTotalCost,
+      accounts: gcpAccounts.map((account) => ({ name: account.name || account.projectId, amount: 0 })),
+      previousAmount: previousGcpTotalCost,
+    });
+  }
 
-  // GCP 계정이 있으면 비용이 0원이어도 표시
-  const hasGcpAccounts = gcpAccounts.length > 0;
+  const total = providers.reduce((sum, provider) => sum + provider.amount, 0);
 
   return {
     total,
-    byProvider: {
-      ...(awsTotalInCurrency > 0 ? { AWS: awsTotalInCurrency } : {}),
-      ...(hasGcpAccounts ? { GCP: gcpTotalCost } : {}),  // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
-    },
+    providers,
     byService,
-    previousPeriod: previousTotal > 0 || hasGcpAccounts ? { // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
-      total: previousTotal,
-      byProvider: {
-        ...(previousAwsTotalInCurrency > 0 ? { AWS: previousAwsTotalInCurrency } : {}),
-        ...(hasGcpAccounts ? { GCP: previousGcpTotalCost } : {}),  // GCP 계정이 있으면 무조건 표시 (현재는 0원) - TODO: GCP 비용 API 구현 시 업데이트
-      },
-      byService: previousByService,
-    } : undefined,
-  };
-}
-
-// CSP별 비용 카드 컴포넌트
-function CspCostCard({
-  provider,
-  amount,
-  totalAmount,
-  previousAmount,
-  averageLine,
-  hhi,
-  rank,
-  ratioToSecond,
-}: {
-  provider: string;
-  amount: number;
-  totalAmount: number;
-  previousAmount?: number;
-  averageLine: number;
-  hhi: number;
-  rank: number;
-  ratioToSecond: number;
-}) {
-  const percentage = (amount / Math.max(1, totalAmount)) * 100;
-  const previousPercentage = previousAmount ? (previousAmount / Math.max(1, totalAmount)) * 100 : 0;
-  const change = previousAmount ? ((amount - previousAmount) / Math.max(1, previousAmount)) * 100 : 0;
-  const changeAmount = previousAmount ? amount - previousAmount : 0;
-
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm relative">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{provider}</span>
-            {rank === 1 && (
-              <span className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded font-medium">1위</span>
-            )}
-          </div>
-          <div className="text-xl font-semibold text-gray-900">{formatCurrency(amount)}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-sm font-bold text-gray-900">{percentage.toFixed(1)}%</div>
-          {previousAmount && (
-            <div className={`flex items-center gap-1 text-xs mt-1 ${change >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-              {change >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-              <span>{formatPercent(Math.abs(change))}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 막대 그래프 */}
-      <div className="relative mt-4 h-8 rounded-full bg-gray-100 overflow-hidden">
-        {/* 평균선 (33.3%) */}
-        <div
-          className="absolute top-0 bottom-0 w-0.5 border-l border-dashed border-gray-400 z-10"
-          style={{ left: `${averageLine}%` }}
-        >
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-            평균 33.3%
-          </div>
-        </div>
-
-        {/* 전월 막대 (연한) */}
-        {previousAmount && (
-          <div
-            className="absolute top-0 bottom-0 rounded-full bg-gray-300 opacity-40"
-            style={{ width: `${Math.min(100, previousPercentage)}%` }}
-          />
-        )}
-
-        {/* 현재 막대 (진한) */}
-        <div
-          className="absolute top-0 bottom-0 rounded-full bg-blue-500 relative z-20"
-          style={{ width: `${Math.min(100, percentage)}%` }}
-        >
-          {/* 증감 시그널 */}
-          {previousAmount && change !== 0 && (
-            <div
-              className={`absolute ${change > 0 ? 'top-0' : 'bottom-0'} left-0 right-0 h-0.5 ${
-                change > 0 ? 'bg-red-500' : 'bg-blue-500'
-              }`}
-            />
-          )}
-        </div>
-
-        {/* 퍼센트 라벨 (막대 끝) */}
-        <div
-          className="absolute top-1/2 transform -translate-y-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap z-30"
-          style={{ left: `${Math.min(95, percentage + 2)}%` }}
-        >
-          {percentage.toFixed(1)}%
-        </div>
-      </div>
-
-      {/* HHI 배지 및 툴팁 */}
-      <div className="mt-3 flex items-center justify-between">
-        <Tooltip
-          content={
-            <div className="text-xs space-y-1">
-              <p className="font-semibold">HHI (집중도 지수)</p>
-              <p>HHI = Σ(시장점유율²) × 100</p>
-              <p className="text-gray-400 mt-1">
-                {hhi > 2500 ? '집중 높음' : hhi > 1500 ? '집중 보통' : '집중 낮음'}
-              </p>
-            </div>
-          }
-        >
-          <button className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors flex items-center gap-1">
-            <Info className="h-3 w-3" />
-            HHI {Math.round(hhi).toLocaleString()}
-          </button>
-        </Tooltip>
-
-        {rank === 1 && ratioToSecond > 0 && (
-          <div className="text-xs text-gray-500">
-            {ratioToSecond.toFixed(2)}배 차이
-          </div>
-        )}
-      </div>
-
-      {/* 확장 툴팁 (hover 시) */}
-      <Tooltip
-        content={
-          <div className="text-xs space-y-1">
-            <p><strong>금액:</strong> {formatCurrency(amount)}</p>
-            <p><strong>비중:</strong> {percentage.toFixed(1)}%</p>
-            {previousAmount && (
-              <>
-                <p><strong>전월 대비:</strong> {formatPercent(change)} ({formatCurrency(Math.abs(changeAmount))})</p>
-                {rank === 1 && ratioToSecond > 0 && (
-                  <p><strong>1위/2위 차이:</strong> {ratioToSecond.toFixed(2)}배</p>
-                )}
-              </>
-            )}
-          </div>
+    previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost > 0
+      ? {
+          total: previousAwsTotalInCurrency + previousGcpTotalCost,
+          providers: providers.map((provider) => ({
+            ...provider,
+            amount: provider.previousAmount ?? 0,
+            accounts: provider.accounts.map((account) => ({ ...account, amount: 0 })),
+          })),
+          byService: previousByService,
         }
-      >
-        <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 cursor-help hover:bg-gray-100 transition-colors">
-          <div className="flex items-center justify-between">
-            <span>금액:</span>
-            <span className="font-semibold">{formatCurrency(amount)}</span>
-          </div>
-          <div className="flex items-center justify-between mt-1">
-            <span>비중:</span>
-            <span className="font-semibold">{percentage.toFixed(1)}%</span>
-          </div>
-          {previousAmount && (
-            <>
-              <div className="flex items-center justify-between mt-1">
-                <span>전월 대비:</span>
-                <span className={`font-semibold ${change >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                  {formatPercent(change)} ({formatCurrency(Math.abs(changeAmount))})
-                </span>
-              </div>
-              {rank === 1 && ratioToSecond > 0 && (
-                <div className="flex items-center justify-between mt-1">
-                  <span>1위/2위 차이:</span>
-                  <span className="font-semibold">{ratioToSecond.toFixed(2)}배</span>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </Tooltip>
-    </div>
-  );
+      : undefined,
+  };
 }
 
 // 서비스별 비용 막대 컴포넌트
@@ -424,101 +287,54 @@ export function CostsSummary() {
   });
 
   const totalAmount = data?.total ?? 0;
-  const providers = Object.entries(data?.byProvider ?? {});
+  const providers = useMemo(() => data?.providers ?? [], [data]);
   const services = useMemo(() => data?.byService ?? [], [data]);
-  const previousProviders = useMemo(() => Object.entries(data?.previousPeriod?.byProvider ?? {}), [data]);
+  const previousProviders = useMemo(() => data?.previousPeriod?.providers ?? [], [data]);
   const previousServices = useMemo(() => data?.previousPeriod?.byService ?? [], [data]);
 
-  // CSP 정렬 및 계산
   const sortedProviders = useMemo(() => {
     return providers
-      .map(([provider, amount], index) => {
-        const prev = previousProviders.find(([p]) => p === provider)?.[1];
+      .map((provider) => ({
+        ...provider,
+        previousAmount: previousProviders.find((prev) => prev.provider === provider.provider)?.amount ?? 0,
+        percentage: (provider.amount / Math.max(1, totalAmount)) * 100,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [providers, previousProviders, totalAmount]);
+
+  const sortedServices = useMemo(() => {
+    let cumulative = 0;
+    return services
+      .map((service) => {
+        const previousAmount = previousServices.find((prev) => prev.service === service.service)?.amount;
+        cumulative += service.amount;
         return {
-          provider,
-          amount,
-          previousAmount: prev,
-          percentage: (amount / Math.max(1, totalAmount)) * 100,
-          rank: index + 1,
+          ...service,
+          previousAmount,
+          percentage: (service.amount / Math.max(1, totalAmount)) * 100,
+          cumulativePercent: (cumulative / Math.max(1, totalAmount)) * 100,
         };
       })
       .sort((a, b) => b.amount - a.amount)
       .map((item, index) => ({ ...item, rank: index + 1 }));
-  }, [providers, totalAmount, previousProviders]);
+  }, [services, previousServices, totalAmount]);
 
-  // HHI 계산
-  const hhi = useMemo(() => {
-    const amounts = sortedProviders.map((p) => p.amount);
-    return calculateHHI(amounts);
-  }, [sortedProviders]);
-
-  // 1위/2위 비율 계산
-  const ratioToSecond = useMemo(() => {
-    if (sortedProviders.length < 2) return 0;
-    return sortedProviders[0].amount / sortedProviders[1].amount;
-  }, [sortedProviders]);
-
-  // 서비스 정렬 및 누적 계산
-  const sortedServices = useMemo(() => {
-    let cumulative = 0;
-    return services
-      .map((s, index) => {
-        const prev = previousServices.find((ps) => ps.service === s.service)?.amount;
-        cumulative += s.amount;
-        return {
-          ...s,
-          previousAmount: prev,
-          percentage: (s.amount / Math.max(1, totalAmount)) * 100,
-          cumulativeAmount: cumulative,
-          cumulativePercent: (cumulative / Math.max(1, totalAmount)) * 100,
-          rank: index + 1,
-        };
-      })
-      .sort((a, b) => b.amount - a.amount)
-      .map((item, index) => {
-        // 누적 재계산
-        const prevItems = services
-          .sort((a, b) => b.amount - a.amount)
-          .slice(0, index);
-        const cumulative = prevItems.reduce((sum, s) => sum + s.amount, 0) + item.amount;
-        return {
-          ...item,
-          rank: index + 1,
-          cumulativeAmount: cumulative,
-          cumulativePercent: (cumulative / Math.max(1, totalAmount)) * 100,
-        };
-      });
-  }, [services, totalAmount, previousServices]);
-
-  // 서비스 평균 금액
   const averageServiceAmount = useMemo(() => {
     if (services.length === 0) return 0;
     return totalAmount / services.length;
   }, [services, totalAmount]);
 
-  // 상위 2개 서비스 합계
-  const top2ServicesPercent = useMemo(() => {
-    if (sortedServices.length < 2) return 0;
-    return sortedServices[0].percentage + sortedServices[1].percentage;
-  }, [sortedServices]);
-
-  // CSP 그래프 캡션
   const cspCaption = useMemo(() => {
     if (sortedProviders.length === 0) return '';
     const top = sortedProviders[0];
-    const second = sortedProviders[1];
-    if (!second) return `${top.provider} ${top.percentage.toFixed(1)}%`;
-    return `${top.provider} ${top.percentage.toFixed(1)}% (${second.provider}의 ${ratioToSecond.toFixed(2)}배), 집중도 HHI ${Math.round(hhi).toLocaleString()}`;
-  }, [sortedProviders, ratioToSecond, hhi]);
+    return `${top.provider} ${formatCurrency(top.amount)} (${top.percentage.toFixed(1)}%)`;
+  }, [sortedProviders]);
 
-  // 서비스 그래프 캡션
   const serviceCaption = useMemo(() => {
     if (sortedServices.length === 0) return '';
     const top = sortedServices[0];
-    const second = sortedServices[1];
-    if (!second) return `${top.service} ${top.percentage.toFixed(1)}% 1위`;
-    return `${top.service} ${top.percentage.toFixed(1)}% 1위, 상위 2개(${top.service}+${second.service}) ${top2ServicesPercent.toFixed(1)}%`;
-  }, [sortedServices, top2ServicesPercent]);
+    return `${top.service} ${top.percentage.toFixed(1)}%`;
+  }, [sortedServices]);
 
   return (
     <div className="space-y-6">
@@ -603,11 +419,6 @@ export function CostsSummary() {
                       이번 달 예측
                     </div>
                   </div>
-                  {sortedServices.length >= 2 && (
-                    <div className="mt-2 text-xs text-gray-500 italic">
-                      상위 2서비스가 {top2ServicesPercent.toFixed(1)}% 차지
-                    </div>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -618,28 +429,6 @@ export function CostsSummary() {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">CSP별 비용</CardTitle>
-                {hhi > 0 && (
-                  <Tooltip
-                    content={
-                      <div className="text-xs space-y-1">
-                        <p className="font-semibold">HHI 계산식</p>
-                        <p>HHI = Σ(시장점유율²) × 100</p>
-                        <p className="text-gray-400 mt-1">
-                          {sortedProviders.map((p, i) => (
-                            <span key={p.provider}>
-                              {i > 0 && ' + '}
-                              ({p.percentage.toFixed(1)}%)²
-                            </span>
-                          ))}
-                        </p>
-                      </div>
-                    }
-                  >
-                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded cursor-help hover:bg-gray-200 transition-colors">
-                      HHI {Math.round(hhi).toLocaleString()} (집중 {hhi > 2500 ? '높음' : hhi > 1500 ? '보통' : '낮음'})
-                    </span>
-                  </Tooltip>
-                )}
               </div>
               {cspCaption && (
                 <p className="text-xs text-gray-500 mt-2 italic">{cspCaption}</p>
@@ -655,20 +444,140 @@ export function CostsSummary() {
                   후 확인해 주세요.
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {sortedProviders.map((providerData) => (
-                    <CspCostCard
-                      key={providerData.provider}
-                      provider={providerData.provider}
-                      amount={providerData.amount}
-                      totalAmount={totalAmount}
-                      previousAmount={providerData.previousAmount}
-                      averageLine={33.3}
-                      hhi={hhi}
-                      rank={providerData.rank}
-                      ratioToSecond={providerData.rank === 1 ? ratioToSecond : 0}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  {/* 원그래프와 범례 */}
+                  <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                    {/* 원그래프 */}
+                    <div className="flex-shrink-0 flex flex-col items-center">
+                      <ResponsiveContainer width={280} height={280}>
+                        <PieChart>
+                          <Pie
+                            data={sortedProviders.map((p) => ({
+                              name: p.provider,
+                              value: p.amount,
+                              percentage: p.percentage,
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {sortedProviders.map((entry, index) => {
+                              const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                            })}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px',
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* 범례 */}
+                      <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
+                        {sortedProviders.map((providerData, index) => {
+                          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                          return (
+                            <div key={providerData.provider} className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: colors[index % colors.length] }}
+                              />
+                              <span className="text-sm text-gray-700">
+                                {providerData.provider} ({providerData.percentage.toFixed(1)}%)
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 범례 및 상세 정보 */}
+                    <div className="flex-1 space-y-4">
+                      {sortedProviders.map((providerData, index) => {
+                        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                        const change = providerData.previousAmount
+                          ? ((providerData.amount - providerData.previousAmount) / Math.max(1, providerData.previousAmount)) * 100
+                          : 0;
+                        const changeAmount = providerData.previousAmount
+                          ? providerData.amount - providerData.previousAmount
+                          : 0;
+
+                        return (
+                          <div
+                            key={providerData.provider}
+                            className="p-4 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-4 h-4 rounded-full"
+                                  style={{ backgroundColor: colors[index % colors.length] }}
+                                />
+                                <div>
+                                  <span className="text-sm font-semibold text-gray-900">{providerData.provider}</span>
+                                  <div className="text-lg font-bold text-gray-900 mt-0.5">
+                                    {formatCurrency(providerData.amount)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-gray-900">
+                                  {providerData.percentage.toFixed(1)}%
+                                </div>
+                                {providerData.previousAmount !== undefined && (
+                                  <div
+                                    className={`flex items-center gap-1 text-xs mt-1 ${
+                                      change >= 0 ? 'text-red-600' : 'text-blue-600'
+                                    }`}
+                                  >
+                                    {change >= 0 ? (
+                                      <ArrowUp className="h-3 w-3" />
+                                    ) : (
+                                      <ArrowDown className="h-3 w-3" />
+                                    )}
+                                    <span>{formatPercent(Math.abs(change))}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 계정별 상세 정보 */}
+                            {providerData.accounts.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {providerData.accounts.map((account) => (
+                                    <div
+                                      key={`${providerData.provider}-${account.name}`}
+                                      className="p-2 bg-gray-50 rounded border border-gray-100"
+                                    >
+                                      <p className="text-xs font-medium text-gray-600 mb-0.5">{account.name}</p>
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        {formatCurrency(account.amount)}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {providerData.previousAmount !== undefined && (
+                              <div className="mt-2 text-xs text-gray-500">
+                                전 기간 대비 {formatCurrency(Math.abs(changeAmount))} ({formatPercent(Math.abs(change))}){' '}
+                                {change >= 0 ? '증가' : '감소'}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>
