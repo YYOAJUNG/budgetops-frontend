@@ -469,11 +469,17 @@ export function Dashboard() {
                             <div className="grid gap-3 sm:grid-cols-2">
                               {awsAccountCosts.map((account: AccountCost) => {
                                 // 해당 계정의 프리티어 정보 확인
-                                const accountFreeTierInfo = awsAccountDetailedCosts
-                                  ?.flatMap(dc => dc.services)
-                                  .find(s => s.freeTierInfo?.isFreeTierActive);
+                                const accountData = awsAccountDetailedCosts?.find(
+                                  data => data.accountId === account.accountId
+                                );
                                 
-                                const isFreeTierActive = accountFreeTierInfo?.freeTierInfo?.isFreeTierActive ?? false;
+                                const hasFreeTier = accountData?.costs.some(dc =>
+                                  dc.services.some(s => s.freeTierInfo?.isFreeTierActive)
+                                ) ?? false;
+                                
+                                const accountUsage = accountFreeTierUsage.find(acc => 
+                                  acc.name === account.accountName
+                                );
                                 
                                 return (
                                   <div
@@ -483,10 +489,17 @@ export function Dashboard() {
                                     <p className="text-sm font-medium text-gray-700 mb-1">
                                       {account.accountName}
                                     </p>
-                                    {account.totalCost === 0 && isFreeTierActive ? (
-                                      <div className="flex items-center gap-2">
-                                        <Gift className="h-4 w-4 text-green-600" />
-                                        <span className="text-sm font-semibold text-green-600">프리티어 사용 중</span>
+                                    {account.totalCost === 0 && hasFreeTier ? (
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <Gift className="h-4 w-4 text-green-600" />
+                                          <span className="text-sm font-semibold text-green-600">프리티어 사용 중</span>
+                                        </div>
+                                        {accountUsage && (
+                                          <p className="text-xs text-gray-600">
+                                            {accountUsage.percentage.toFixed(1)}%
+                                          </p>
+                                        )}
                                       </div>
                                     ) : (
                                       <p className="text-lg font-bold text-gray-900">
@@ -764,73 +777,98 @@ export function Dashboard() {
 
       {/* 프리티어 상세 정보 다이얼로그 */}
       <Dialog open={showFreeTierDialog} onOpenChange={setShowFreeTierDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl p-6">
+          <DialogHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold text-gray-900">
-                프리티어 사용 현황
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-green-600" />
+                <DialogTitle className="text-xl font-semibold text-gray-900">
+                  프리티어 사용 현황
+                </DialogTitle>
+              </div>
               <button
                 onClick={() => setShowFreeTierDialog(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="닫기"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
           </DialogHeader>
           
-          <div className="mt-4 space-y-4">
+          <div className="space-y-6">
             {accountFreeTierUsage.length > 0 ? (
               <>
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center justify-between mb-2">
+                {/* 전체 요약 */}
+                <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-green-900">전체 사용률</span>
-                    <span className="text-lg font-bold text-green-700">
+                    <span className="text-2xl font-bold text-green-700">
                       {freeTierUsage.percentage.toFixed(1)}%
                     </span>
                   </div>
-                  <div className="mt-2">
-                    <div className="w-full bg-green-200 rounded-full h-2">
+                  <div className="mt-3">
+                    <div className="w-full bg-green-200 rounded-full h-3 shadow-inner">
                       <div
-                        className="bg-green-600 h-2 rounded-full transition-all"
+                        className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all shadow-sm"
                         style={{ width: `${Math.min(freeTierUsage.percentage, 100)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-green-700 mt-1">
-                      {freeTierUsage.totalUsage.toFixed(0)} / {freeTierUsage.totalLimit.toFixed(0)} 사용
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-green-700 font-medium">
+                        {freeTierUsage.totalUsage.toFixed(0)} / {freeTierUsage.totalLimit.toFixed(0)} 사용
+                      </p>
+                      <p className="text-xs text-green-600">
+                        잔여: {(freeTierUsage.totalLimit - freeTierUsage.totalUsage).toFixed(0)}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
+                {/* 계정별 상세 */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">계정별 사용률</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Cloud className="h-4 w-4 text-gray-500" />
+                    계정별 사용률
+                  </h3>
                   <div className="space-y-3">
                     {accountFreeTierUsage.map((account, idx) => (
-                      <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
+                      <div 
+                        key={idx} 
+                        className="p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-medium text-gray-900">{account.name}</span>
-                          <span className="text-sm font-semibold text-gray-700">
+                          <span className="text-base font-semibold text-gray-700">
                             {account.percentage.toFixed(1)}%
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                           <div
-                            className="bg-blue-500 h-1.5 rounded-full transition-all"
+                            className="bg-gradient-to-r from-blue-400 to-blue-500 h-2 rounded-full transition-all"
                             style={{ width: `${Math.min(account.percentage, 100)}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {account.usage.toFixed(0)} / {account.limit.toFixed(0)} 사용
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-600">
+                            {account.usage.toFixed(0)} / {account.limit.toFixed(0)} 사용
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            잔여: {(account.limit - account.usage).toFixed(0)}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               </>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Gift className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                <p className="text-sm">프리티어 사용 정보가 없습니다.</p>
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                  <Gift className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-500 font-medium">프리티어 사용 정보가 없습니다.</p>
+                <p className="text-xs text-gray-400 mt-1">프리티어 대상 리소스를 사용하면 여기에 표시됩니다.</p>
               </div>
             )}
           </div>
