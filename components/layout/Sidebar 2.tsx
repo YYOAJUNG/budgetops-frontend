@@ -35,7 +35,7 @@ const navigation = [
   { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
   { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
   { name: 'Reports', href: '/reports', icon: FileText },
-  { name: 'Copilot', href: '/copilot', icon: Bot },
+  // { name: 'Copilot', href: '/copilot', icon: Bot },
 ];
 
 export function Sidebar() {

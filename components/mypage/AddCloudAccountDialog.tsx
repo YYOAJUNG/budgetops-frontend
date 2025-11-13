@@ -103,18 +103,51 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       if (selectedProvider === 'AWS') {
         await submitAws();
         setSuccessMsg('AWS 계정이 성공적으로 연동되었습니다.');
+        // 성공 후 콜백 호출 (다이얼로그 닫기 전에)
+        if (onSuccess) {
+          await onSuccess();
+        }
+        // 약간의 지연 후 다이얼로그 닫기 (데이터 갱신 시간 확보)
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
       } else {
         // GCP/Azure는 추후 구현
         setErrorMsg('현재는 AWS 계정 연동만 지원합니다.');
+        setIsSubmitting(false);
         return;
       }
-      if (onSuccess) onSuccess();
-      onOpenChange(false);
-      setStep('select');
-      setSelectedProvider(null);
-      setCredentials({ accountName: '' });
-    } catch (error) {
-      setErrorMsg('계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.');
+    } catch (error: any) {
+      console.error('AWS 계정 연동 오류:', error);
+      // 백엔드에서 반환한 에러 메시지 추출
+      let errorMessage = '계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.';
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        // 백엔드 에러 응답 형식에 따라 메시지 추출
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } else if (error?.response?.status === 400) {
+        // 400 Bad Request인 경우 백엔드 메시지 확인
+        const errorData = error?.response?.data;
+        if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setErrorMsg(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

@@ -175,7 +175,7 @@ export function DashboardPreview() {
 
             <Button
               onClick={() => {
-                const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080';
+                const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.budgetops.work';
                 window.location.href = `${apiBase}/oauth2/authorization/google`;
               }}
               size="lg"
