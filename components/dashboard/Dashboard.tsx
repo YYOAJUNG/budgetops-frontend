@@ -313,15 +313,42 @@ export function Dashboard() {
     return accountUsageList;
   }, [awsAccountDetailedCosts]);
   
-  // 전체 프리티어 사용 현황 계산 (계정별 퍼센테이지의 평균)
+  // 전체 프리티어 사용 현황 계산 (모든 AWS 계정의 퍼센테이지 평균)
   const freeTierUsage = useMemo(() => {
-    if (accountFreeTierUsage.length === 0) {
+    if (!awsAccounts || awsAccounts.length === 0) {
       return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
     }
     
-    // 프리티어 정보가 있는 계정들의 퍼센테이지만 사용하여 평균 계산
-    const accountPercentages = accountFreeTierUsage.map(acc => acc.percentage);
-    const averagePercentage = accountPercentages.reduce((sum, pct) => sum + pct, 0) / accountPercentages.length;
+    // 활성 계정만 필터링
+    const activeAccounts = awsAccounts.filter(acc => acc.active);
+    if (activeAccounts.length === 0) {
+      return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
+    }
+    
+    // 각 계정의 프리티어 사용률 계산
+    const accountPercentages: number[] = [];
+    
+    activeAccounts.forEach(account => {
+      const accountUsage = accountFreeTierUsage.find(acc => acc.name === account.name);
+      if (accountUsage) {
+        // 프리티어 정보가 있는 계정: 실제 사용률 사용
+        accountPercentages.push(accountUsage.percentage);
+      } else {
+        // 프리티어 정보가 없는 계정 (비용이 발생한 경우): 100%로 처리
+        const accountCost = awsAccountCosts?.find(acc => acc.accountId === account.id);
+        if (accountCost && accountCost.totalCost > 0) {
+          accountPercentages.push(100);
+        } else {
+          // 비용도 없고 프리티어 정보도 없는 경우: 0%로 처리
+          accountPercentages.push(0);
+        }
+      }
+    });
+    
+    // 모든 계정의 퍼센테이지 평균 계산
+    const averagePercentage = accountPercentages.length > 0
+      ? accountPercentages.reduce((sum, pct) => sum + pct, 0) / accountPercentages.length
+      : 0;
     
     // 전체 사용량과 한도도 계산 (표시용)
     const totalUsage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.usage, 0);
@@ -331,9 +358,9 @@ export function Dashboard() {
       totalUsage,
       totalLimit,
       percentage: Math.min(averagePercentage, 100),
-      isActive: true,
+      isActive: accountFreeTierUsage.length > 0 || (awsAccountCosts?.some(acc => acc.totalCost > 0) ?? false),
     };
-  }, [accountFreeTierUsage]);
+  }, [accountFreeTierUsage, awsAccounts, awsAccountCosts]);
 
   const currentMonthCost = costSeries.at(-1)?.amount ?? 0;
   const previousMonthCost = costSeries.at(-2)?.amount ?? 0;
@@ -394,18 +421,6 @@ export function Dashboard() {
           title="프리티어 사용률"
           value={freeTierUsage.isActive ? `${freeTierUsage.percentage.toFixed(1)}%` : '0%'}
           icon={<Gift className="h-4 w-4" />}
-          additionalInfo={accountFreeTierUsage.length > 0 ? (
-            <div className="space-y-0.5">
-              {accountFreeTierUsage.map((account, idx) => (
-                <p key={idx} className={cn(
-                  "text-xs",
-                  account.isExhausted ? "text-red-600 font-semibold" : "text-gray-600"
-                )}>
-                  {account.name} / {account.isExhausted ? "프리티어 소진" : `${account.percentage.toFixed(1)}%`}
-                </p>
-              ))}
-            </div>
-          ) : undefined}
         />
         <StatCard
           title="예상 절감액"
@@ -552,9 +567,16 @@ export function Dashboard() {
                                         <p className="text-lg font-bold text-gray-900">
                                           {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
                                         </p>
-                                        <p className="text-xs text-gray-600 mt-1">
-                                          {account.accountName} / 100%
-                                        </p>
+                                        {accountUsage && (
+                                          <p className="text-xs text-gray-600 mt-1">
+                                            {account.accountName} / {accountUsage.percentage.toFixed(1)}%
+                                          </p>
+                                        )}
+                                        {!accountUsage && (
+                                          <p className="text-xs text-gray-600 mt-1">
+                                            {account.accountName} / 100%
+                                          </p>
+                                        )}
                                       </div>
                                     )}
                                   </div>
