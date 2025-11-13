@@ -389,10 +389,6 @@ export function Dashboard() {
         <StatCard
           title="프리티어 사용률"
           value={freeTierUsage.isActive ? `${freeTierUsage.percentage.toFixed(1)}%` : '0%'}
-          change={freeTierUsage.isActive ? {
-            value: 0,
-            label: `${freeTierUsage.totalUsage.toFixed(0)}/${freeTierUsage.totalLimit.toFixed(0)}`,
-          } : undefined}
           icon={<Gift className="h-4 w-4" />}
           additionalInfo={accountFreeTierUsage.length > 0 ? (
             <div className="space-y-0.5">
@@ -495,7 +491,14 @@ export function Dashboard() {
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-orange-600">
-                              {formatCurrency(convertCurrency(totalAwsCostUsd, 'USD', currency), currency)}
+                              {freeTierUsage.isActive && totalAwsCostUsd === 0 ? (
+                                <span className="flex items-center gap-2 justify-end">
+                                  <Gift className="h-5 w-5 text-green-600" />
+                                  <span className="text-green-600">프리티어 사용 중</span>
+                                </span>
+                              ) : (
+                                formatCurrency(convertCurrency(totalAwsCostUsd, 'USD', currency), currency)
+                              )}
                             </p>
                           </div>
                         </div>
@@ -506,10 +509,10 @@ export function Dashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full text-xs border-green-200 text-green-700 hover:bg-green-50"
+                              className="w-full text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
                               onClick={() => setShowFreeTierDialog(true)}
                             >
-                              자세히 보기
+                              프리티어 자세히 보기
                               <ChevronRight className="h-3 w-3 ml-1" />
                             </Button>
                           </div>
@@ -611,10 +614,10 @@ export function Dashboard() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full text-xs border-green-200 text-green-700 hover:bg-green-50"
+                              className="w-full text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
                               onClick={() => setShowFreeTierDialog(true)}
                             >
-                              자세히 보기
+                              프리티어 자세히 보기
                               <ChevronRight className="h-3 w-3 ml-1" />
                             </Button>
                           </div>
