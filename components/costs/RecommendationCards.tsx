@@ -57,7 +57,7 @@ function RecommendationCard({
               {formatCurrency(Math.max(0, estimatedSavings), 'KRW')}
             </p>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              월 예상 절감액
+              연 예상 절감액
             </p>
           </div>
 
