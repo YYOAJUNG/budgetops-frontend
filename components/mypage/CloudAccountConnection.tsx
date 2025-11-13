@@ -73,7 +73,7 @@ export function CloudAccountConnection() {
       }));
     // AWS, GCP, Azure 계정을 합쳐서 반환
     return [...awsMapped, ...gcpMapped, ...azureMapped];
-  }, [awsAccounts, gcpAccounts]);
+  }, [awsAccounts, gcpAccounts, azureAccounts]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -119,12 +119,15 @@ export function CloudAccountConnection() {
         // GCP 계정인 경우 API 호출
         const gcpAccount = gcpAccounts?.find((g: GcpAccount) => String(g.id) === id);
         if (gcpAccount) {
+          console.log('Deleting GCP account:', gcpAccount.id, gcpAccount);
           await deleteGcpAccount(gcpAccount.id);
           // 캐시 완전히 제거 및 목록 재조회
           queryClient.removeQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.removeQueries({ queryKey: ['gcp-resources'] });
           await refetchGcp();
           // 추가로 한 번 더 무효화하여 최신 데이터 확보
           queryClient.invalidateQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
           await refetchGcp();
         } else {
           // Azure 계정인 경우 API 호출
