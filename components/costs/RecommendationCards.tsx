@@ -88,9 +88,9 @@ function RecommendationCard({
                       </p>
                     </div>
                     <div className="col-span-2">
-                      <p className="text-xs text-gray-500 mb-1">예상 절감액</p>
+                      <p className="text-xs text-gray-500 mb-1">예상 절감액 (연 기준)</p>
                       <p className="text-lg font-bold text-blue-600">
-                        {formatCurrency(Math.max(0, scenario.savings), 'KRW')}
+                        {formatCurrency(Math.max(0, scenario.savings * 12), 'KRW')}
                       </p>
                     </div>
                   </div>
