@@ -25,13 +25,16 @@ import {
   getAllEc2Instances, 
   AwsEc2Instance, 
   getAwsAccounts,
+  stopEc2Instance,
+  startEc2Instance,
+  terminateEc2Instance,
 } from '@/lib/api/aws';
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
-import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid } from 'lucide-react';
+import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -139,6 +142,7 @@ export function ResourceExplorer() {
     instanceName: string;
     region?: string;
   } | null>(null);
+  const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
 
   const providers = useMemo(() => {
     return Array.from(new Set((data ?? []).map((item) => item.provider))).sort();
@@ -182,6 +186,64 @@ export function ResourceExplorer() {
       setter(list.filter((item) => item !== value));
     } else {
       setter([...list, value]);
+    }
+  };
+
+  const handleStop = async (instance: AwsEc2Instance, accountId: number, region?: string) => {
+    if (!confirm(`${instance.name || instance.instanceId} 인스턴스를 정지하시겠습니까?`)) {
+      return;
+    }
+    setOperatingInstanceId(instance.instanceId);
+    try {
+      await stopEc2Instance(accountId, instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchEc2();
+    } catch (error: any) {
+      console.error('인스턴스 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
+  const handleStart = async (instance: AwsEc2Instance, accountId: number, region?: string) => {
+    setOperatingInstanceId(instance.instanceId);
+    try {
+      await startEc2Instance(accountId, instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchEc2();
+    } catch (error: any) {
+      console.error('인스턴스 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 시작 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
+  const handleTerminate = async (instance: AwsEc2Instance, accountId: number, region?: string) => {
+    const instanceName = instance.name || instance.instanceId;
+    if (!confirm(`${instanceName} 인스턴스를 삭제하시겠습니까?\n\n삭제된 인스턴스는 복구할 수 없습니다.`)) {
+      return;
+    }
+    setOperatingInstanceId(instance.instanceId);
+    try {
+      await terminateEc2Instance(accountId, instance.instanceId, region);
+      queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchEc2();
+    } catch (error: any) {
+      console.error('인스턴스 삭제 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '인스턴스 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
     }
   };
 
@@ -480,20 +542,55 @@ export function ResourceExplorer() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-2">
-                            {isEc2 && accountId && ec2Instance && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedInstance({ instance: ec2Instance, accountId, region: resource.region });
-                                  setShowMetricsDialog(true);
-                                }}
-                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                <Activity className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {isGcpInstance && gcpResource && (
+                            {isEc2 && accountId && ec2Instance ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedInstance({ instance: ec2Instance, accountId, region: resource.region });
+                                    setShowMetricsDialog(true);
+                                  }}
+                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="메트릭 보기"
+                                >
+                                  <Activity className="h-4 w-4" />
+                                </Button>
+                                {ec2Instance.state === 'running' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleStop(ec2Instance, accountId, resource.region)}
+                                    disabled={operatingInstanceId === ec2Instance.instanceId}
+                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    title="정지"
+                                  >
+                                    <Square className="h-4 w-4" />
+                                  </Button>
+                                ) : ec2Instance.state === 'stopped' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleStart(ec2Instance, accountId, resource.region)}
+                                    disabled={operatingInstanceId === ec2Instance.instanceId}
+                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="시작"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleTerminate(ec2Instance, accountId, resource.region)}
+                                  disabled={operatingInstanceId === ec2Instance.instanceId}
+                                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="삭제"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : isGcpInstance && gcpResource ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -506,9 +603,12 @@ export function ResourceExplorer() {
                                   setShowGcpMetricsDialog(true);
                                 }}
                                 className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="메트릭 보기"
                               >
                                 <Activity className="h-4 w-4" />
                               </Button>
+                            ) : (
+                              <span className="text-xs text-slate-400">관리 불가</span>
                             )}
                           </div>
                         </td>
