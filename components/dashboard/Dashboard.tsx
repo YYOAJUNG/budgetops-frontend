@@ -98,7 +98,7 @@ import { Button } from '@/components/ui/button';
 import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
 import { useContextStore } from '@/store/context';
 import { useUIStore } from '@/store/ui';
-import { formatCurrency, convertCurrency } from '@/lib/utils';
+import { formatCurrency, convertCurrency, cn } from '@/lib/utils';
 import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift, X, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
@@ -251,28 +251,61 @@ export function Dashboard() {
       return [];
     }
     
-    const accountUsageList: Array<{ name: string; usage: number; limit: number; percentage: number }> = [];
+    const accountUsageList: Array<{ 
+      name: string; 
+      usage: number; 
+      limit: number; 
+      percentage: number;
+      isExhausted: boolean;
+    }> = [];
     
     // 각 계정별로 프리티어 정보 수집
     awsAccountDetailedCosts.forEach(({ accountId, accountName, costs }) => {
-      let usage = 0;
-      let limit = 0;
+      // 서비스별로 최대 사용량과 한도를 추적 (프리티어는 보통 월별 한도이므로)
+      const serviceUsageMap: Record<string, { usage: number; limit: number }> = {};
       
       costs.forEach(dailyCost => {
         dailyCost.services.forEach(service => {
           if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive) {
-            usage += service.freeTierInfo.usage;
-            limit += service.freeTierInfo.freeTierLimit;
+            const serviceKey = service.service;
+            if (!serviceUsageMap[serviceKey]) {
+              serviceUsageMap[serviceKey] = {
+                usage: 0,
+                limit: service.freeTierInfo.freeTierLimit,
+              };
+            }
+            // 각 서비스별로 최대 사용량 추적 (일별 데이터 중 최대값 사용)
+            serviceUsageMap[serviceKey].usage = Math.max(
+              serviceUsageMap[serviceKey].usage,
+              service.freeTierInfo.usage
+            );
+            // 한도는 동일하므로 한 번만 설정
+            if (serviceUsageMap[serviceKey].limit === 0 && service.freeTierInfo.freeTierLimit > 0) {
+              serviceUsageMap[serviceKey].limit = service.freeTierInfo.freeTierLimit;
+            }
           }
         });
       });
       
-      if (limit > 0) {
+      // 서비스별 사용량과 한도를 합산
+      let totalUsage = 0;
+      let totalLimit = 0;
+      
+      Object.values(serviceUsageMap).forEach(({ usage, limit }) => {
+        totalUsage += usage;
+        totalLimit += limit;
+      });
+      
+      if (totalLimit > 0) {
+        const percentage = Math.min((totalUsage / totalLimit) * 100, 100);
+        const isExhausted = totalUsage >= totalLimit;
+        
         accountUsageList.push({
           name: accountName,
-          usage,
-          limit,
-          percentage: Math.min((usage / limit) * 100, 100),
+          usage: totalUsage,
+          limit: totalLimit,
+          percentage,
+          isExhausted,
         });
       }
     });
@@ -364,8 +397,11 @@ export function Dashboard() {
           additionalInfo={accountFreeTierUsage.length > 0 ? (
             <div className="space-y-0.5">
               {accountFreeTierUsage.map((account, idx) => (
-                <p key={idx} className="text-xs text-gray-600">
-                  {account.name} / {account.percentage.toFixed(1)}%
+                <p key={idx} className={cn(
+                  "text-xs",
+                  account.isExhausted ? "text-red-600 font-semibold" : "text-gray-600"
+                )}>
+                  {account.name} / {account.isExhausted ? "프리티어 소진" : `${account.percentage.toFixed(1)}%`}
                 </p>
               ))}
             </div>
@@ -464,6 +500,21 @@ export function Dashboard() {
                           </div>
                         </div>
                         
+                        {/* 프리티어 사용 중인 경우 자세히 보기 버튼 */}
+                        {freeTierUsage.isActive && (
+                          <div className="mt-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs border-green-200 text-green-700 hover:bg-green-50"
+                              onClick={() => setShowFreeTierDialog(true)}
+                            >
+                              자세히 보기
+                              <ChevronRight className="h-3 w-3 ml-1" />
+                            </Button>
+                          </div>
+                        )}
+                        
                         {awsAccountCosts.length > 1 && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -496,8 +547,14 @@ export function Dashboard() {
                                           <span className="text-sm font-semibold text-green-600">프리티어 사용 중</span>
                                         </div>
                                         {accountUsage && (
-                                          <p className="text-xs text-gray-600">
-                                            {accountUsage.percentage.toFixed(1)}%
+                                          <p className={cn(
+                                            "text-xs",
+                                            accountUsage.isExhausted ? "text-red-600 font-semibold" : "text-gray-600"
+                                          )}>
+                                            {accountUsage.isExhausted 
+                                              ? "프리티어 소진" 
+                                              : `${accountUsage.percentage.toFixed(1)}%`
+                                            }
                                           </p>
                                         )}
                                       </div>
@@ -835,26 +892,48 @@ export function Dashboard() {
                     {accountFreeTierUsage.map((account, idx) => (
                       <div 
                         key={idx} 
-                        className="p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+                        className={cn(
+                          "p-4 rounded-lg border hover:shadow-sm transition-all",
+                          account.isExhausted 
+                            ? "bg-red-50 border-red-200 hover:border-red-300" 
+                            : "bg-white border-gray-200 hover:border-gray-300"
+                        )}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-medium text-gray-900">{account.name}</span>
-                          <span className="text-base font-semibold text-gray-700">
-                            {account.percentage.toFixed(1)}%
+                          <span className={cn(
+                            "text-base font-semibold",
+                            account.isExhausted ? "text-red-600" : "text-gray-700"
+                          )}>
+                            {account.isExhausted ? "프리티어 소진" : `${account.percentage.toFixed(1)}%`}
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                           <div
-                            className="bg-gradient-to-r from-blue-400 to-blue-500 h-2 rounded-full transition-all"
+                            className={cn(
+                              "h-2 rounded-full transition-all",
+                              account.isExhausted 
+                                ? "bg-gradient-to-r from-red-400 to-red-500" 
+                                : "bg-gradient-to-r from-blue-400 to-blue-500"
+                            )}
                             style={{ width: `${Math.min(account.percentage, 100)}%` }}
                           />
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-600">
+                          <p className={cn(
+                            "text-xs",
+                            account.isExhausted ? "text-red-700" : "text-gray-600"
+                          )}>
                             {account.usage.toFixed(0)} / {account.limit.toFixed(0)} 사용
                           </p>
-                          <p className="text-xs text-gray-500">
-                            잔여: {(account.limit - account.usage).toFixed(0)}
+                          <p className={cn(
+                            "text-xs",
+                            account.isExhausted ? "text-red-600" : "text-gray-500"
+                          )}>
+                            {account.isExhausted 
+                              ? "초과: " + (account.usage - account.limit).toFixed(0)
+                              : "잔여: " + (account.limit - account.usage).toFixed(0)
+                            }
                           </p>
                         </div>
                       </div>
