@@ -99,7 +99,7 @@ import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/l
 import { useContextStore } from '@/store/context';
 import { useUIStore } from '@/store/ui';
 import { formatCurrency, convertCurrency } from '@/lib/utils';
-import { DollarSign, Target, AlertTriangle, Lightbulb, Cloud, Bot, AlertCircle } from 'lucide-react';
+import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
@@ -110,7 +110,6 @@ import { useMemo } from 'react';
 /** 최소한의 로컬 타입 (API 타입이 있으면 그걸 import 해도 됨) */
 type CostPoint = { amount: number };
 type Budget = { amount: number; spendToDate?: number };
-type Anomaly = { date: string | Date };
 type Recommendation = { saving: number };
 
 export function Dashboard() {
@@ -120,7 +119,6 @@ export function Dashboard() {
 
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
-  const { data: anomaliesRaw } = useAnomalies(tenantId);
   const { data: recommendationsRaw } = useRecommendations(tenantId);
   
   // AWS 계정 목록 조회
@@ -224,8 +222,54 @@ export function Dashboard() {
   // 안전한 기본값 + 좁은 타입 보장
   const costSeries = (costSeriesRaw ?? []) as CostPoint[];
   const budgets = (budgetsRaw ?? []) as Budget[];
-  const anomalies = (anomaliesRaw ?? []) as Anomaly[];
   const recommendations = (recommendationsRaw ?? []) as Recommendation[];
+  
+  // AWS 계정별 상세 비용 조회 (프리티어 정보 포함)
+  const { data: awsAccountDetailedCosts } = useQuery({
+    queryKey: ['awsAccountDetailedCosts', startDate, endDate],
+    queryFn: async () => {
+      if (!awsAccounts || awsAccounts.length === 0) return [];
+      
+      const { getAwsAccountCosts } = await import('@/lib/api/aws');
+      const costsPromises = awsAccounts
+        .filter(acc => acc.active)
+        .map(account => getAwsAccountCosts(account.id, startDate, endDate));
+      
+      const allCosts = await Promise.all(costsPromises);
+      return allCosts.flat();
+    },
+    enabled: (awsAccounts?.length ?? 0) > 0,
+  });
+  
+  // 프리티어 사용 현황 계산
+  const freeTierUsage = useMemo(() => {
+    if (!awsAccountDetailedCosts || awsAccountDetailedCosts.length === 0) {
+      return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
+    }
+    
+    let totalUsage = 0;
+    let totalLimit = 0;
+    let hasActiveFreeTier = false;
+    
+    awsAccountDetailedCosts.forEach(dailyCost => {
+      dailyCost.services.forEach(service => {
+        if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive) {
+          hasActiveFreeTier = true;
+          totalUsage += service.freeTierInfo.usage;
+          totalLimit += service.freeTierInfo.freeTierLimit;
+        }
+      });
+    });
+    
+    const percentage = totalLimit > 0 ? (totalUsage / totalLimit) * 100 : 0;
+    
+    return {
+      totalUsage,
+      totalLimit,
+      percentage: Math.min(percentage, 100),
+      isActive: hasActiveFreeTier,
+    };
+  }, [awsAccountDetailedCosts]);
 
   const currentMonthCost = costSeries.at(-1)?.amount ?? 0;
   const previousMonthCost = costSeries.at(-2)?.amount ?? 0;
@@ -253,12 +297,6 @@ export function Dashboard() {
   );
 
   const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const recentAnomalies = anomalies.filter((a: Anomaly) => {
-    const d = typeof a.date === 'string' ? new Date(a.date).getTime() : new Date(a.date).getTime();
-    return d >= oneWeekAgo;
-  }).length;
 
   const totalSavings = recommendations.reduce(
     (sum: number, r: Recommendation) => sum + (r.saving ?? 0),
@@ -289,9 +327,13 @@ export function Dashboard() {
           icon={<Target className="h-4 w-4" />}
         />
         <StatCard
-          title="이상징후 (7일)"
-          value={recentAnomalies}
-          icon={<AlertTriangle className="h-4 w-4" />}
+          title="프리티어 사용률"
+          value={freeTierUsage.isActive ? `${freeTierUsage.percentage.toFixed(1)}%` : '0%'}
+          change={freeTierUsage.isActive ? {
+            value: 0,
+            label: `${freeTierUsage.totalUsage.toFixed(0)}/${freeTierUsage.totalLimit.toFixed(0)}`,
+          } : undefined}
+          icon={<Gift className="h-4 w-4" />}
         />
         <StatCard
           title="예상 절감액"
@@ -389,19 +431,35 @@ export function Dashboard() {
                         {awsAccountCosts.length > 1 && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
                             <div className="grid gap-3 sm:grid-cols-2">
-                              {awsAccountCosts.map((account: AccountCost) => (
-                                <div
-                                  key={account.accountId}
-                                  className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                                >
-                                  <p className="text-sm font-medium text-gray-700 mb-1">
-                                    {account.accountName}
-                                  </p>
-                                  <p className="text-lg font-bold text-gray-900">
-                                    {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
-                                  </p>
-                                </div>
-                              ))}
+                              {awsAccountCosts.map((account: AccountCost) => {
+                                // 해당 계정의 프리티어 정보 확인
+                                const accountFreeTierInfo = awsAccountDetailedCosts
+                                  ?.flatMap(dc => dc.services)
+                                  .find(s => s.freeTierInfo?.isFreeTierActive);
+                                
+                                const isFreeTierActive = accountFreeTierInfo?.freeTierInfo?.isFreeTierActive ?? false;
+                                
+                                return (
+                                  <div
+                                    key={account.accountId}
+                                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <p className="text-sm font-medium text-gray-700 mb-1">
+                                      {account.accountName}
+                                    </p>
+                                    {account.totalCost === 0 && isFreeTierActive ? (
+                                      <div className="flex items-center gap-2">
+                                        <Gift className="h-4 w-4 text-green-600" />
+                                        <span className="text-sm font-semibold text-green-600">프리티어 사용 중</span>
+                                      </div>
+                                    ) : (
+                                      <p className="text-lg font-bold text-gray-900">
+                                        {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -423,13 +481,31 @@ export function Dashboard() {
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-blue-600">
-                              {formatCurrency(0, currency)}
+                              {freeTierUsage.isActive ? (
+                                <span className="flex items-center gap-2">
+                                  <Gift className="h-5 w-5 text-green-600" />
+                                  <span className="text-green-600">프리티어 사용 중</span>
+                                </span>
+                              ) : (
+                                formatCurrency(0, currency)
+                              )}
                             </p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-3">
-                          최근 30일간 비용이 발생하지 않았습니다.
-                        </p>
+                        {freeTierUsage.isActive ? (
+                          <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                            <p className="text-xs text-green-800 font-medium mb-1">
+                              프리티어 범위 내 사용 중
+                            </p>
+                            <p className="text-xs text-green-700">
+                              사용률: {freeTierUsage.percentage.toFixed(1)}% ({freeTierUsage.totalUsage.toFixed(0)}/{freeTierUsage.totalLimit.toFixed(0)})
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 mt-3">
+                            최근 30일간 비용이 발생하지 않았습니다.
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   )

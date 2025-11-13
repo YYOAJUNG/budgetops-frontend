@@ -250,10 +250,25 @@ export async function terminateEc2Instance(
   await api.delete(`/aws/accounts/${accountId}/ec2/instances/${instanceId}`, { params });
 }
 
+export interface FreeTierInfo {
+  usage: number;
+  freeTierLimit: number;
+  isWithinFreeTier: boolean;
+  isFreeTierActive: boolean;
+  estimatedCostIfExceeded: number;
+}
+
+export interface ServiceCostWithUsage {
+  service: string;
+  cost: number;
+  usageQuantity: number;
+  freeTierInfo: FreeTierInfo | null;
+}
+
 export interface DailyCost {
   date: string;
   totalCost: number;
-  services: ServiceCost[];
+  services: ServiceCostWithUsage[];
 }
 
 export interface ServiceCost {

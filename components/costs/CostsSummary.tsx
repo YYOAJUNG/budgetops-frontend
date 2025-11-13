@@ -7,7 +7,7 @@ import { DateRangePicker } from '@/components/layout/DateRangePicker';
 import { useQuery } from '@tanstack/react-query';
 import { useContextStore } from '@/store/context';
 import { formatCurrency, formatCurrencyCompact, formatPercent, convertCurrency } from '@/lib/utils';
-import { ArrowUp, ArrowDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Gift } from 'lucide-react';
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
@@ -16,6 +16,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 type ProviderAccount = {
   name: string;
   amount: number;
+  isFreeTierActive?: boolean;
 };
 
 type ProviderCost = {
@@ -57,6 +58,9 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let awsTotalCost = 0;
   let previousAwsTotalCost = 0;
 
+  // 프리티어 정보 수집
+  const freeTierInfoMap: Record<number, { hasFreeTier: boolean; services: string[] }> = {};
+  
   for (const account of activeAwsAccounts) {
     try {
       const dailyCosts = await getAwsAccountCosts(account.id, from, to).catch(() => []);
@@ -64,12 +68,25 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
       awsAccountTotals[account.id] = accountTotal;
       awsTotalCost += accountTotal;
 
+      // 프리티어 정보 확인
+      const freeTierServices: string[] = [];
       dailyCosts.forEach((day) => {
         day.services.forEach((service) => {
           const costInCurrency = convertCurrency(service.cost, 'USD', currency);
           awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInCurrency;
+          
+          // 프리티어 사용 중인 서비스 확인
+          if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive && service.cost === 0) {
+            if (!freeTierServices.includes(service.service)) {
+              freeTierServices.push(service.service);
+            }
+          }
         });
       });
+      
+      if (freeTierServices.length > 0) {
+        freeTierInfoMap[account.id] = { hasFreeTier: true, services: freeTierServices };
+      }
 
       const previousDailyCosts = await getAwsAccountCosts(account.id, previousFrom, previousTo).catch(() => []);
       const previousAccountTotal = previousDailyCosts.reduce((sum, day) => sum + day.totalCost, 0);
@@ -110,10 +127,15 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     providers.push({
       provider: 'AWS',
       amount: awsTotalInCurrency,
-      accounts: activeAwsAccounts.map((account) => ({
-        name: account.name,
-        amount: convertCurrency(awsAccountTotals[account.id] ?? 0, 'USD', currency),
-      })),
+      accounts: activeAwsAccounts.map((account) => {
+        const accountTotal = awsAccountTotals[account.id] ?? 0;
+        const freeTierInfo = freeTierInfoMap[account.id];
+        return {
+          name: account.name,
+          amount: convertCurrency(accountTotal, 'USD', currency),
+          isFreeTierActive: freeTierInfo?.hasFreeTier ?? false,
+        };
+      }),
       previousAmount: previousAwsTotalInCurrency,
     });
   }
@@ -523,7 +545,14 @@ export function CostsSummary() {
                                 <div>
                                   <span className="text-sm font-semibold text-gray-900">{providerData.provider}</span>
                                   <div className="text-lg font-bold text-gray-900 mt-0.5">
-                                    {formatCurrency(providerData.amount)}
+                                    {providerData.amount === 0 && providerData.accounts.some(acc => acc.isFreeTierActive) ? (
+                                      <span className="flex items-center gap-2 text-green-600">
+                                        <Gift className="h-4 w-4" />
+                                        <span>프리티어 사용 중</span>
+                                      </span>
+                                    ) : (
+                                      formatCurrency(providerData.amount)
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -558,9 +587,16 @@ export function CostsSummary() {
                                       className="p-2 bg-gray-50 rounded border border-gray-100"
                                     >
                                       <p className="text-xs font-medium text-gray-600 mb-0.5">{account.name}</p>
-                                      <p className="text-sm font-semibold text-gray-900">
-                                        {formatCurrency(account.amount)}
-                                      </p>
+                                      {account.amount === 0 && account.isFreeTierActive ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <Gift className="h-3.5 w-3.5 text-green-600" />
+                                          <span className="text-xs font-semibold text-green-600">프리티어 사용 중</span>
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm font-semibold text-gray-900">
+                                          {formatCurrency(account.amount)}
+                                        </p>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
