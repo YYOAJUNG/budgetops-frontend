@@ -439,11 +439,20 @@ export function Dashboard() {
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              className={cn(
+                "border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400",
+                !hasCloudAccounts && "relative border-blue-500 bg-blue-50 text-blue-700 shadow-lg animate-pulse"
+              )}
               onClick={() => router.push('/mypage?addCloudAccount=1')}
             >
               <Cloud className="mr-2 h-4 w-4" />
               계정 연결
+              {!hasCloudAccounts && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+              )}
             </Button>
             <Button
               variant="outline"
