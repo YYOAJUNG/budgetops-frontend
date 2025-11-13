@@ -313,20 +313,23 @@ export function Dashboard() {
     return accountUsageList;
   }, [awsAccountDetailedCosts]);
   
-  // 전체 프리티어 사용 현황 계산
+  // 전체 프리티어 사용 현황 계산 (계정별 퍼센테이지의 평균)
   const freeTierUsage = useMemo(() => {
     if (accountFreeTierUsage.length === 0) {
       return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
     }
     
+    // 계정별 퍼센테이지의 평균 계산
+    const averagePercentage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.percentage, 0) / accountFreeTierUsage.length;
+    
+    // 전체 사용량과 한도도 계산 (표시용)
     const totalUsage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.usage, 0);
     const totalLimit = accountFreeTierUsage.reduce((sum, acc) => sum + acc.limit, 0);
-    const percentage = totalLimit > 0 ? (totalUsage / totalLimit) * 100 : 0;
     
     return {
       totalUsage,
       totalLimit,
-      percentage: Math.min(percentage, 100),
+      percentage: Math.min(averagePercentage, 100),
       isActive: true,
     };
   }, [accountFreeTierUsage]);
@@ -503,22 +506,7 @@ export function Dashboard() {
                           </div>
                         </div>
                         
-                        {/* 프리티어 사용 중인 경우 자세히 보기 버튼 */}
-                        {freeTierUsage.isActive && (
-                          <div className="mt-3">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                              onClick={() => setShowFreeTierDialog(true)}
-                            >
-                              프리티어 자세히 보기
-                              <ChevronRight className="h-3 w-3 ml-1" />
-                            </Button>
-                          </div>
-                        )}
-                        
-                        {awsAccountCosts.length > 1 && (
+                        {(awsAccountCosts.length > 1 || (awsAccountCosts.length === 1 && accountFreeTierUsage.length > 0)) && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
                             <div className="grid gap-3 sm:grid-cols-2">
                               {awsAccountCosts.map((account: AccountCost) => {
@@ -551,10 +539,9 @@ export function Dashboard() {
                                         </div>
                                         {accountUsage && (
                                           <p className={cn(
-                                            "text-xs",
-                                            accountUsage.isExhausted ? "text-red-600 font-semibold" : "text-gray-600"
+                                            "text-xs text-gray-600"
                                           )}>
-                                            {accountUsage.isExhausted 
+                                            {account.accountName} / {accountUsage.isExhausted 
                                               ? "프리티어 소진" 
                                               : `${accountUsage.percentage.toFixed(1)}%`
                                             }
@@ -562,9 +549,16 @@ export function Dashboard() {
                                         )}
                                       </div>
                                     ) : (
-                                      <p className="text-lg font-bold text-gray-900">
-                                        {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
-                                      </p>
+                                      <div>
+                                        <p className="text-lg font-bold text-gray-900">
+                                          {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
+                                        </p>
+                                        {account.totalCost > 0 && (
+                                          <p className="text-xs text-gray-600 mt-1">
+                                            {account.accountName} / 100%
+                                          </p>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
                                 );
