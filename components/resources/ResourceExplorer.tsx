@@ -29,10 +29,9 @@ import {
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
-import { ResourceManagementSection } from './ResourceManagementSection';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
-import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity } from 'lucide-react';
+import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -127,6 +126,19 @@ export function ResourceExplorer() {
   const [serviceFilter, setServiceFilter] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('cost');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [viewType, setViewType] = useState<'list' | 'card'>('card');
+  const [showMetricsDialog, setShowMetricsDialog] = useState(false);
+  const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState<{
+    instance: AwsEc2Instance;
+    accountId: number;
+    region?: string;
+  } | null>(null);
+  const [selectedGcpResource, setSelectedGcpResource] = useState<{
+    resourceId: string;
+    instanceName: string;
+    region?: string;
+  } | null>(null);
 
   const providers = useMemo(() => {
     return Array.from(new Set((data ?? []).map((item) => item.provider))).sort();
@@ -175,8 +187,7 @@ export function ResourceExplorer() {
 
   return (
     <div className="space-y-6">
-      <ResourceManagementSection />
-
+      {/* 필터 및 정렬 섹션 */}
       <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-slate-800">필터 및 정렬</CardTitle>
@@ -270,9 +281,29 @@ export function ResourceExplorer() {
               </Button>
             )}
 
+            {/* 뷰 타입 선택 */}
+            <div className="ml-auto flex items-center gap-1 border border-slate-200 rounded-md p-1">
+              <Button
+                variant={viewType === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => setViewType('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewType === 'card' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => setViewType('card')}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+            </div>
+
             <Button
               variant="ghost"
-              className="ml-auto flex items-center gap-2 text-slate-500 hover:text-slate-700"
+              className="flex items-center gap-2 text-slate-500 hover:text-slate-700"
               onClick={() => {
                 refetch();
                 refetchEc2();
@@ -364,7 +395,133 @@ export function ResourceExplorer() {
             선택한 조건에 맞는 리소스가 없습니다.
           </CardContent>
         </Card>
+      ) : viewType === 'list' ? (
+        // 리스트형 뷰
+        <Card className="border border-slate-200 shadow-sm">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">서비스</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">이름</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">상태</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">리전</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">업데이트</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredResources.map((resource) => {
+                    const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
+                    let accountId: number | null = null;
+                    if (ec2Instance && awsAccounts && awsAccounts.length > 0) {
+                      const activeAccount = awsAccounts.find(acc => acc.active);
+                      if (activeAccount) {
+                        accountId = activeAccount.id;
+                      }
+                    }
+                    const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
+                    const isEc2 = resource.service === 'EC2' && ec2Instance;
+                    const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+                    
+                    return (
+                      <tr
+                        key={resource.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Server className="h-4 w-4 text-slate-500" />
+                            <Badge className={
+                              resource.provider === 'AWS' 
+                                ? 'bg-orange-100 text-orange-700'
+                                : resource.provider === 'GCP'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-sky-100 text-sky-700'
+                            }>{resource.provider}</Badge>
+                            <span className="text-sm text-slate-600">{resource.service}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <div className="font-medium text-slate-900">{resource.name}</div>
+                            {isEc2 && (
+                              <div className="text-xs text-slate-500 font-mono mt-1">
+                                {ec2Instance.instanceId}
+                              </div>
+                            )}
+                            {isGcpInstance && (
+                              <div className="text-xs text-slate-500 font-mono mt-1">
+                                {resource.id}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              resource.status === 'running' 
+                                ? 'border-green-200 bg-green-50 text-green-700' 
+                                : resource.status === 'stopped'
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-yellow-200 bg-yellow-50 text-yellow-700'
+                            }
+                          >
+                            {resource.status === 'running' ? '실행 중' : resource.status === 'stopped' ? '정지됨' : '대기 중'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">
+                          {isEc2 ? ec2Instance.availabilityZone : resource.region}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-slate-600">
+                          {formatDate(resource.updatedAt)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            {isEc2 && accountId && ec2Instance && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedInstance({ instance: ec2Instance, accountId, region: resource.region });
+                                  setShowMetricsDialog(true);
+                                }}
+                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Activity className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isGcpInstance && gcpResource && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedGcpResource({ 
+                                    resourceId: gcpResource.resourceId, 
+                                    instanceName: gcpResource.resourceName || gcpResource.resourceId,
+                                    region: resource.region 
+                                  });
+                                  setShowGcpMetricsDialog(true);
+                                }}
+                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Activity className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
+        // 카드형 뷰
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredResources.map((resource) => {
             // EC2 리소스인 경우 상세 정보 찾기
@@ -395,6 +552,27 @@ export function ResourceExplorer() {
             );
           })}
         </div>
+      )}
+
+      {/* 메트릭 다이얼로그 */}
+      {selectedInstance && (
+        <Ec2MetricsDialog
+          open={showMetricsDialog}
+          onOpenChange={setShowMetricsDialog}
+          accountId={selectedInstance.accountId}
+          instanceId={selectedInstance.instance.instanceId}
+          instanceName={selectedInstance.instance.name || selectedInstance.instance.instanceId}
+          region={selectedInstance.region}
+        />
+      )}
+      {selectedGcpResource && (
+        <GcpInstanceMetricsDialog
+          open={showGcpMetricsDialog}
+          onOpenChange={setShowGcpMetricsDialog}
+          resourceId={selectedGcpResource.resourceId}
+          instanceName={selectedGcpResource.instanceName}
+          region={selectedGcpResource.region}
+        />
       )}
     </div>
   );
