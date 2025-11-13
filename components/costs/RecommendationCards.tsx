@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { Clock, DollarSign, Archive, X } from 'lucide-react';
+import { Clock, DollarSign, Archive, X, TrendingDown } from 'lucide-react';
 import { useState } from 'react';
 import { SimulationResult, getRecommendations, RecommendationResponse } from '@/lib/api/simulator';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +12,7 @@ interface RecommendationCardProps {
   title: string;
   description: string;
   estimatedSavings: number;
-  actionType: 'offhours' | 'commitment' | 'storage';
+  actionType: 'offhours' | 'commitment' | 'storage' | 'rightsizing';
   resourceIds: string[];
   icon: React.ReactNode;
   scenario?: SimulationResult; // 추천 응답에 포함된 시나리오 정보
@@ -131,6 +131,8 @@ function getActionIcon(actionType: string) {
       return <Clock className="h-5 w-5" />;
     case 'commitment':
       return <DollarSign className="h-5 w-5" />;
+    case 'rightsizing':
+      return <TrendingDown className="h-5 w-5" />;
     case 'storage':
       return <Archive className="h-5 w-5" />;
     default:
@@ -207,7 +209,7 @@ export function RecommendationCards({ resourceIds }: RecommendationCardsProps) {
           title={rec.title}
           description={rec.description}
           estimatedSavings={rec.estimatedSavings}
-          actionType={rec.actionType as 'offhours' | 'commitment' | 'storage'}
+          actionType={rec.actionType as 'offhours' | 'commitment' | 'storage' | 'rightsizing'}
           resourceIds={resourceIds}
           icon={getActionIcon(rec.actionType)}
           scenario={rec.scenario}
