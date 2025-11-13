@@ -588,12 +588,12 @@ export function Dashboard() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Cloud className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-orange-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-orange-600" />
                             </div>
                             <div>
                               <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
@@ -602,7 +602,7 @@ export function Dashboard() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                            <p className="text-2xl font-bold text-blue-600">
+                            <p className="text-2xl font-bold text-orange-600">
                               {freeTierUsage.isActive ? (
                                 <span className="flex items-center gap-2">
                                   <Gift className="h-5 w-5 text-green-600" />
@@ -730,12 +730,12 @@ export function Dashboard() {
                   </Card>
                 ) : azureAccountCosts && azureAccountCosts.length > 0 ? (
                   totalAzureCost.amount > 0 ? (
-                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-sky-500">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Cloud className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-sky-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-sky-600" />
                             </div>
                             <div>
                               <h4 className="text-lg font-semibold text-gray-900">Azure</h4>
@@ -744,7 +744,7 @@ export function Dashboard() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                            <p className="text-2xl font-bold text-blue-600">
+                            <p className="text-2xl font-bold text-sky-600">
                               {formatCurrency(convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency), currency)}
                             </p>
                           </div>
@@ -769,12 +769,12 @@ export function Dashboard() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-blue-500">
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-sky-500">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Cloud className="h-6 w-6 text-blue-600" />
+                            <div className="p-2 bg-sky-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-sky-600" />
                             </div>
                             <div>
                               <h4 className="text-lg font-semibold text-gray-900">Azure</h4>
@@ -783,7 +783,7 @@ export function Dashboard() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                            <p className="text-2xl font-bold text-blue-600">
+                            <p className="text-2xl font-bold text-sky-600">
                               {formatCurrency(0, currency)}
                             </p>
                           </div>

@@ -299,7 +299,13 @@ export function ResourceExplorer() {
               <Badge
                 key={`provider-${provider}`}
                 variant="outline"
-                className="border-sky-200 bg-sky-50 text-sky-800"
+                className={
+                  provider === 'AWS'
+                    ? 'border-orange-200 bg-orange-50 text-orange-800'
+                    : provider === 'GCP'
+                    ? 'border-blue-200 bg-blue-50 text-blue-800'
+                    : 'border-sky-200 bg-sky-50 text-sky-800'
+                }
               >
                 {provider}
               </Badge>
@@ -421,7 +427,13 @@ function ResourceCard({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Badge className="bg-sky-100 text-sky-700">{resource.provider}</Badge>
+            <Badge className={
+              resource.provider === 'AWS' 
+                ? 'bg-orange-100 text-orange-700'
+                : resource.provider === 'GCP'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-sky-100 text-sky-700'
+            }>{resource.provider}</Badge>
             <div className="flex items-center gap-1">
               {isEc2 && <Server className="h-3 w-3 text-slate-500" />}
               <span className="text-xs uppercase tracking-wide text-slate-500">{resource.service}</span>

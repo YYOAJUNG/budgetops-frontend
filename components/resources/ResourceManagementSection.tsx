@@ -355,7 +355,13 @@ export function ResourceManagementSection() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <ServiceIcon className="h-4 w-4 text-slate-500" />
-                            <Badge className="bg-sky-100 text-sky-700">{resource.provider}</Badge>
+                            <Badge className={
+                              resource.provider === 'AWS' 
+                                ? 'bg-orange-100 text-orange-700'
+                                : resource.provider === 'GCP'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-sky-100 text-sky-700'
+                            }>{resource.provider}</Badge>
                             <span className="text-sm text-slate-600">{resource.service}</span>
                           </div>
                         </td>

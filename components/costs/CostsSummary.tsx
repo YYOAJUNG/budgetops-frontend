@@ -487,8 +487,13 @@ export function CostsSummary() {
                             dataKey="value"
                           >
                             {sortedProviders.map((entry, index) => {
-                              const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
-                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                              const getProviderColor = (provider: string) => {
+                                if (provider === 'AWS') return '#F97316'; // orange-500
+                                if (provider === 'GCP') return '#3B82F6'; // blue-500
+                                if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                                return '#6B7280'; // gray-500 (fallback)
+                              };
+                              return <Cell key={`cell-${index}`} fill={getProviderColor(entry.provider)} />;
                             })}
                           </Pie>
                           <Tooltip
@@ -504,12 +509,17 @@ export function CostsSummary() {
                       {/* 범례 */}
                       <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
                         {sortedProviders.map((providerData, index) => {
-                          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                          const getProviderColor = (provider: string) => {
+                            if (provider === 'AWS') return '#F97316'; // orange-500
+                            if (provider === 'GCP') return '#3B82F6'; // blue-500
+                            if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                            return '#6B7280'; // gray-500 (fallback)
+                          };
                           return (
                             <div key={providerData.provider} className="flex items-center gap-2">
                               <div
                                 className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: colors[index % colors.length] }}
+                                style={{ backgroundColor: getProviderColor(providerData.provider) }}
                               />
                               <span className="text-sm text-gray-700">
                                 {providerData.provider} ({providerData.percentage.toFixed(1)}%)
@@ -523,7 +533,12 @@ export function CostsSummary() {
                     {/* 범례 및 상세 정보 */}
                     <div className="flex-1 space-y-4">
                       {sortedProviders.map((providerData, index) => {
-                        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                        const getProviderColor = (provider: string) => {
+                          if (provider === 'AWS') return '#F97316'; // orange-500
+                          if (provider === 'GCP') return '#3B82F6'; // blue-500
+                          if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                          return '#6B7280'; // gray-500 (fallback)
+                        };
                         const change = providerData.previousAmount
                           ? ((providerData.amount - providerData.previousAmount) / Math.max(1, providerData.previousAmount)) * 100
                           : 0;
@@ -540,7 +555,7 @@ export function CostsSummary() {
                               <div className="flex items-center gap-3">
                                 <div
                                   className="w-4 h-4 rounded-full"
-                                  style={{ backgroundColor: colors[index % colors.length] }}
+                                  style={{ backgroundColor: getProviderColor(providerData.provider) }}
                                 />
                                 <div>
                                   <span className="text-sm font-semibold text-gray-900">{providerData.provider}</span>
