@@ -319,8 +319,9 @@ export function Dashboard() {
       return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
     }
     
-    // 계정별 퍼센테이지의 평균 계산
-    const averagePercentage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.percentage, 0) / accountFreeTierUsage.length;
+    // 프리티어 정보가 있는 계정들의 퍼센테이지만 사용하여 평균 계산
+    const accountPercentages = accountFreeTierUsage.map(acc => acc.percentage);
+    const averagePercentage = accountPercentages.reduce((sum, pct) => sum + pct, 0) / accountPercentages.length;
     
     // 전체 사용량과 한도도 계산 (표시용)
     const totalUsage = accountFreeTierUsage.reduce((sum, acc) => sum + acc.usage, 0);
@@ -531,33 +532,29 @@ export function Dashboard() {
                                     <p className="text-sm font-medium text-gray-700 mb-1">
                                       {account.accountName}
                                     </p>
-                                    {account.totalCost === 0 && hasFreeTier ? (
-                                      <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                          <Gift className="h-4 w-4 text-green-600" />
-                                          <span className="text-sm font-semibold text-green-600">프리티어 사용 중</span>
-                                        </div>
-                                        {accountUsage && (
-                                          <p className={cn(
-                                            "text-xs text-gray-600"
-                                          )}>
+                                    {account.totalCost === 0 ? (
+                                      hasFreeTier && accountUsage ? (
+                                        <div>
+                                          <p className="text-xs text-gray-600">
                                             {account.accountName} / {accountUsage.isExhausted 
                                               ? "프리티어 소진" 
                                               : `${accountUsage.percentage.toFixed(1)}%`
                                             }
                                           </p>
-                                        )}
-                                      </div>
+                                        </div>
+                                      ) : (
+                                        <p className="text-lg font-bold text-gray-900">
+                                          {formatCurrency(0, currency)}
+                                        </p>
+                                      )
                                     ) : (
                                       <div>
                                         <p className="text-lg font-bold text-gray-900">
                                           {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
                                         </p>
-                                        {account.totalCost > 0 && (
-                                          <p className="text-xs text-gray-600 mt-1">
-                                            {account.accountName} / 100%
-                                          </p>
-                                        )}
+                                        <p className="text-xs text-gray-600 mt-1">
+                                          {account.accountName} / 100%
+                                        </p>
                                       </div>
                                     )}
                                   </div>
