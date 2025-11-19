@@ -109,7 +109,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       name: 'NAVER Cloud Platform',
       logo: (
         <img
-          src="https://eventusstorage.blob.core.windows.net/evs/UploadedFiles/navercloudplatform/TopLogoImage/22661077c1c343f0a8c18f3f6d96c4e5.png"
+          src="https://share.icloud.com/photos/010eNYuIp8nEKBxPKeD_AmdUQ"
           alt="NCP"
           className="w-24 h-24 object-contain"
         />
