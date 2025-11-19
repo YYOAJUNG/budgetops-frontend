@@ -548,7 +548,7 @@ export function CostsSummary() {
 
                         return (
                           <div
-                            key={providerData.provider}
+                      key={providerData.provider}
                             className="p-4 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow"
                           >
                             <div className="flex items-center justify-between mb-3">

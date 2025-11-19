@@ -13,7 +13,7 @@ import { BudgetsContent } from './preview/BudgetsContent';
 import { RecommendationsContent } from './preview/RecommendationsContent';
 import { CopilotContent } from './preview/CopilotContent';
 
-type MenuType = 'dashboard' | 'accounts' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
+type MenuType = 'dashboard' | 'resources' | 'costs' | 'copilot' | 'budgets' | 'recommendations' | 'simulators' | 'reports';
 
 export function DashboardPreview() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function DashboardPreview() {
     switch (selectedMenu) {
       case 'dashboard':
         return <DashboardContent />;
-      case 'accounts':
+      case 'resources':
         return <AccountsContent />;
       case 'costs':
         return <CostsContent />;
@@ -60,7 +60,7 @@ export function DashboardPreview() {
     switch (selectedMenu) {
       case 'dashboard':
         return '대시보드';
-      case 'accounts':
+      case 'resources':
         return '리소스 관리';
       case 'costs':
         return '비용 분석';
@@ -133,19 +133,17 @@ export function DashboardPreview() {
             {/* Main Content */}
             <div className="flex-1 overflow-auto bg-gray-50">
               {/* Header */}
-              <div className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                  <h1 className="text-2xl font-bold text-gray-900">{getTitle()}</h1>
-                  <Button
-                    variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                    size="sm"
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    {selectedTimeRange}
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </div>
+              <div className="h-16 bg-white border-b border-gray-200 px-8 sticky top-0 z-10 flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-gray-900">{getTitle()}</h1>
+                <Button
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  size="sm"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  {selectedTimeRange}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
               </div>
 
               {/* Dynamic Content */}

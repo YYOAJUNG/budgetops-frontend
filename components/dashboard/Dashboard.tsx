@@ -439,11 +439,20 @@ export function Dashboard() {
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              className={cn(
+                "border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400",
+                !hasCloudAccounts && "relative border-blue-500 bg-blue-50 text-blue-700 shadow-lg animate-pulse"
+              )}
               onClick={() => router.push('/mypage?addCloudAccount=1')}
             >
               <Cloud className="mr-2 h-4 w-4" />
               계정 연결
+              {!hasCloudAccounts && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+              )}
             </Button>
             <Button
               variant="outline"
@@ -477,39 +486,39 @@ export function Dashboard() {
               {/* AWS 계정 비용 카드 */}
               {awsAccounts && awsAccounts.length > 0 && (
                 costsError ? (
-                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-red-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
+            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-red-500">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
                           <h4 className="text-sm font-semibold text-red-900 mb-1">AWS 비용 데이터 조회 실패</h4>
-                          <p className="text-sm text-red-700">
-                            {costsError instanceof Error ? costsError.message : '비용 데이터를 불러오는 중 오류가 발생했습니다.'}
-                          </p>
-                          <p className="text-xs text-red-600 mt-2">
-                            AWS Cost Explorer 권한이 활성화되어 있는지 확인하세요.
-                          </p>
-                        </div>
+                    <p className="text-sm text-red-700">
+                      {costsError instanceof Error ? costsError.message : '비용 데이터를 불러오는 중 오류가 발생했습니다.'}
+                    </p>
+                    <p className="text-xs text-red-600 mt-2">
+                      AWS Cost Explorer 권한이 활성화되어 있는지 확인하세요.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
+            totalAwsCostUsd > 0 ? (
+              <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Cloud className="h-6 w-6 text-orange-600" />
                       </div>
-                    </CardContent>
-                  </Card>
-                ) : awsAccountCosts && awsAccountCosts.length > 0 ? (
-                  totalAwsCostUsd > 0 ? (
-                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-orange-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-orange-100 rounded-lg">
-                              <Cloud className="h-6 w-6 text-orange-600" />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
-                              <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                            <p className="text-2xl font-bold text-orange-600">
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">AWS</h4>
+                        <p className="text-sm text-gray-600">{awsAccountCosts.length}개 계정</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                      <p className="text-2xl font-bold text-orange-600">
                               {freeTierUsage.isActive && totalAwsCostUsd === 0 ? (
                                 <span className="flex items-center gap-2 justify-end">
                                   <Gift className="h-5 w-5 text-green-600" />
@@ -682,29 +691,29 @@ export function Dashboard() {
                         <p className="text-sm text-gray-600 mb-1">총 비용</p>
                         <p className="text-2xl font-bold text-blue-600">
                           {formatCurrency(convertCurrency(totalGcpCostUsd, 'USD', currency), currency)}
-                        </p>
-                      </div>
+                      </p>
                     </div>
-                    
+                  </div>
+                  
                     {gcpAccountCosts.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="grid gap-3 sm:grid-cols-2">
                           {gcpAccountCosts.map((account) => (
-                            <div
-                              key={account.accountId}
-                              className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                            >
-                              <p className="text-sm font-medium text-gray-700 mb-1">
-                                {account.accountName}
-                              </p>
-                              <p className="text-lg font-bold text-gray-900">
-                                {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                          <div
+                            key={account.accountId}
+                            className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                          >
+                            <p className="text-sm font-medium text-gray-700 mb-1">
+                              {account.accountName}
+                            </p>
+                            <p className="text-lg font-bold text-gray-900">
+                              {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
                   </CardContent>
                 </Card>
               )}
@@ -766,31 +775,31 @@ export function Dashboard() {
                             ))}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
+                </CardContent>
+              </Card>
+            ) : (
                     <Card className="shadow-lg border-0 bg-white border-l-4 border-l-sky-500">
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                             <div className="p-2 bg-sky-100 rounded-lg">
                               <Cloud className="h-6 w-6 text-sky-600" />
-                            </div>
-                            <div>
+                      </div>
+                      <div>
                               <h4 className="text-lg font-semibold text-gray-900">Azure</h4>
                               <p className="text-sm text-gray-600">{azureAccountCosts.length}개 계정</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-sky-600">
-                              {formatCurrency(0, currency)}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-3">
-                          최근 30일간 비용이 발생하지 않았습니다.
-                        </p>
+                        {formatCurrency(0, currency)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    최근 30일간 비용이 발생하지 않았습니다.
+                  </p>
                         <div className="mt-4 pt-4 border-t border-gray-200">
                           <div className="grid gap-3 sm:grid-cols-2">
                             {azureAccountCosts.map((account: AzureAccountCost) => (
@@ -808,43 +817,43 @@ export function Dashboard() {
                             ))}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
+                </CardContent>
+              </Card>
+            )
                 ) : (
-                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-yellow-500">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
+            <Card className="shadow-lg border-0 bg-white border-l-4 border-l-yellow-500">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
                           <h4 className="text-sm font-semibold text-yellow-900 mb-1">Azure 비용 데이터 없음</h4>
-                          <p className="text-sm text-yellow-700">
-                            최근 30일간의 비용 데이터가 없습니다. 다음을 확인하세요:
-                          </p>
-                          <ul className="text-xs text-yellow-600 mt-2 list-disc list-inside space-y-1">
+                    <p className="text-sm text-yellow-700">
+                      최근 30일간의 비용 데이터가 없습니다. 다음을 확인하세요:
+                    </p>
+                    <ul className="text-xs text-yellow-600 mt-2 list-disc list-inside space-y-1">
                             <li>Azure Cost Management가 활성화되어 있는지 확인</li>
                             <li>서비스 프린시펄에 Cost Management Reader 권한이 있는지 확인</li>
-                            <li>비용이 발생한 리소스가 있는지 확인</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <li>비용이 발생한 리소스가 있는지 확인</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
                 )
               )}
 
               {/* 계정이 없는 경우 */}
               {(!awsAccounts || awsAccounts.length === 0) && (!gcpAccounts || gcpAccounts.length === 0) && (!azureAccounts || azureAccounts.length === 0) && (
-                <Card className="shadow-lg border-0 bg-white">
-                  <CardContent className="py-8">
-                    <div className="text-center text-gray-600">
+            <Card className="shadow-lg border-0 bg-white">
+              <CardContent className="py-8">
+                <div className="text-center text-gray-600">
                       연결된 클라우드 계정이 없습니다.
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
+        </div>
+      )}
         </div>
       )}
 
