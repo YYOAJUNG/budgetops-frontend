@@ -109,7 +109,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       name: 'NAVER Cloud Platform',
       logo: (
         <img
-          src="https://share.icloud.com/photos/010eNYuIp8nEKBxPKeD_AmdUQ"
+          src="/ncp-logo.jpg"
           alt="NCP"
           className="w-24 h-24 object-contain"
         />
