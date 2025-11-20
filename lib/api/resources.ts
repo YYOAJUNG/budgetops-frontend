@@ -1,8 +1,9 @@
 import { getAllEc2Instances, AwsEc2Instance } from './aws';
 import { getAllGcpResources, GcpResource } from './gcp';
 import { getAzureAccounts, getAzureVirtualMachines, AzureVirtualMachine } from './azure';
+import { getAllServerInstances, NcpServerInstance, getNcpAccounts, getNcpAccountCosts } from './ncp';
 
-export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba';
+export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'Oracle' | 'Alibaba' | 'NCP';
 
 export type AzureResourceDetails = {
   provider: 'Azure';
@@ -197,10 +198,10 @@ function convertGcpResourceToResource(
     cost: resource.monthlyCost || 0,
     region: resource.region,
     updatedAt: resource.lastUpdated,
-    status: statusMap[resource.status] || '-',
+    status: statusMap[resource.status] || 'idle',
   };
 }
-    
+
 /**
  * Azure VM을 ResourceItem으로 변환
  */
@@ -239,6 +240,66 @@ function convertAzureVmToResource(vm: AzureVirtualMachine): ResourceItem {
   };
 }
 
+/**
+ * NCP 계정별 인스턴스 비용 맵 조회
+ */
+async function fetchNcpInstanceCostMap(): Promise<Map<string, number>> {
+  const costMap = new Map<string, number>();
+
+  try {
+    const ncpAccounts = await getNcpAccounts();
+    const activeAccounts = ncpAccounts.filter(acc => acc.active);
+
+    await Promise.all(
+      activeAccounts.map(async (account) => {
+        try {
+          const costs = await getNcpAccountCosts(account.id);
+          costs.forEach(cost => {
+            if (cost.instanceName) {
+              const currentCost = costMap.get(cost.instanceName) || 0;
+              costMap.set(cost.instanceName, currentCost + (cost.demandAmount || 0));
+            }
+          });
+        } catch (error) {
+          console.warn(`Failed to fetch costs for NCP account ${account.id}:`, error);
+        }
+      })
+    );
+  } catch (error) {
+    console.warn('Failed to fetch NCP costs:', error);
+  }
+
+  return costMap;
+}
+
+/**
+ * NCP 서버 인스턴스를 ResourceItem으로 변환
+ */
+function convertNcpServerToResource(instance: NcpServerInstance, cost: number = 0): ResourceItem {
+  // 상태 매핑
+  const statusMap: Record<string, 'running' | 'stopped' | 'idle'> = {
+    RUN: 'running',
+    running: 'running',
+    NSTOP: 'stopped',
+    stopped: 'stopped',
+    INIT: 'idle',
+    CREAT: 'idle',
+    booting: 'idle',
+    'shutting down': 'stopped',
+  };
+
+  return {
+    id: instance.serverInstanceNo,
+    name: instance.serverName || instance.serverInstanceNo,
+    provider: 'NCP',
+    service: 'Server',
+    cost: cost, // 실제 비용 (KRW)
+    region: instance.regionCode || instance.zoneCode || 'unknown',
+    updatedAt: instance.createDate || new Date().toISOString(),
+    status: statusMap[instance.serverInstanceStatusName || instance.serverInstanceStatus || 'idle'] || 'idle',
+  };
+}
+
 export async function getResources(): Promise<ResourceItem[]> {
   try {
     const resources: ResourceItem[] = [];
@@ -256,7 +317,7 @@ export async function getResources(): Promise<ResourceItem[]> {
     try {
       const azureAccounts = await getAzureAccounts();
       const activeAzureAccounts = azureAccounts.filter(acc => acc.active);
-      
+
       for (const account of activeAzureAccounts) {
         try {
           const vms = await getAzureVirtualMachines(account.id);
@@ -282,7 +343,22 @@ export async function getResources(): Promise<ResourceItem[]> {
     } catch (error) {
       console.warn('Failed to fetch GCP resources:', error);
     }
-    
+
+    // NCP 서버 인스턴스 조회
+    try {
+      const [ncpServerInstances, ncpCostMap] = await Promise.all([
+        getAllServerInstances(),
+        fetchNcpInstanceCostMap(),
+      ]);
+
+      const ncpResources = ncpServerInstances.map(instance =>
+        convertNcpServerToResource(instance, ncpCostMap.get(instance.serverName) || 0)
+      );
+      resources.push(...ncpResources);
+    } catch (error) {
+      console.warn('Failed to fetch NCP server instances:', error);
+    }
+
     return resources;
   } catch (error) {
     console.error('Failed to fetch resources:', error);

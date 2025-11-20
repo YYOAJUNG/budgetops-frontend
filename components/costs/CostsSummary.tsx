@@ -11,6 +11,7 @@ import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Gift } from 'lucide-react
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
+import { getNcpAccounts, getNcpAccountCosts } from '@/lib/api/ncp';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 type ProviderAccount = {
@@ -109,12 +110,42 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   const gcpTotalCost = 0;
   const previousGcpTotalCost = 0;
 
+  // NCP 비용
+  const ncpAccounts = await getNcpAccounts().catch(() => []);
+  const activeNcpAccounts = ncpAccounts.filter((acc) => acc.active);
+  const ncpAccountTotals: Record<number, number> = {};
+  let ncpTotalCost = 0;
+  let previousNcpTotalCost = 0;
+
+  // 날짜를 YYYYMM 형식으로 변환
+  const startMonth = from.substring(0, 7).replace('-', ''); // "2025-11-01" -> "202511"
+  const endMonth = to.substring(0, 7).replace('-', ''); // "2025-11-20" -> "202511"
+  const previousStartMonth = previousFrom.substring(0, 7).replace('-', '');
+  const previousEndMonth = previousTo.substring(0, 7).replace('-', '');
+
+  for (const account of activeNcpAccounts) {
+    try {
+      const costs = await getNcpAccountCosts(account.id, startMonth, endMonth).catch(() => []);
+      const accountTotal = costs.reduce((sum, cost) => sum + cost.demandAmount, 0);
+      ncpAccountTotals[account.id] = accountTotal;
+      ncpTotalCost += accountTotal;
+
+      const previousCosts = await getNcpAccountCosts(account.id, previousStartMonth, previousEndMonth).catch(() => []);
+      const previousAccountTotal = previousCosts.reduce((sum, cost) => sum + cost.demandAmount, 0);
+      previousNcpTotalCost += previousAccountTotal;
+    } catch (error) {
+      console.error(`Failed to fetch costs for NCP account ${account.id}:`, error);
+    }
+  }
+
   const awsTotalInCurrency = convertCurrency(awsTotalCost, 'USD', currency);
   const previousAwsTotalInCurrency = convertCurrency(previousAwsTotalCost, 'USD', currency);
   const azureTotalInCurrency = azureAccountTotals.reduce(
     (sum, account) => sum + convertCurrency(account.amount, (account.currency || 'USD') as 'USD' | 'KRW', currency),
     0
   );
+  const ncpTotalInCurrency = convertCurrency(ncpTotalCost, 'KRW', currency);
+  const previousNcpTotalInCurrency = convertCurrency(previousNcpTotalCost, 'KRW', currency);
 
   const byService = Object.entries(awsServiceCosts)
     .map(([service, amount]) => ({ service, amount }))
@@ -157,6 +188,20 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
       previousAmount: previousGcpTotalCost,
     });
   }
+  if (activeNcpAccounts.length > 0) {
+    providers.push({
+      provider: 'NCP',
+      amount: ncpTotalInCurrency,
+      accounts: activeNcpAccounts.map((account) => {
+        const accountTotal = ncpAccountTotals[account.id] ?? 0;
+        return {
+          name: account.name,
+          amount: convertCurrency(accountTotal, 'KRW', currency),
+        };
+      }),
+      previousAmount: previousNcpTotalInCurrency,
+    });
+  }
 
   const total = providers.reduce((sum, provider) => sum + provider.amount, 0);
 
@@ -164,9 +209,9 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     total,
     providers,
     byService,
-    previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost > 0
+    previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency > 0
       ? {
-          total: previousAwsTotalInCurrency + previousGcpTotalCost,
+          total: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency,
           providers: providers.map((provider) => ({
             ...provider,
             amount: provider.previousAmount ?? 0,
@@ -469,8 +514,9 @@ export function CostsSummary() {
                 <div className="space-y-6">
                   {/* 원그래프와 범례 */}
                   <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-                    {/* 원그래프 */}
-                    <div className="flex-shrink-0 flex flex-col items-center">
+                    {/* 원그래프 - totalAmount가 0보다 클 때만 표시 */}
+                    {totalAmount > 0 && (
+                      <div className="flex-shrink-0 flex flex-col items-center">
                       <ResponsiveContainer width={280} height={280}>
                         <PieChart>
                           <Pie
@@ -491,6 +537,7 @@ export function CostsSummary() {
                                 if (provider === 'AWS') return '#F97316'; // orange-500
                                 if (provider === 'GCP') return '#3B82F6'; // blue-500
                                 if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                                if (provider === 'NCP') return '#22C55E'; // green-500
                                 return '#6B7280'; // gray-500 (fallback)
                               };
                               return <Cell key={`cell-${index}`} fill={getProviderColor(entry.provider)} />;
@@ -513,6 +560,7 @@ export function CostsSummary() {
                             if (provider === 'AWS') return '#F97316'; // orange-500
                             if (provider === 'GCP') return '#3B82F6'; // blue-500
                             if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                            if (provider === 'NCP') return '#22C55E'; // green-500
                             return '#6B7280'; // gray-500 (fallback)
                           };
                           return (
@@ -529,6 +577,7 @@ export function CostsSummary() {
                         })}
                       </div>
                     </div>
+                    )}
 
                     {/* 범례 및 상세 정보 */}
                     <div className="flex-1 space-y-4">
@@ -537,6 +586,7 @@ export function CostsSummary() {
                           if (provider === 'AWS') return '#F97316'; // orange-500
                           if (provider === 'GCP') return '#3B82F6'; // blue-500
                           if (provider === 'Azure') return '#0EA5E9'; // sky-500
+                          if (provider === 'NCP') return '#22C55E'; // green-500
                           return '#6B7280'; // gray-500 (fallback)
                         };
                         const change = providerData.previousAmount

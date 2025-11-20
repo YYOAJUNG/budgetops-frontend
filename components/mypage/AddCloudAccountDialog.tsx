@@ -44,6 +44,10 @@ interface CredentialForm {
   tenantId?: string;
   clientId?: string;
   clientSecret?: string;
+  // NCP
+  accessKey?: string;
+  secretKey?: string;
+  regionCode?: string;
 }
 
 export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자', onSuccess }: AddCloudAccountDialogProps) {
@@ -67,6 +71,18 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       secretAccessKey: credentials.secretAccessKey || '',
     };
     const resp = await createAwsAccount(payload);
+    return resp;
+  }
+
+  async function submitNcp() {
+    const { createNcpAccount } = await import('@/lib/api/ncp');
+    const payload = {
+      name: credentials.accountName,
+      regionCode: credentials.regionCode,
+      accessKey: credentials.accessKey || '',
+      secretKey: credentials.secretKey || '',
+    };
+    const resp = await createNcpAccount(payload);
     return resp;
   }
 
@@ -212,9 +228,20 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             message: saveResult.message || '계정 저장에 실패했어요.',
           });
         }
+      } else if (selectedProvider === 'NCP') {
+        await submitNcp();
+        setSuccessMsg('NCP 계정이 성공적으로 연동되었습니다.');
+        if (onSuccess) {
+          await onSuccess();
+        }
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
       } else {
-        // Azure는 추후 구현
-        setErrorMsg('현재는 AWS, GCP 계정 연동만 지원합니다.');
+        setErrorMsg('지원하지 않는 클라우드 제공자입니다.');
         setIsSubmitting(false);
         return;
       }
@@ -391,6 +418,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         credentials.jsonKeyContent && // JSON 파일 내용이 있어야 함
         credentials.billingAccountId?.trim() // 결제 계정 ID는 필수
       );
+    } else if (selectedProvider === 'NCP') {
+      return !!(credentials.accessKey?.trim() && credentials.secretKey?.trim());
     }
     return false;
   };
@@ -778,6 +807,48 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      );
+    } else if (selectedProvider === 'NCP') {
+      return (
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="accountName">계정 이름 *</Label>
+            <Input
+              id="accountName"
+              placeholder="예: Production NCP"
+              value={credentials.accountName}
+              onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="accessKey">Access Key *</Label>
+            <Input
+              id="accessKey"
+              placeholder="NCP Access Key"
+              value={credentials.accessKey || ''}
+              onChange={(e) => setCredentials({ ...credentials, accessKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="secretKey">Secret Key *</Label>
+            <Input
+              id="secretKey"
+              type="password"
+              placeholder="NCP Secret Key"
+              value={credentials.secretKey || ''}
+              onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="regionCode">Region Code (선택사항)</Label>
+            <Input
+              id="regionCode"
+              placeholder="KR"
+              value={credentials.regionCode || ''}
+              onChange={(e) => setCredentials({ ...credentials, regionCode: e.target.value })}
+            />
           </div>
         </div>
       );
