@@ -59,8 +59,8 @@ const mockData = {
   ],
   previousPeriod: {
     total: 11234000,
-    providers: [],
-    byService: [],
+    providers: [] as ProviderCost[],
+    byService: [] as Array<{ service: string; amount: number; previousAmount?: number }>,
   }
 };
 

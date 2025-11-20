@@ -57,7 +57,13 @@ export function FreeTierCard() {
               <div key={usage.provider} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-sky-100 text-sky-700">{usage.provider}</Badge>
+                    <Badge className={
+                      usage.provider === 'AWS' 
+                        ? 'bg-orange-100 text-orange-700'
+                        : usage.provider === 'GCP'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-sky-100 text-sky-700'
+                    }>{usage.provider}</Badge>
                     {variant !== 'default' && (
                       <Badge
                         variant="outline"
