@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
+import { PROVIDER_COLORS } from '@/constants/mypage';
 import {
   getAllEc2Instances,
   AwsEc2Instance,
@@ -14,7 +15,9 @@ import {
   startEc2Instance,
   terminateEc2Instance,
 } from '@/lib/api/aws';
-import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
+import { getAllGcpResources, GcpResource, getGcpAccounts } from '@/lib/api/gcp';
+import { getAzureAccounts } from '@/lib/api/azure';
+import { getNcpAccounts } from '@/lib/api/ncp';
 import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
@@ -98,17 +101,46 @@ export function ResourceManagementSection() {
     gcTime: 0, // 캐시 시간 최소화
   });
 
+  const { data: gcpAccountsList } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   // 활성 계정만 필터링
   const activeAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account) => account.active === true);
   }, [awsAccounts]);
+
+  const hasCloudAccounts = useMemo(() => {
+    const hasAws = (awsAccounts?.length ?? 0) > 0;
+    const hasGcp = (gcpAccountsList?.length ?? 0) > 0;
+    const hasAzure = (azureAccounts?.length ?? 0) > 0;
+    const hasNcp = (ncpAccounts?.length ?? 0) > 0;
+    return hasAws || hasGcp || hasAzure || hasNcp;
+  }, [awsAccounts, gcpAccountsList, azureAccounts, ncpAccounts]);
 
   const hasAwsAccounts = activeAccounts.length > 0;
 
   const { data: resources, isLoading, isError, error: resourcesError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
-    enabled: hasAwsAccounts,
+    enabled: hasCloudAccounts,
     retry: 1,
   });
 
@@ -141,10 +173,10 @@ export function ResourceManagementSection() {
 
   // 리소스와 EC2 인스턴스 매핑
   const resourcesWithDetails = useMemo(() => {
-    if (!resources || !ec2Data) return [];
+    if (!resources) return [];
 
     return resources.map((resource) => {
-      const ec2Instance = ec2Data.find((ec2) => ec2.instanceId === resource.id);
+      const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
       let accountId: number | null = null;
       if (ec2Instance && activeAccounts.length > 0) {
         // 활성 계정만 사용
@@ -224,7 +256,7 @@ export function ResourceManagementSection() {
 
   const activeAccount = activeAccounts.length > 0 ? activeAccounts[0] : null;
 
-  if (!hasAwsAccounts) {
+  if (!hasCloudAccounts) {
     return (
       <Card className="border-2 border-blue-200 bg-blue-50">
         <CardContent className="p-8 text-center">
@@ -237,7 +269,7 @@ export function ResourceManagementSection() {
                 클라우드 계정을 먼저 연결하세요
               </h3>
               <p className="text-sm text-blue-700 mb-4">
-                리소스를 관리하려면 AWS 계정 연동이 필요합니다.
+                리소스를 관리하려면 클라우드 계정 연동이 필요합니다.
               </p>
             </div>
           </div>
@@ -355,13 +387,9 @@ export function ResourceManagementSection() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <ServiceIcon className="h-4 w-4 text-slate-500" />
-                            <Badge className={
-                              resource.provider === 'AWS' 
-                                ? 'bg-orange-100 text-orange-700'
-                                : resource.provider === 'GCP'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-sky-100 text-sky-700'
-                            }>{resource.provider}</Badge>
+                            <Badge className={PROVIDER_COLORS[resource.provider]}>
+                              {resource.provider}
+                            </Badge>
                             <span className="text-sm text-slate-600">{resource.service}</span>
                           </div>
                         </td>

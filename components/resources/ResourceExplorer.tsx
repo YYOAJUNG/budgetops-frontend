@@ -32,6 +32,7 @@ import {
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
+import { getNcpAccounts } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
@@ -78,7 +79,15 @@ export function ResourceExplorer() {
     staleTime: 0,
     gcTime: 0,
   });
-  
+
+  // NCP 계정 목록 조회
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   // 활성 계정만 필터링
   const activeAwsAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account) => account.active === true);
@@ -87,8 +96,15 @@ export function ResourceExplorer() {
   const activeAzureAccounts = useMemo(() => {
     return (azureAccounts || []).filter((account) => account.active === true);
   }, [azureAccounts]);
-  
-  const hasActiveAccounts = activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0;
+
+  const activeNcpAccounts = useMemo(() => {
+    return (ncpAccounts || []).filter((account) => account.active === true);
+  }, [ncpAccounts]);
+
+  const hasActiveAccounts =
+    activeAwsAccounts.length > 0 ||
+    activeAzureAccounts.length > 0 ||
+    activeNcpAccounts.length > 0;
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],

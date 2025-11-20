@@ -13,6 +13,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
 import { getAzureAccounts, deleteAzureAccount, type AzureAccount } from '@/lib/api/azure';
 import { getGcpAccounts, deleteGcpAccount, type GcpAccount } from '@/lib/api/gcp';
+import { getNcpAccounts, deleteNcpAccount, type NcpAccount } from '@/lib/api/ncp';
 
 export function CloudAccountConnection() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -39,6 +40,12 @@ export function CloudAccountConnection() {
     queryFn: getGcpAccounts,
     staleTime: 0, // 항상 최신 데이터 가져오기
     gcTime: 0, // 캐시 시간 최소화 (React Query v5)
+  });
+  const { data: ncpAccounts, refetch: refetchNcp, isLoading: isLoadingNcp } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
   });
   const mergedAccounts = useMemo<CloudAccount[]>(() => {
     const awsMapped: CloudAccount[] =
@@ -71,9 +78,19 @@ export function CloudAccountConnection() {
         lastSync: new Date().toISOString(),
         monthlyCost: 0,
       }));
-    // AWS, GCP, Azure 계정을 합쳐서 반환
-    return [...awsMapped, ...gcpMapped, ...azureMapped];
-  }, [awsAccounts, gcpAccounts, azureAccounts]);
+    const ncpMapped: CloudAccount[] =
+      (ncpAccounts || []).map((n: NcpAccount) => ({
+        id: `ncp-${n.id}`,
+        provider: 'NCP' as const,
+        accountName: n.name,
+        accountId: n.accessKey,
+        status: n.active ? 'connected' : 'pending',
+        lastSync: new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    // AWS, GCP, Azure, NCP 계정을 합쳐서 반환
+    return [...awsMapped, ...gcpMapped, ...azureMapped, ...ncpMapped];
+  }, [awsAccounts, gcpAccounts, azureAccounts, ncpAccounts]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -140,6 +157,18 @@ export function CloudAccountConnection() {
             // 추가로 한 번 더 무효화하여 최신 데이터 확보
             queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
             await refetchAzure();
+          } else {
+            // NCP 계정인 경우 API 호출
+            const ncpAccount = ncpAccounts?.find((n: NcpAccount) => `ncp-${n.id}` === id);
+            if (ncpAccount) {
+              await deleteNcpAccount(ncpAccount.id);
+              // 캐시 완전히 제거 및 목록 재조회
+              queryClient.removeQueries({ queryKey: ['ncpAccounts'] });
+              await refetchNcp();
+              // 추가로 한 번 더 무효화하여 최신 데이터 확보
+              queryClient.invalidateQueries({ queryKey: ['ncpAccounts'] });
+              await refetchNcp();
+            }
           }
         }
       }
@@ -161,7 +190,7 @@ export function CloudAccountConnection() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">클라우드 계정 연동</h2>
-          <p className="text-gray-600 mt-1">AWS, GCP, Azure 계정을 연결하여 비용을 관리하세요</p>
+          <p className="text-gray-600 mt-1">AWS, GCP, Azure, NCP 계정을 연결하여 비용을 관리하세요</p>
         </div>
         <Button
           onClick={handleAddAccount}
@@ -280,16 +309,20 @@ export function CloudAccountConnection() {
           queryClient.removeQueries({ queryKey: ['awsAccounts'] });
           queryClient.removeQueries({ queryKey: ['gcpAccounts'] });
           queryClient.removeQueries({ queryKey: ['azureAccounts'] });
+          queryClient.removeQueries({ queryKey: ['ncpAccounts'] });
           await refetchAws();
           await refetchGcp();
           await refetchAzure();
+          await refetchNcp();
           // 추가로 한 번 더 무효화하여 최신 데이터 확보
           queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
           queryClient.invalidateQueries({ queryKey: ['gcpAccounts'] });
           queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['ncpAccounts'] });
           await refetchAws();
           await refetchGcp();
           await refetchAzure();
+          await refetchNcp();
           // 리소스 및 비용 관련 캐시도 무효화
           queryClient.invalidateQueries({ queryKey: ['resources'] });
           queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
