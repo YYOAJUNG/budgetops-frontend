@@ -104,6 +104,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
+import { getNcpAccounts } from '@/lib/api/ncp';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -140,8 +141,14 @@ export function Dashboard() {
     queryKey: ['azureAccounts'],
     queryFn: getAzureAccounts,
   });
-  
-  const hasCloudAccounts = (awsAccounts?.length ?? 0) > 0 || (gcpAccounts?.length ?? 0) > 0 || (azureAccounts?.length ?? 0) > 0;
+
+  // NCP 계정 목록 조회
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+  });
+
+  const hasCloudAccounts = (awsAccounts?.length ?? 0) > 0 || (gcpAccounts?.length ?? 0) > 0 || (azureAccounts?.length ?? 0) > 0 || (ncpAccounts?.length ?? 0) > 0;
 
   // 최근 30일 날짜 계산
   const endDate = useMemo(() => {
@@ -842,8 +849,36 @@ export function Dashboard() {
                 )
               )}
 
+              {/* NCP 계정 비용 카드 */}
+              {ncpAccounts && ncpAccounts.length > 0 && (
+                <Card className="shadow-lg border-0 bg-white border-l-4 border-l-green-500">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Cloud className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-900">NCP</h4>
+                          <p className="text-sm text-gray-600">{ncpAccounts.length}개 계정</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {formatCurrency(0, currency)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      최근 30일간 비용이 발생하지 않았습니다.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* 계정이 없는 경우 */}
-              {(!awsAccounts || awsAccounts.length === 0) && (!gcpAccounts || gcpAccounts.length === 0) && (!azureAccounts || azureAccounts.length === 0) && (
+              {(!awsAccounts || awsAccounts.length === 0) && (!gcpAccounts || gcpAccounts.length === 0) && (!azureAccounts || azureAccounts.length === 0) && (!ncpAccounts || ncpAccounts.length === 0) && (
             <Card className="shadow-lg border-0 bg-white">
               <CardContent className="py-8">
                 <div className="text-center text-gray-600">
