@@ -31,6 +31,8 @@ interface NotificationMenuProps {
   onViewAll?: () => void;
 }
 
+const MAX_PREVIEW_NOTIFICATIONS = 3;
+
 export function NotificationMenu({
   notifications,
   unreadCount,
@@ -69,7 +71,7 @@ export function NotificationMenu({
               알림이 없습니다
             </div>
           ) : (
-            notifications.map((notification, index) => (
+            notifications.slice(0, MAX_PREVIEW_NOTIFICATIONS).map((notification, index) => (
               <div key={notification.id}>
                 {index > 0 && <DropdownMenuSeparator className="bg-gray-50" />}
                 <DropdownMenuItem
