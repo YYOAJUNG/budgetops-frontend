@@ -108,39 +108,49 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
 
   // AWS 알림
   try {
+    console.log('[Notifications] Fetching AWS alerts...');
     const awsAlerts = await checkAwsAlerts();
+    console.log(`[Notifications] Received ${awsAlerts.length} AWS alerts`);
     const awsNotifications = awsAlerts.map(convertAwsAlertToNotification);
     notifications.push(...awsNotifications);
   } catch (error) {
-    console.error('Failed to fetch AWS alerts:', error);
+    console.error('[Notifications] Failed to fetch AWS alerts:', error);
   }
 
   // GCP 알림
   try {
+    console.log('[Notifications] Fetching GCP alerts...');
     const gcpAlerts = await checkGcpAlerts();
+    console.log(`[Notifications] Received ${gcpAlerts.length} GCP alerts`);
     const gcpNotifications = gcpAlerts.map(convertGcpAlertToNotification);
     notifications.push(...gcpNotifications);
   } catch (error) {
-    console.error('Failed to fetch GCP alerts:', error);
+    console.error('[Notifications] Failed to fetch GCP alerts:', error);
   }
 
   // Azure 알림
   try {
+    console.log('[Notifications] Fetching Azure alerts...');
     const azureAlerts = await checkAzureAlerts();
+    console.log(`[Notifications] Received ${azureAlerts.length} Azure alerts`);
     const azureNotifications = azureAlerts.map(convertAzureAlertToNotification);
     notifications.push(...azureNotifications);
   } catch (error) {
-    console.error('Failed to fetch Azure alerts:', error);
+    console.error('[Notifications] Failed to fetch Azure alerts:', error);
   }
 
   // NCP 알림
   try {
+    console.log('[Notifications] Fetching NCP alerts...');
     const ncpAlerts = await checkNcpAlerts();
+    console.log(`[Notifications] Received ${ncpAlerts.length} NCP alerts`);
     const ncpNotifications = ncpAlerts.map(convertNcpAlertToNotification);
     notifications.push(...ncpNotifications);
   } catch (error) {
-    console.error('Failed to fetch NCP alerts:', error);
+    console.error('[Notifications] Failed to fetch NCP alerts:', error);
   }
+
+  console.log(`[Notifications] Total ${notifications.length} alerts fetched`);
 
   // 중요도 높은 알림을 우선으로 정렬
   const importanceRank = { high: 0, normal: 1, low: 2 };
