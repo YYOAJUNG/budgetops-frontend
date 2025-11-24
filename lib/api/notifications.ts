@@ -1,5 +1,5 @@
 import { AppNotification } from '@/store/notifications';
-import { checkAwsEc2Alerts, AwsEc2Alert } from './aws';
+import { checkAwsAlerts, AwsAlert } from './aws';
 import { checkGcpAlerts, GcpAlert } from './gcp';
 import { checkAzureAlerts, AzureAlert } from './azure';
 import { checkNcpAlerts, NcpAlert } from './ncp';
@@ -7,7 +7,7 @@ import { checkNcpAlerts, NcpAlert } from './ncp';
 /**
  * AWS 알림(EC2/RDS/S3 등)을 AppNotification 형태로 변환
  */
-function convertAwsAlertToNotification(alert: AwsEc2Alert): AppNotification {
+function convertAwsAlertToNotification(alert: AwsAlert): AppNotification {
   // 심각도에 따른 중요도 매핑
   const importanceMap: Record<string, 'low' | 'normal' | 'high'> = {
     INFO: 'low',
@@ -108,7 +108,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
 
   // AWS 알림
   try {
-    const awsAlerts = await checkAwsEc2Alerts();
+    const awsAlerts = await checkAwsAlerts();
     const awsNotifications = awsAlerts.map(convertAwsAlertToNotification);
     notifications.push(...awsNotifications);
   } catch (error) {
