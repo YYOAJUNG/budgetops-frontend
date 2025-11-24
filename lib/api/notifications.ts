@@ -1,5 +1,5 @@
 import { AppNotification } from '@/store/notifications';
-import { checkAllEc2Alerts, AwsEc2Alert } from './aws';
+import { checkAwsEc2Alerts, AwsEc2Alert } from './aws';
 
 const MOCK: AppNotification[] = [
   {
@@ -55,7 +55,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
 
   try {
     // AWS EC2 알림 체크 및 가져오기
-    const ec2Alerts = await checkAllEc2Alerts();
+    const ec2Alerts = await checkAwsEc2Alerts();
     const ec2Notifications = ec2Alerts.map(convertEc2AlertToNotification);
     notifications.push(...ec2Notifications);
   } catch (error) {
