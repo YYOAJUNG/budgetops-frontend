@@ -24,10 +24,18 @@ export default function NotificationsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    // 페이지 로드 시 최신 알림 가져오기
-    fetchNotifications().then(items => {
+    // 페이지 로드 시 및 주기적으로 최신 알림 가져오기
+    const loadNotifications = async () => {
+      const items = await fetchNotifications();
       setNotifications(items);
-    });
+    };
+    
+    loadNotifications();
+    
+    // 30초마다 자동 새로고침
+    const interval = setInterval(loadNotifications, 30000);
+    
+    return () => clearInterval(interval);
   }, [setNotifications]);
 
   const handleRefresh = async () => {
@@ -42,10 +50,8 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleProviderClick = async (provider: CloudProvider | 'ALL') => {
+  const handleProviderClick = (provider: CloudProvider | 'ALL') => {
     setSelectedProvider(provider);
-    // CSP 선택 시 최신 알림 가져오기
-    await handleRefresh();
   };
 
   const handleMarkAllRead = async () => {

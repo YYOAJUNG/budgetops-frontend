@@ -21,7 +21,7 @@ function convertAwsAlertToNotification(alert: AwsAlert): AppNotification {
     : 'EC2';
 
   return {
-    id: `aws-alert-${alert.instanceId}-${alert.ruleId}-${Date.now()}`,
+    id: `aws-alert-${alert.instanceId}-${alert.ruleId}`,
     title: alert.ruleTitle,
     message: `${alert.instanceName || alert.instanceId} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
     timestamp: alert.createdAt || new Date().toISOString(),
@@ -44,7 +44,7 @@ function convertGcpAlertToNotification(alert: GcpAlert): AppNotification {
   };
 
   return {
-    id: `gcp-alert-${alert.resourceId}-${alert.ruleId}-${Date.now()}`,
+    id: `gcp-alert-${alert.resourceId}-${alert.ruleId}`,
     title: alert.ruleTitle,
     message: `${alert.resourceName || alert.resourceId} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
     timestamp: alert.createdAt || new Date().toISOString(),
@@ -67,7 +67,7 @@ function convertAzureAlertToNotification(alert: AzureAlert): AppNotification {
   };
 
   return {
-    id: `azure-alert-${alert.resourceId}-${alert.ruleId}-${Date.now()}`,
+    id: `azure-alert-${alert.resourceId}-${alert.ruleId}`,
     title: alert.ruleTitle,
     message: `${alert.resourceName || alert.resourceId} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
     timestamp: alert.createdAt || new Date().toISOString(),
@@ -89,7 +89,7 @@ function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
   };
 
   return {
-    id: `ncp-alert-${alert.serverInstanceNo}-${alert.ruleId}-${Date.now()}`,
+    id: `ncp-alert-${alert.serverInstanceNo}-${alert.ruleId}`,
     title: alert.ruleTitle,
     message: `${alert.serverName || alert.serverInstanceNo} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
     timestamp: alert.createdAt || new Date().toISOString(),
