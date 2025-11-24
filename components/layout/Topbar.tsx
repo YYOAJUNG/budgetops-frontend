@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
+import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useEffect } from 'react';
 import { useNotificationsStore } from '@/store/notifications';
@@ -49,9 +50,11 @@ export function Topbar() {
   return (
     <div className="flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
       <div className="flex items-center space-x-2">
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={toggleAIChat}
-          className="p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative"
+          className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative group"
           aria-label="AI 어시스턴트"
         >
           <Image 
@@ -59,12 +62,12 @@ export function Topbar() {
             alt="AI 어시스턴트" 
             width={20} 
             height={20} 
-            className="group-hover:scale-110 transition-transform"
+            className="h-5 w-5 group-hover:scale-110 transition-transform"
           />
           {!aiChatOpen && unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />
           )}
-        </button>
+        </Button>
         <NotificationMenu
           notifications={notifications as Notification[]}
           unreadCount={unread}
