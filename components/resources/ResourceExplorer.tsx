@@ -28,8 +28,6 @@ import {
   stopEc2Instance,
   startEc2Instance,
   terminateEc2Instance,
-  checkAwsEc2Alerts,
-  AwsEc2Alert,
 } from '@/lib/api/aws';
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
@@ -38,7 +36,6 @@ import { getNcpAccounts } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -163,12 +160,6 @@ export function ResourceExplorer() {
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
 
-  // EC2 알림 관련 상태
-  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
-  const [alerts, setAlerts] = useState<AwsEc2Alert[]>([]);
-  const [isCheckingAlerts, setIsCheckingAlerts] = useState(false);
-  const [alertError, setAlertError] = useState<string | null>(null);
-
   const providers = useMemo(() => {
     return Array.from(new Set((data ?? []).map((item) => item.provider))).sort();
   }, [data]);
@@ -211,23 +202,6 @@ export function ResourceExplorer() {
       setter(list.filter((item) => item !== value));
     } else {
       setter([...list, value]);
-    }
-  };
-
-  const handleCheckAlerts = async () => {
-    setIsCheckingAlerts(true);
-    setAlertError(null);
-    try {
-      const result = await checkAwsEc2Alerts();
-      setAlerts(result);
-      setAlertDialogOpen(true);
-    } catch (error: any) {
-      console.error('EC2 알림 점검 오류:', error);
-      setAlerts([]);
-      setAlertError(error?.response?.data?.message || error?.message || '알림 점검 중 오류가 발생했습니다.');
-      setAlertDialogOpen(true);
-    } finally {
-      setIsCheckingAlerts(false);
     }
   };
 
@@ -404,20 +378,6 @@ export function ResourceExplorer() {
                 <Grid className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* EC2 알림 점검 버튼 (AWS 활성 계정이 있는 경우에만 표시) */}
-            {activeAwsAccounts.length > 0 && (
-              <Button
-                variant="outline"
-                className="gap-2"
-                size="sm"
-                onClick={handleCheckAlerts}
-                disabled={isCheckingAlerts}
-              >
-                <AlertCircle className={`h-4 w-4 ${isCheckingAlerts ? 'animate-pulse text-amber-500' : 'text-amber-600'}`} />
-                {isCheckingAlerts ? '알림 점검 중...' : 'EC2 알림 점검'}
-              </Button>
-            )}
 
             <Button
               variant="ghost"
@@ -734,74 +694,6 @@ export function ResourceExplorer() {
           region={selectedGcpResource.region}
         />
       )}
-
-      {/* EC2 알림 결과 다이얼로그 */}
-      <Dialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
-        <DialogContent className="w-full max-w-2xl p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle>EC2 알림 점검 결과</DialogTitle>
-            <DialogDescription>
-              최근 임계치 조건을 만족한 EC2 인스턴스 알림 목록입니다. (CloudWatch 메트릭 기반)
-            </DialogDescription>
-          </DialogHeader>
-
-          {alertError ? (
-            <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-              {alertError}
-            </div>
-          ) : alerts.length === 0 ? (
-            <div className="p-6 text-center text-sm text-slate-600">
-              <p className="font-medium text-slate-800 mb-1">현재 표시할 EC2 알림이 없습니다.</p>
-              <p>임계치 조건을 만족하는 인스턴스가 없거나, 아직 알림이 생성되지 않았습니다.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-              {alerts.map((alert) => (
-                <div
-                  key={`${alert.accountId}-${alert.instanceId}-${alert.ruleId}-${alert.createdAt ?? ''}`}
-                  className="border border-slate-200 rounded-lg p-3 flex flex-col gap-1"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={
-                          alert.severity === 'CRITICAL'
-                            ? 'border-red-300 bg-red-50 text-red-800'
-                            : alert.severity === 'WARNING'
-                            ? 'border-amber-300 bg-amber-50 text-amber-800'
-                            : 'border-blue-300 bg-blue-50 text-blue-800'
-                        }
-                      >
-                        {alert.severity}
-                      </Badge>
-                      <span className="text-sm font-medium text-slate-900">
-                        {alert.instanceName} ({alert.instanceId})
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-500">
-                      {alert.accountName}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">{alert.ruleTitle}</span>
-                  </div>
-                  <div className="text-xs text-slate-600 whitespace-pre-line">
-                    {alert.message}
-                  </div>
-                  {alert.currentValue != null && alert.threshold != null && (
-                    <div className="text-xs text-slate-500">
-                      메트릭: <span className="font-mono">{alert.violatedMetric}</span>{' '}
-                      / 현재값: <span className="font-mono">{alert.currentValue.toFixed(2)}</span>{' '}
-                      / 임계값: <span className="font-mono">{alert.threshold.toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
