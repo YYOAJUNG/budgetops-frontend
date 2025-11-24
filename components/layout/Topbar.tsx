@@ -36,7 +36,7 @@ export function Topbar() {
   };
 
   const handleViewAll = () => {
-    console.log('View all notifications');
+    window.location.href = '/notifications';
   };
 
   const handleMarkAllRead = () => {
