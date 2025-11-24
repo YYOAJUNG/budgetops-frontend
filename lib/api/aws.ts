@@ -373,7 +373,7 @@ export async function getAllAwsAccountsCosts(
 }
 
 /**
- * 모든 AWS 계정의 EC2 알림 점검 실행
+ * 모든 AWS 계정의 모든 서비스(EC2, RDS, S3 등) 알림 점검 실행
  * 백엔드: POST /aws/alerts/check
  */
 export async function checkAwsEc2Alerts(): Promise<AwsEc2Alert[]> {
@@ -382,7 +382,7 @@ export async function checkAwsEc2Alerts(): Promise<AwsEc2Alert[]> {
 }
 
 /**
- * 특정 AWS 계정의 EC2 알림 점검 실행
+ * 특정 AWS 계정의 모든 서비스 알림 점검 실행
  * 백엔드: POST /aws/alerts/check/{accountId}
  */
 export async function checkAwsEc2AlertsByAccount(accountId: number): Promise<AwsEc2Alert[]> {
