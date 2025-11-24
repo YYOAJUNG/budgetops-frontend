@@ -174,10 +174,10 @@ export default function NotificationsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    알림이 없습니다
+                    {selectedProvider === 'ALL' ? '알림이 없습니다' : `${selectedProvider} 알림이 없습니다`}
                   </h3>
                   <p className="text-sm text-slate-600">
-                    AWS EC2 리소스 임계치 초과 시 알림이 표시됩니다.
+                    클라우드 리소스 임계치 초과 시 알림이 표시됩니다.
                   </p>
                 </div>
               </div>
