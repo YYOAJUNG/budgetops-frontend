@@ -7,14 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/api/notifications';
-import { Bell, Check, CheckCheck, Filter, RefreshCw } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Check, CheckCheck } from 'lucide-react';
 
 type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'NCP';
 
@@ -27,8 +20,7 @@ export default function NotificationsPage() {
     unreadCount,
   } = useNotificationsStore();
 
-  const [providerFilter, setProviderFilter] = useState<CloudProvider[]>([]);
-  const [showOnlyUnread, setShowOnlyUnread] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<CloudProvider | 'ALL'>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -50,6 +42,12 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleProviderClick = async (provider: CloudProvider | 'ALL') => {
+    setSelectedProvider(provider);
+    // CSP 선택 시 최신 알림 가져오기
+    await handleRefresh();
+  };
+
   const handleMarkAllRead = async () => {
     markAllRead();
     await markAllNotificationsRead();
@@ -60,30 +58,17 @@ export default function NotificationsPage() {
     await markNotificationRead(id);
   };
 
-  const toggleProviderFilter = (provider: CloudProvider) => {
-    if (providerFilter.includes(provider)) {
-      setProviderFilter(providerFilter.filter(p => p !== provider));
-    } else {
-      setProviderFilter([...providerFilter, provider]);
-    }
-  };
-
   // 필터링된 알림
   const filteredNotifications = useMemo(() => {
     let filtered = notifications;
     
     // CSP 필터
-    if (providerFilter.length > 0) {
-      filtered = filtered.filter(n => n.provider && providerFilter.includes(n.provider as CloudProvider));
-    }
-    
-    // 읽지 않은 알림만 보기
-    if (showOnlyUnread) {
-      filtered = filtered.filter(n => !n.isRead);
+    if (selectedProvider !== 'ALL') {
+      filtered = filtered.filter(n => n.provider === selectedProvider);
     }
     
     return filtered;
-  }, [notifications, providerFilter, showOnlyUnread]);
+  }, [notifications, selectedProvider]);
 
   const unread = unreadCount();
   const availableProviders: CloudProvider[] = ['AWS', 'GCP', 'Azure', 'NCP'];
@@ -99,85 +84,63 @@ export default function NotificationsPage() {
           </p>
         </div>
 
-        {/* 필터 및 액션 바 */}
+        {/* CSP 필터 및 액션 바 */}
         <Card className="border border-slate-200 shadow-sm">
           <CardContent className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* CSP 버튼 그룹 */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* CSP 필터 */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Filter className="h-4 w-4" />
-                      클라우드 제공자
-                      {providerFilter.length > 0 && (
-                        <Badge variant="secondary" className="ml-1">
-                          {providerFilter.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-48">
-                    <DropdownMenuLabel>제공자 선택</DropdownMenuLabel>
-                    {availableProviders.map((provider) => (
-                      <DropdownMenuCheckboxItem
-                        key={provider}
-                        checked={providerFilter.includes(provider)}
-                        onCheckedChange={() => toggleProviderFilter(provider)}
-                      >
-                        <Badge 
-                          className={
-                            provider === 'AWS' 
-                              ? 'bg-orange-100 text-orange-700 mr-2'
-                              : provider === 'GCP'
-                              ? 'bg-blue-100 text-blue-700 mr-2'
-                              : provider === 'NCP'
-                              ? 'bg-green-100 text-green-700 mr-2'
-                              : 'bg-sky-100 text-sky-700 mr-2'
-                          }
-                        >
-                          {provider}
-                        </Badge>
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* 읽지 않은 알림만 보기 */}
                 <Button
-                  variant={showOnlyUnread ? 'default' : 'outline'}
+                  variant={selectedProvider === 'ALL' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setShowOnlyUnread(!showOnlyUnread)}
-                  className="gap-2"
+                  onClick={() => handleProviderClick('ALL')}
+                  disabled={isRefreshing}
+                  className="font-medium"
                 >
-                  <Bell className="h-4 w-4" />
-                  읽지 않음
-                  {unread > 0 && (
-                    <Badge variant="secondary" className="ml-1">
-                      {unread}
-                    </Badge>
-                  )}
+                  전체
                 </Button>
-
-                {/* 필터 초기화 */}
-                {(providerFilter.length > 0 || showOnlyUnread) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setProviderFilter([]);
-                      setShowOnlyUnread(false);
-                    }}
-                    className="text-slate-500"
-                  >
-                    필터 초기화
-                  </Button>
-                )}
+                <Button
+                  variant={selectedProvider === 'AWS' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('AWS')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'AWS' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-300 text-orange-700 hover:bg-orange-50'}
+                >
+                  AWS
+                </Button>
+                <Button
+                  variant={selectedProvider === 'GCP' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('GCP')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'GCP' ? 'bg-blue-500 hover:bg-blue-600' : 'border-blue-300 text-blue-700 hover:bg-blue-50'}
+                >
+                  GCP
+                </Button>
+                <Button
+                  variant={selectedProvider === 'Azure' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('Azure')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'Azure' ? 'bg-sky-500 hover:bg-sky-600' : 'border-sky-300 text-sky-700 hover:bg-sky-50'}
+                >
+                  Azure
+                </Button>
+                <Button
+                  variant={selectedProvider === 'NCP' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('NCP')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'NCP' ? 'bg-green-500 hover:bg-green-600' : 'border-green-300 text-green-700 hover:bg-green-50'}
+                >
+                  NCP
+                </Button>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* 우측 액션 */}
+              <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-600">
-                  총 {filteredNotifications.length}개
+                  {filteredNotifications.length}개의 알림
                 </span>
                 {unread > 0 && (
                   <Button
@@ -190,16 +153,6 @@ export default function NotificationsPage() {
                     모두 읽음
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  새로고침
-                </Button>
               </div>
             </div>
           </CardContent>
