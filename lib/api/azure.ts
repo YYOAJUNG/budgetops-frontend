@@ -121,3 +121,41 @@ export async function getAllAzureAccountsCosts(
   return data;
 }
 
+/**
+ * Azure 알림 인터페이스
+ */
+export interface AzureAlert {
+  id?: number;
+  accountId: number;
+  accountName: string;
+  resourceId: string;
+  resourceName: string;
+  ruleId: string;
+  ruleTitle: string;
+  violatedMetric: string;
+  currentValue: number | null;
+  threshold: number | null;
+  message: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  status: 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+  createdAt: string;
+  sentAt?: string;
+  acknowledgedAt?: string;
+}
+
+/**
+ * 모든 Azure 계정의 알림 점검 실행
+ */
+export async function checkAzureAlerts(): Promise<AzureAlert[]> {
+  const { data } = await api.post<AzureAlert[]>('/azure/alerts/check');
+  return data;
+}
+
+/**
+ * 특정 Azure 계정의 알림 점검 실행
+ */
+export async function checkAzureAlertsByAccount(accountId: number): Promise<AzureAlert[]> {
+  const { data } = await api.post<AzureAlert[]>(`/azure/alerts/check/${accountId}`);
+  return data;
+}
+
