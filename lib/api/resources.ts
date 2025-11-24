@@ -316,19 +316,23 @@ export async function getResources(): Promise<ResourceItem[]> {
     // Azure Virtual Machines 조회
     try {
       const azureAccounts = await getAzureAccounts();
+      console.log('[Azure] Found accounts:', azureAccounts.length);
       const activeAzureAccounts = azureAccounts.filter(acc => acc.active);
+      console.log('[Azure] Active accounts:', activeAzureAccounts.length);
 
       for (const account of activeAzureAccounts) {
         try {
+          console.log(`[Azure] Fetching VMs for account ${account.id} (${account.name})`);
           const vms = await getAzureVirtualMachines(account.id);
+          console.log(`[Azure] Found ${vms.length} VMs for account ${account.id}`);
           const vmResources = vms.map(convertAzureVmToResource);
           resources.push(...vmResources);
         } catch (error) {
-          console.warn(`Failed to fetch Azure VMs for account ${account.id}:`, error);
+          console.error(`[Azure] Failed to fetch VMs for account ${account.id}:`, error);
         }
       }
     } catch (error) {
-      console.warn('Failed to fetch Azure accounts:', error);
+      console.error('[Azure] Failed to fetch Azure accounts:', error);
     }
 
     // GCP 리소스 조회
