@@ -106,6 +106,8 @@ export default function NotificationsPage() {
                                   ? 'bg-orange-500 text-white'
                                   : notification.provider === 'GCP'
                                   ? 'bg-blue-500 text-white'
+                                  : notification.provider === 'NCP'
+                                  ? 'bg-green-500 text-white'
                                   : 'bg-sky-500 text-white'
                               }
                             >

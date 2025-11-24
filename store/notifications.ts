@@ -8,7 +8,7 @@ export interface AppNotification {
   isRead: boolean;
   importance?: 'low' | 'normal' | 'high';
   service?: string; // 서비스 구분 (예: 'AWS EC2', 'GCP Compute', 'Cost')
-  provider?: 'AWS' | 'GCP' | 'Azure'; // 클라우드 제공자
+  provider?: 'AWS' | 'GCP' | 'Azure' | 'NCP'; // 클라우드 제공자
 }
 
 interface NotificationsState {

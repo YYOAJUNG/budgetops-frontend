@@ -20,7 +20,7 @@ export interface Notification {
   isRead: boolean;
   importance?: 'low' | 'normal' | 'high';
   service?: string;
-  provider?: 'AWS' | 'GCP' | 'Azure';
+  provider?: 'AWS' | 'GCP' | 'Azure' | 'NCP';
 }
 
 interface NotificationMenuProps {
@@ -86,6 +86,8 @@ export function NotificationMenu({
                                 ? 'bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5'
                                 : notification.provider === 'GCP'
                                 ? 'bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5'
+                                : notification.provider === 'NCP'
+                                ? 'bg-green-100 text-green-700 text-xs px-1.5 py-0.5'
                                 : 'bg-sky-100 text-sky-700 text-xs px-1.5 py-0.5'
                             }
                           >

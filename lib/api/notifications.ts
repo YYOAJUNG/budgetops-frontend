@@ -2,6 +2,7 @@ import { AppNotification } from '@/store/notifications';
 import { checkAwsEc2Alerts, AwsEc2Alert } from './aws';
 import { checkGcpAlerts, GcpAlert } from './gcp';
 import { checkAzureAlerts, AzureAlert } from './azure';
+import { checkNcpAlerts, NcpAlert } from './ncp';
 
 /**
  * AWS 알림(EC2/RDS/S3 등)을 AppNotification 형태로 변환
@@ -78,6 +79,28 @@ function convertAzureAlertToNotification(alert: AzureAlert): AppNotification {
 }
 
 /**
+ * NCP 알림을 AppNotification 형태로 변환
+ */
+function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
+  const importanceMap: Record<string, 'low' | 'normal' | 'high'> = {
+    INFO: 'low',
+    WARNING: 'normal',
+    CRITICAL: 'high',
+  };
+
+  return {
+    id: `ncp-alert-${alert.serverInstanceNo}-${alert.ruleId}-${Date.now()}`,
+    title: alert.ruleTitle,
+    message: `${alert.serverName || alert.serverInstanceNo} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
+    timestamp: alert.createdAt || new Date().toISOString(),
+    isRead: alert.status === 'ACKNOWLEDGED',
+    importance: importanceMap[alert.severity] || 'normal',
+    service: 'Server',
+    provider: 'NCP',
+  };
+}
+
+/**
  * 백엔드에서 실시간 알림 가져오기
  */
 export async function fetchNotifications(): Promise<AppNotification[]> {
@@ -108,6 +131,15 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     notifications.push(...azureNotifications);
   } catch (error) {
     console.error('Failed to fetch Azure alerts:', error);
+  }
+
+  // NCP 알림
+  try {
+    const ncpAlerts = await checkNcpAlerts();
+    const ncpNotifications = ncpAlerts.map(convertNcpAlertToNotification);
+    notifications.push(...ncpNotifications);
+  } catch (error) {
+    console.error('Failed to fetch NCP alerts:', error);
   }
 
   // 중요도 높은 알림을 우선으로 정렬
