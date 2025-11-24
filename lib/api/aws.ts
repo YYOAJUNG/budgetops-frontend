@@ -290,10 +290,10 @@ export interface AccountCost {
 
 // ------------ AWS EC2 알림 ------------
 
-export type AwsEc2AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AwsEc2AlertStatus = 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+export type AwsAlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AwsAlertStatus = 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
 
-export interface AwsEc2Alert {
+export interface AwsAlert {
   id?: number;
   accountId: number;
   accountName: string;
@@ -305,8 +305,8 @@ export interface AwsEc2Alert {
   currentValue: number | null;
   threshold: number | null;
   message: string;
-  severity: AwsEc2AlertSeverity;
-  status: AwsEc2AlertStatus;
+  severity: AwsAlertSeverity;
+  status: AwsAlertStatus;
   createdAt?: string;
   sentAt?: string | null;
   acknowledgedAt?: string | null;
@@ -376,8 +376,8 @@ export async function getAllAwsAccountsCosts(
  * 모든 AWS 계정의 모든 서비스(EC2, RDS, S3 등) 알림 점검 실행
  * 백엔드: POST /aws/alerts/check
  */
-export async function checkAwsEc2Alerts(): Promise<AwsEc2Alert[]> {
-  const { data } = await api.post<AwsEc2Alert[]>('/aws/alerts/check');
+export async function checkAwsAlerts(): Promise<AwsAlert[]> {
+  const { data } = await api.post<AwsAlert[]>('/aws/alerts/check');
   return data;
 }
 
@@ -385,8 +385,8 @@ export async function checkAwsEc2Alerts(): Promise<AwsEc2Alert[]> {
  * 특정 AWS 계정의 모든 서비스 알림 점검 실행
  * 백엔드: POST /aws/alerts/check/{accountId}
  */
-export async function checkAwsEc2AlertsByAccount(accountId: number): Promise<AwsEc2Alert[]> {
-  const { data } = await api.post<AwsEc2Alert[]>(`/aws/alerts/check/${accountId}`);
+export async function checkAwsAlertsByAccount(accountId: number): Promise<AwsAlert[]> {
+  const { data } = await api.post<AwsAlert[]>(`/aws/alerts/check/${accountId}`);
   return data;
 }
 
