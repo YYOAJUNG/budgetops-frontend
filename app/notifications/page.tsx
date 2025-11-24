@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/api/notifications';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Bell } from 'lucide-react';
 
 type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'NCP';
 
