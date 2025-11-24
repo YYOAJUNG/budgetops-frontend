@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Bell } from '@mynaui/icons-react';
 import {
   DropdownMenu,
@@ -17,6 +18,9 @@ export interface Notification {
   message: string;
   timestamp: string;
   isRead: boolean;
+  importance?: 'low' | 'normal' | 'high';
+  service?: string;
+  provider?: 'AWS' | 'GCP' | 'Azure';
 }
 
 interface NotificationMenuProps {
@@ -72,14 +76,46 @@ export function NotificationMenu({
                   onClick={() => onNotificationClick?.(notification.id)}
                   className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex flex-col items-start"
                 >
-                  <div className="flex items-start w-full">
+                  <div className="flex items-start w-full gap-2">
                     <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {notification.provider && (
+                          <Badge 
+                            className={
+                              notification.provider === 'AWS' 
+                                ? 'bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5'
+                                : notification.provider === 'GCP'
+                                ? 'bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5'
+                                : 'bg-sky-100 text-sky-700 text-xs px-1.5 py-0.5'
+                            }
+                          >
+                            {notification.provider}
+                          </Badge>
+                        )}
+                        {notification.service && (
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                            {notification.service}
+                          </Badge>
+                        )}
+                        {notification.importance === 'high' && (
+                          <Badge className="bg-red-100 text-red-700 text-xs px-1.5 py-0.5">
+                            긴급
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm font-medium text-gray-900">{notification.title}</p>
                       <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{notification.timestamp}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(notification.timestamp).toLocaleString('ko-KR', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
                     </div>
                     {!notification.isRead && (
-                      <div className="h-2 w-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
+                      <div className="h-2 w-2 bg-blue-500 rounded-full mt-1"></div>
                     )}
                   </div>
                 </DropdownMenuItem>

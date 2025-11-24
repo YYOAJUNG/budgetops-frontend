@@ -250,10 +250,25 @@ export async function terminateEc2Instance(
   await api.delete(`/aws/accounts/${accountId}/ec2/instances/${instanceId}`, { params });
 }
 
+export interface FreeTierInfo {
+  usage: number;
+  freeTierLimit: number;
+  isWithinFreeTier: boolean;
+  isFreeTierActive: boolean;
+  estimatedCostIfExceeded: number;
+}
+
+export interface ServiceCostWithUsage {
+  service: string;
+  cost: number;
+  usageQuantity: number;
+  freeTierInfo: FreeTierInfo | null;
+}
+
 export interface DailyCost {
   date: string;
   totalCost: number;
-  services: ServiceCost[];
+  services: ServiceCostWithUsage[];
 }
 
 export interface ServiceCost {
@@ -271,6 +286,30 @@ export interface AccountCost {
   accountId: number;
   accountName: string;
   totalCost: number;
+}
+
+// ------------ AWS EC2 알림 ------------
+
+export type AwsEc2AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AwsEc2AlertStatus = 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+
+export interface AwsEc2Alert {
+  id?: number;
+  accountId: number;
+  accountName: string;
+  instanceId: string;
+  instanceName: string;
+  ruleId: string;
+  ruleTitle: string;
+  violatedMetric: string;
+  currentValue: number | null;
+  threshold: number | null;
+  message: string;
+  severity: AwsEc2AlertSeverity;
+  status: AwsEc2AlertStatus;
+  createdAt?: string;
+  sentAt?: string | null;
+  acknowledgedAt?: string | null;
 }
 
 /**
@@ -330,6 +369,24 @@ export async function getAllAwsAccountsCosts(
     '/aws/accounts/costs',
     { params }
   );
+  return data;
+}
+
+/**
+ * 모든 AWS 계정의 모든 서비스(EC2, RDS, S3 등) 알림 점검 실행
+ * 백엔드: POST /aws/alerts/check
+ */
+export async function checkAwsEc2Alerts(): Promise<AwsEc2Alert[]> {
+  const { data } = await api.post<AwsEc2Alert[]>('/aws/alerts/check');
+  return data;
+}
+
+/**
+ * 특정 AWS 계정의 모든 서비스 알림 점검 실행
+ * 백엔드: POST /aws/alerts/check/{accountId}
+ */
+export async function checkAwsEc2AlertsByAccount(accountId: number): Promise<AwsEc2Alert[]> {
+  const { data } = await api.post<AwsEc2Alert[]>(`/aws/alerts/check/${accountId}`);
   return data;
 }
 

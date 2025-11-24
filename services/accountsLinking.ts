@@ -1,4 +1,6 @@
 import type { AccountFormData, AccountConnection } from '@/types/accounts';
+import { createAwsAccount } from '@/lib/api/aws';
+import { createNcpAccount } from '@/lib/api/ncp';
 
 export type LinkingResult = {
   success: boolean;
@@ -26,13 +28,79 @@ class AccountsLinkingServiceImpl implements AccountsLinkingService {
         };
       }
 
-      // 2. 연결 시뮬레이션
-      const result = await this.simulateConnection(data);
-      return result;
-    } catch (error) {
+      // 2. 실제 백엔드 API 호출
+      return await this.connectToBackend(data);
+    } catch (error: any) {
+      console.error('Account linking error:', error);
       return {
         success: false,
-        error: '네트워크 오류가 발생했습니다. 다시 시도해주세요.',
+        error: error.response?.data?.message || error.message || '네트워크 오류가 발생했습니다. 다시 시도해주세요.',
+        status: 'ERROR',
+      };
+    }
+  }
+
+  /**
+   * 실제 백엔드 API 호출
+   */
+  async connectToBackend(data: AccountFormData): Promise<LinkingResult> {
+    try {
+      if (data.provider === 'AWS') {
+        const account = await createAwsAccount({
+          name: data.name,
+          defaultRegion: data.region || 'us-east-1',
+          accessKeyId: data.accessKeyId!,
+          secretAccessKey: data.secretAccessKey!,
+        });
+
+        return {
+          success: true,
+          account: {
+            id: account.id.toString(),
+            provider: 'AWS',
+            name: account.name,
+            status: 'CONNECTED',
+            connectedAt: new Date().toISOString(),
+          },
+          status: 'CONNECTED',
+        };
+      }
+
+      if (data.provider === 'NCP') {
+        const account = await createNcpAccount({
+          name: data.name,
+          regionCode: data.region,
+          accessKey: data.accessKey!,
+          secretKey: data.secretKey!,
+        });
+
+        return {
+          success: true,
+          account: {
+            id: account.id.toString(),
+            provider: 'NCP',
+            name: account.name,
+            status: 'CONNECTED',
+            connectedAt: new Date().toISOString(),
+          },
+          status: 'CONNECTED',
+        };
+      }
+
+      // GCP, Azure는 아직 시뮬레이션 사용
+      return await this.simulateConnection(data);
+    } catch (error: any) {
+      console.error(`Failed to connect ${data.provider} account:`, error);
+
+      // 백엔드 오류 메시지 추출
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.error ||
+                          error.message ||
+                          '계정 연동에 실패했습니다.';
+
+      return {
+        success: false,
+        error: errorMessage,
         status: 'ERROR',
       };
     }

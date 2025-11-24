@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
-import { X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useState, ReactNode, useRef } from 'react';
+import { X, ChevronRight, ChevronLeft, ExternalLink, FileText, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { testGcpIntegration, saveGcpIntegration } from '@/lib/api/gcp';
+import { createAwsAccount } from '@/lib/api/aws';
+import { createAzureAccount } from '@/lib/api/azure';
+import { FEEDBACK_LINK } from '@/constants/navigation';
 
 interface AddCloudAccountDialogProps {
   open: boolean;
@@ -15,7 +19,7 @@ interface AddCloudAccountDialogProps {
   onSuccess?: () => void;
 }
 
-type CloudProvider = 'AWS' | 'GCP' | 'Azure';
+type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'NCP';
 
 interface ProviderOption {
   id: CloudProvider;
@@ -30,13 +34,20 @@ interface CredentialForm {
   secretAccessKey?: string;
   region?: string;
   // GCP
-  projectId?: string;
-  serviceAccountKey?: string;
+  serviceAccountId?: string;
+  jsonKeyFile?: File | null;
+  jsonKeyFileName?: string;
+  jsonKeyContent?: string; // JSON 파일 내용 (문자열)
+  billingAccountId?: string;
   // Azure
   subscriptionId?: string;
   tenantId?: string;
   clientId?: string;
   clientSecret?: string;
+  // NCP
+  accessKey?: string;
+  secretKey?: string;
+  regionCode?: string;
 }
 
 export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용자', onSuccess }: AddCloudAccountDialogProps) {
@@ -46,6 +57,9 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
     accountName: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   async function submitAws() {
@@ -57,6 +71,18 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
       secretAccessKey: credentials.secretAccessKey || '',
     };
     const resp = await createAwsAccount(payload);
+    return resp;
+  }
+
+  async function submitNcp() {
+    const { createNcpAccount } = await import('@/lib/api/ncp');
+    const payload = {
+      name: credentials.accountName,
+      regionCode: credentials.regionCode,
+      accessKey: credentials.accessKey || '',
+      secretKey: credentials.secretKey || '',
+    };
+    const resp = await createNcpAccount(payload);
     return resp;
   }
 
@@ -83,16 +109,41 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         />
       ),
     },
+    {
+      id: 'Azure' as CloudProvider,
+      name: 'Microsoft Azure',
+      logo: (
+        <img
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Microsoft_Azure.svg/2048px-Microsoft_Azure.svg.png"
+          alt="Azure"
+          className="w-24 h-24 object-contain"
+        />
+      ),
+    },
+    {
+      id: 'NCP' as CloudProvider,
+      name: 'NAVER Cloud Platform',
+      logo: (
+        <img
+          src="/ncp-logo.jpg"
+          alt="NCP"
+          className="w-24 h-24 object-contain"
+        />
+      ),
+    },
   ];
 
   const handleNext = () => {
-    if (selectedProvider) {
+    if (step === 'select' && selectedProvider) {
       setStep('credentials');
     }
   };
 
   const handleBack = () => {
-    setStep('select');
+    if (step === 'credentials') {
+      setStep('select');
+      setTestResult(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -114,14 +165,88 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           setSelectedProvider(null);
           setCredentials({ accountName: '' });
         }, 500);
+      } else if (selectedProvider === 'Azure') {
+        const payload = {
+          name: credentials.accountName.trim(),
+          subscriptionId: credentials.subscriptionId?.trim() || '',
+          tenantId: credentials.tenantId?.trim() || '',
+          clientId: credentials.clientId?.trim() || '',
+          clientSecret: credentials.clientSecret || '',
+        };
+
+        if (!payload.name || !payload.subscriptionId || !payload.tenantId || !payload.clientId || !payload.clientSecret) {
+          setErrorMsg('필수 입력 항목을 모두 채워주세요.');
+          return;
+        }
+
+        await createAzureAccount(payload);
+        setSuccessMsg('Azure 계정이 성공적으로 연동되었습니다.');
+        if (onSuccess) {
+          await onSuccess();
+        }
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
+      } else if (selectedProvider === 'GCP') {
+        // GCP 계정 저장 API 호출
+        if (!credentials.serviceAccountId?.trim() || !credentials.jsonKeyContent || !credentials.billingAccountId?.trim()) {
+          setTestResult({
+            success: false,
+            message: '서비스 계정 ID, JSON 키 파일, 결제 계정 ID를 모두 입력해 주세요.',
+          });
+          return;
+        }
+
+        const saveResult = await saveGcpIntegration({
+          name: credentials.accountName.trim(), // 사용자가 입력한 계정 이름 전송
+          serviceAccountId: credentials.serviceAccountId.trim(),
+          serviceAccountKeyJson: credentials.jsonKeyContent,
+          billingAccountId: credentials.billingAccountId.trim(),
+        });
+
+        if (saveResult.ok) {
+          // 성공 시 다이얼로그 닫기
+          onOpenChange(false);
+          
+          // 상태 초기화
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+          setTestResult(null);
+          
+          // 페이지 새로고침 또는 목록 업데이트 (필요시)
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
+        } else {
+          // 저장 실패
+          setTestResult({
+            success: false,
+            message: saveResult.message || '계정 저장에 실패했어요.',
+          });
+        }
+      } else if (selectedProvider === 'NCP') {
+        await submitNcp();
+        setSuccessMsg('NCP 계정이 성공적으로 연동되었습니다.');
+        if (onSuccess) {
+          await onSuccess();
+        }
+        setTimeout(() => {
+          onOpenChange(false);
+          setStep('select');
+          setSelectedProvider(null);
+          setCredentials({ accountName: '' });
+        }, 500);
       } else {
-        // GCP/Azure는 추후 구현
-        setErrorMsg('현재는 AWS 계정 연동만 지원합니다.');
+        setErrorMsg('지원하지 않는 클라우드 제공자입니다.');
         setIsSubmitting(false);
         return;
       }
     } catch (error: any) {
-      console.error('AWS 계정 연동 오류:', error);
+      console.error('계정 연동 오류:', error);
       // 백엔드에서 반환한 에러 메시지 추출
       let errorMessage = '계정 연동 중 오류가 발생했습니다. 입력 정보를 확인하세요.';
       
@@ -153,161 +278,588 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        // JSON 파일을 문자열로 읽기 (파싱하지 않고 원본 그대로)
+        const content = await file.text();
+        setCredentials({
+          ...credentials,
+          jsonKeyFile: file,
+          jsonKeyFileName: file.name,
+          jsonKeyContent: content,
+        });
+        setTestResult(null);
+      } catch (error) {
+        console.error('파일 읽기 실패:', error);
+        setTestResult({
+          success: false,
+          message: '파일을 읽을 수 없습니다. 다시 시도해 주세요.',
+        });
+      }
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setTestResult(null);
+
+    try {
+      if (selectedProvider === 'GCP') {
+        // GCP 통합 테스트 API 호출
+        if (!credentials.serviceAccountId?.trim() || !credentials.jsonKeyContent) {
+          setTestResult({
+            success: false,
+            message: '서비스 계정 ID와 JSON 키 파일을 모두 입력해 주세요.',
+          });
+          return;
+        }
+
+        if (!credentials.billingAccountId?.trim()) {
+          setTestResult({
+            success: false,
+            message: '결제 계정 ID를 입력해 주세요.',
+          });
+          return;
+        }
+
+        const testResult = await testGcpIntegration({
+          serviceAccountId: credentials.serviceAccountId.trim(),
+          serviceAccountKeyJson: credentials.jsonKeyContent,
+          billingAccountId: credentials.billingAccountId.trim(),
+        });
+
+        // 테스트 결과 처리
+        if (testResult.ok) {
+          // 서비스 계정과 결제 계정 모두 성공
+          let message = '테스트에 성공하여 GCP 계정 연동이 완료됐어요.';
+          
+          // 누락된 권한이 있는 경우 메시지 추가
+          if (testResult.serviceAccount.missingRoles.length > 0) {
+            message += `\n다만 다음 권한이 누락되었습니다: ${testResult.serviceAccount.missingRoles.join(', ')}`;
+          }
+
+          setTestResult({
+            success: true,
+            message,
+          });
+        } else {
+          // 테스트 실패
+          const messages: string[] = [];
+          
+          if (!testResult.serviceAccount.ok) {
+            messages.push('서비스 계정 테스트가 실패했습니다.');
+          }
+          
+          if (!testResult.billing.ok) {
+            messages.push('결제 계정 테스트가 실패했습니다.');
+          }
+
+          setTestResult({
+            success: false,
+            message: messages.join(' '),
+          });
+        }
+      } else {
+        // AWS, Azure 등의 테스트 로직 (향후 구현)
+        const isSuccess = false;
+        setTestResult({
+          success: isSuccess,
+          message: isSuccess 
+            ? '테스트에 성공했어요.'
+            : '테스트에 실패했어요. 입력한 정보를 다시 확인해 주세요.',
+        });
+      }
+    } catch (error: any) {
+      console.error('연결 테스트 실패:', error);
+      
+      let errorMessage = '서비스 계정 테스트가 실패했습니다.';
+      
+      // 서비스 계정 중복 체크
+      if (error.response?.data?.message) {
+        const message = error.response.data.message;
+        if (message.includes('이미 등록된 서비스 계정') || message.includes('이미 연동')) {
+          errorMessage = '동일한 서비스 계정이 이미 연동되어 있습니다.';
+        }
+        // 400 에러나 다른 에러는 이미 기본 메시지로 처리됨
+      } else if (error.response?.status === 400) {
+        // 400 Bad Request는 서비스 계정 테스트 실패로 간주
+        errorMessage = '서비스 계정 테스트가 실패했습니다.';
+      } else if (error.message && !error.message.includes('status code')) {
+        // status code 메시지가 아닌 경우에만 사용
+        errorMessage = error.message;
+      }
+
+      setTestResult({
+        success: false,
+        message: errorMessage,
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   const isCredentialsValid = () => {
-    if (!credentials.accountName) return false;
+    if (!credentials.accountName?.trim()) return false;
     
     if (selectedProvider === 'AWS') {
-      return credentials.accessKeyId && credentials.secretAccessKey;
-    } else if (selectedProvider === 'GCP') {
-      return credentials.projectId;
+      return !!(credentials.accessKeyId?.trim() && credentials.secretAccessKey?.trim());
     } else if (selectedProvider === 'Azure') {
-      return credentials.subscriptionId && credentials.tenantId && 
-             credentials.clientId && credentials.clientSecret;
+      return !!(
+        credentials.subscriptionId?.trim() && 
+        credentials.tenantId?.trim() && 
+        credentials.clientId?.trim() && 
+        credentials.clientSecret?.trim()
+      );
+    } else if (selectedProvider === 'GCP') {
+      return !!(
+        credentials.serviceAccountId?.trim() &&
+        credentials.jsonKeyContent && // JSON 파일 내용이 있어야 함
+        credentials.billingAccountId?.trim() // 결제 계정 ID는 필수
+      );
+    } else if (selectedProvider === 'NCP') {
+      return !!(credentials.accessKey?.trim() && credentials.secretKey?.trim());
     }
     return false;
+  };
+
+  const needsConnectionTest = () => {
+    // 연결 테스트가 필요한 CSP 목록
+    return selectedProvider === 'GCP';
   };
 
   const renderCredentialsForm = () => {
     if (selectedProvider === 'AWS') {
       return (
-        <>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="accountName">계정 이름 *</Label>
-              <Input
-                id="accountName"
-                placeholder="예: Production AWS"
-                value={credentials.accountName}
-                onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="accessKeyId">Access Key ID *</Label>
-              <Input
-                id="accessKeyId"
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                value={credentials.accessKeyId || ''}
-                onChange={(e) => setCredentials({ ...credentials, accessKeyId: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="secretAccessKey">Secret Access Key *</Label>
-              <Input
-                id="secretAccessKey"
-                type="password"
-                placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                value={credentials.secretAccessKey || ''}
-                onChange={(e) => setCredentials({ ...credentials, secretAccessKey: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="region">Region (선택사항)</Label>
-              <Input
-                id="region"
-                placeholder="us-east-1"
-                value={credentials.region || ''}
-                onChange={(e) => setCredentials({ ...credentials, region: e.target.value })}
-              />
-            </div>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="accountName">계정 이름 *</Label>
+            <Input
+              id="accountName"
+              placeholder="예: Production AWS"
+              value={credentials.accountName}
+              onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
+            />
           </div>
-        </>
-      );
-    } else if (selectedProvider === 'GCP') {
-      return (
-        <>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="accountName">계정 이름 *</Label>
-              <Input
-                id="accountName"
-                placeholder="예: Staging GCP"
-                value={credentials.accountName}
-                onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="projectId">Project ID *</Label>
-              <Input
-                id="projectId"
-                placeholder="my-project-123"
-                value={credentials.projectId || ''}
-                onChange={(e) => setCredentials({ ...credentials, projectId: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="serviceAccountKey">Service Account Key (선택사항)</Label>
-              <textarea
-                id="serviceAccountKey"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-                placeholder='{"type": "service_account", "project_id": "..."}'
-                value={credentials.serviceAccountKey || ''}
-                onChange={(e) => setCredentials({ ...credentials, serviceAccountKey: e.target.value })}
-              />
-            </div>
+          <div>
+            <Label htmlFor="accessKeyId">Access Key ID *</Label>
+            <Input
+              id="accessKeyId"
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              value={credentials.accessKeyId || ''}
+              onChange={(e) => setCredentials({ ...credentials, accessKeyId: e.target.value })}
+            />
           </div>
-        </>
+          <div>
+            <Label htmlFor="secretAccessKey">Secret Access Key *</Label>
+            <Input
+              id="secretAccessKey"
+              type="password"
+              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+              value={credentials.secretAccessKey || ''}
+              onChange={(e) => setCredentials({ ...credentials, secretAccessKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="region">Region (선택사항)</Label>
+            <Input
+              id="region"
+              placeholder="us-east-1"
+              value={credentials.region || ''}
+              onChange={(e) => setCredentials({ ...credentials, region: e.target.value })}
+            />
+          </div>
+        </div>
       );
     } else if (selectedProvider === 'Azure') {
       return (
-        <>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="accountName">계정 이름 *</Label>
-              <Input
-                id="accountName"
-                placeholder="예: Production Azure"
-                value={credentials.accountName}
-                onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
-              />
+        <div className="space-y-6">
+          <div>
+            <Label htmlFor="accountName">계정 이름 *</Label>
+            <Input
+              id="accountName"
+              placeholder="예: Production Azure"
+              value={credentials.accountName}
+              onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
+            />
+          </div>
+
+          {/* Step 1 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">1. Microsoft Entra ID에서 애플리케이션 등록</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Azure Portal &gt; Microsoft Entra ID(구 Azure AD)에서 앱을 등록해 주세요. 등록이 완료되면 아래 값을 복사해 둡니다.
+            </p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+              <li>테넌트 ID (Directory / Tenant ID)</li>
+              <li>클라이언트 ID (Application / Client ID)</li>
+            </ul>
+            <div className="grid gap-4 md:grid-cols-2 mt-4">
+              <div>
+                <Label htmlFor="tenantIdStep">테넌트 ID *</Label>
+                <Input
+                  id="tenantIdStep"
+                  placeholder="87654321-4321-4321-4321-210987654321"
+                  value={credentials.tenantId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, tenantId: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="clientIdStep">클라이언트 ID *</Label>
+                <Input
+                  id="clientIdStep"
+                  placeholder="11111111-1111-1111-1111-111111111111"
+                  value={credentials.clientId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, clientId: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="subscriptionId">Subscription ID *</Label>
-              <Input
-                id="subscriptionId"
-                placeholder="12345678-1234-1234-1234-123456789012"
-                value={credentials.subscriptionId || ''}
-                onChange={(e) => setCredentials({ ...credentials, subscriptionId: e.target.value })}
-              />
+            <div className="mt-4">
+              <a
+                href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 앱 등록 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
             </div>
-            <div>
-              <Label htmlFor="tenantId">Tenant ID *</Label>
+          </div>
+
+          {/* Step 2 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">2. 클라이언트 비밀 생성</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              앱 등록 상세 &gt; 인증서 및 비밀(Certificates &amp; secrets)에서 새 클라이언트 비밀을 생성해 주세요.
+              <br />
+              생성 직후 표시되는 <strong>비밀 값(Value)</strong> 을 Budgetops에 입력해야 합니다. Secret ID가 아닌지 확인해 주세요.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="clientSecretInline">클라이언트 비밀 값 *</Label>
               <Input
-                id="tenantId"
-                placeholder="87654321-4321-4321-4321-210987654321"
-                value={credentials.tenantId || ''}
-                onChange={(e) => setCredentials({ ...credentials, tenantId: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="clientId">Client ID *</Label>
-              <Input
-                id="clientId"
-                placeholder="11111111-1111-1111-1111-111111111111"
-                value={credentials.clientId || ''}
-                onChange={(e) => setCredentials({ ...credentials, clientId: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="clientSecret">Client Secret *</Label>
-              <Input
-                id="clientSecret"
+                id="clientSecretInline"
                 type="password"
-                placeholder="your-client-secret"
+                placeholder="agk**~**_12AB34CEWFDKLGOELS****"
                 value={credentials.clientSecret || ''}
                 onChange={(e) => setCredentials({ ...credentials, clientSecret: e.target.value })}
               />
             </div>
           </div>
-        </>
+
+          {/* Step 3 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">3. 구독에 역할 할당</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              연결하려는 Subscription에서 서비스 프린시펄에게 다음 역할을 부여해 주세요.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Reader</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Cost Management Reader</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">Monitoring Reader</code>
+            </div>
+            <p className="text-xs text-gray-500 mt-3">
+              권한 반영까지 최대 수 분 정도 소요될 수 있습니다. 오류가 발생하면 잠시 후 다시 시도해 주세요.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                href="https://portal.azure.com/#view/Microsoft_Azure_Billing/ModernBillingMenuBlade/~/subscriptions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 구독 목록 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+              <a
+                href="https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Azure Portal &gt; 액세스 제어(IAM) 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+            </div>
+            <div className="mt-6 space-y-2">
+              <Label htmlFor="subscriptionIdInline">구독 ID *</Label>
+              <Input
+                id="subscriptionIdInline"
+                placeholder="12345678-1234-1234-1234-123456789012"
+                value={credentials.subscriptionId || ''}
+                onChange={(e) => setCredentials({ ...credentials, subscriptionId: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Step 4 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">4. Budgetops에서 계정 연동</h3>
+            <p className="text-sm text-gray-600">
+              위 단계에서 준비한 구독 ID · 테넌트 ID · 클라이언트 ID · 클라이언트 비밀 값을 모두 입력하고 <strong>계정 연동</strong> 버튼을 눌러 주세요.
+            </p>
+          </div>
+
+          <div className="pt-2 text-xs text-gray-500">
+            자세한 단계별 가이드는{' '}
+            <a
+              href="https://github.com/YYOAJUNG/budgetops-frontend/blob/main/docs/azure-account-tutorial.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              사내 문서
+            </a>{' '}
+            또는{' '}
+            <a
+              href="https://learn.microsoft.com/azure/active-directory/develop/quickstart-register-app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Microsoft 공식 문서
+            </a>
+            를 참고해 주세요.
+          </div>
+        </div>
+      );
+    } else if (selectedProvider === 'GCP') {
+      return (
+        <div className="space-y-6">
+          {/* 계정 이름 */}
+          <div>
+            <Label htmlFor="accountName">계정 이름 *</Label>
+            <Input
+              id="accountName"
+              placeholder="예: Production GCP"
+              value={credentials.accountName}
+              onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
+            />
+          </div>
+
+          {/* Step 1: 서비스 계정 생성 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">1. 서비스 계정 생성</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              GCP 콘솔에서 연동하려는 프로젝트의 서비스 계정을 생성한 뒤 서비스 계정 ID를 입력해 주세요.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="serviceAccountId">서비스 계정 ID</Label>
+              <Input
+                id="serviceAccountId"
+                placeholder="example-service-account@project-name-12345.iam.gserviceaccount.com"
+                value={credentials.serviceAccountId || ''}
+                onChange={(e) => setCredentials({ ...credentials, serviceAccountId: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-gray-600 mb-3">아래 4개의 역할을 부여해 주세요.</p>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">기본 &gt; 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">모니터링 &gt; 모니터링 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">BigQuery &gt; BigQuery 데이터 뷰어</code>
+              <span>,</span>
+              <code className="bg-gray-100 px-2 py-1 rounded text-gray-800">BigQuery &gt; BigQuery 작업 사용자</code>
+            </div>
+          </div>
+
+          <div>
+            <a
+              href="https://console.cloud.google.com/iam-admin/serviceaccounts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              GCP 콘솔 &gt; 서비스 계정 탭 열기
+              <ExternalLink className="ml-1 h-4 w-4" />
+            </a>
+          </div>
+
+          {/* Step 2: 서비스 계정 JSON 키 업로드 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">2. 서비스 계정 JSON 키 업로드</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              생성한 서비스 계정의 키 탭으로 이동하여 키를 추가해 주세요. 키 유형은 JSON으로 선택해 주세요.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {credentials.jsonKeyFile ? 'JSON 파일 업로드됨' : 'JSON 파일 업로드'}
+                </Button>
+                {credentials.jsonKeyFileName && (
+                  <p className="text-xs text-gray-500 mt-2">{credentials.jsonKeyFileName}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: 결제 내보내기 설정 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">3. 결제 내보내기 설정</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              비용 데이터를 가져오기 위해 BigQuery 내보내기 탭에서 자세한 사용량 비용 설정 수정을 눌러 주세요.
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              앞에서 선택한 프로젝트와 동일한 프로젝트를 선택하고, 새 데이터 세트 <code className="bg-gray-100 px-1 rounded">billing_export_dataset</code> 을 만들어 주세요.
+            </p>
+            
+            <div>
+              <a
+                href="https://console.cloud.google.com/billing/export"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                GCP 콘솔 &gt; 결제 내보내기 탭 열기
+                <ExternalLink className="ml-1 h-4 w-4" />
+              </a>
+            </div>
+          </div>
+
+          {/* Step 4: 결제 계정 설정 */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">4. 결제 계정 설정</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              결제 계정 관리 탭으로 이동하여 계정 ID를 입력해 주세요.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="billingAccountId">결제 계정 ID</Label>
+                <Input
+                  id="billingAccountId"
+                  placeholder="EXAMPL-123456-ABC123"
+                  value={credentials.billingAccountId || ''}
+                  onChange={(e) => setCredentials({ ...credentials, billingAccountId: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <a
+                  href="https://console.cloud.google.com/billing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  GCP 콘솔 &gt; 결제 계정 관리 탭 열기
+                  <ExternalLink className="ml-1 h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* 연결 테스트 */}
+          <div className="pt-6 border-t border-gray-200">
+            <div className="space-y-4">
+              <Button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={!isCredentialsValid() || isTestingConnection}
+                className={cn(
+                  'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
+                  (!isCredentialsValid() || isTestingConnection) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {isTestingConnection ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    테스트 중...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    연결 테스트
+                  </>
+                )}
+              </Button>
+              {testResult && (
+                <div className={cn(
+                  'flex items-start gap-2 text-sm p-3 rounded-lg',
+                  testResult.success 
+                    ? 'bg-green-50 text-green-800 border border-green-200' 
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                )}>
+                  {testResult.success ? (
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  ) : null}
+                  <span className="whitespace-pre-line">{testResult.message}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    } else if (selectedProvider === 'NCP') {
+      return (
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="accountName">계정 이름 *</Label>
+            <Input
+              id="accountName"
+              placeholder="예: Production NCP"
+              value={credentials.accountName}
+              onChange={(e) => setCredentials({ ...credentials, accountName: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="accessKey">Access Key *</Label>
+            <Input
+              id="accessKey"
+              placeholder="NCP Access Key"
+              value={credentials.accessKey || ''}
+              onChange={(e) => setCredentials({ ...credentials, accessKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="secretKey">Secret Key *</Label>
+            <Input
+              id="secretKey"
+              type="password"
+              placeholder="NCP Secret Key"
+              value={credentials.secretKey || ''}
+              onChange={(e) => setCredentials({ ...credentials, secretKey: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="regionCode">Region Code (선택사항)</Label>
+            <Input
+              id="regionCode"
+              placeholder="KR"
+              value={credentials.regionCode || ''}
+              onChange={(e) => setCredentials({ ...credentials, regionCode: e.target.value })}
+            />
+          </div>
+        </div>
       );
     }
     return null;
   };
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0">
+      <DialogContent className="w-[calc(100%-2rem)] sm:w-[700px] sm:min-w-[700px] max-w-[700px] p-0 mx-4 sm:mx-auto">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -326,6 +878,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               setStep('select');
               setSelectedProvider(null);
               setCredentials({ accountName: '' });
+              setTestResult(null);
             }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -334,7 +887,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
         </div>
 
         {/* 본문 */}
-        <div className="p-6">
+        <div className="p-6 w-full">
           {step === 'select' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">클라우드 서비스 선택</h3>
@@ -368,7 +921,12 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                 </div>
                 <p className="text-sm text-gray-600">
                   원하는 클라우드 서비스가 없으신가요?{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
+                  <a 
+                    href={FEEDBACK_LINK} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
                     BudgetOps에게 알려 주세요.
                   </a>
                 </p>
@@ -394,8 +952,7 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               variant="outline"
               className="border-gray-300 text-gray-700"
             >
-              <ChevronLeft className="h-5 w-5 mr-1" />
-              이전
+              <ChevronLeft className="h-5 w-5" />
             </Button>
           )}
           <div className="ml-auto">
@@ -410,6 +967,17 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
               >
                 다음
                 <ChevronRight className="h-5 w-5 ml-1" />
+              </Button>
+            ) : needsConnectionTest() ? (
+              <Button
+                onClick={handleSubmit}
+                disabled={!testResult || !testResult.success || isSubmitting}
+                className={cn(
+                  'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg',
+                  (!testResult || !testResult.success || isSubmitting) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {isSubmitting ? '연동 중...' : '연동 완료'}
               </Button>
             ) : (
               <Button

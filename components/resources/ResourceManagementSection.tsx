@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getResources, ResourceItem } from '@/lib/api/resources';
+import { PROVIDER_COLORS } from '@/constants/mypage';
 import {
   getAllEc2Instances,
   AwsEc2Instance,
@@ -14,8 +15,12 @@ import {
   startEc2Instance,
   terminateEc2Instance,
 } from '@/lib/api/aws';
+import { getAllGcpResources, GcpResource, getGcpAccounts } from '@/lib/api/gcp';
+import { getAzureAccounts } from '@/lib/api/azure';
+import { getNcpAccounts } from '@/lib/api/ncp';
 import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
+import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import {
   Server,
   Play,
@@ -39,7 +44,7 @@ function formatDate(iso: string): string {
 function getServiceIcon(service: string) {
   switch (service) {
     case 'EC2':
-    case 'Compute Engine':
+    case 'Instance':
     case 'Virtual Machines':
       return Server;
     default:
@@ -76,9 +81,15 @@ export function ResourceManagementSection() {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
+  const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
+    region?: string;
+  } | null>(null);
+  const [selectedGcpResource, setSelectedGcpResource] = useState<{
+    resourceId: string;
+    instanceName: string;
     region?: string;
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
@@ -90,17 +101,46 @@ export function ResourceManagementSection() {
     gcTime: 0, // 캐시 시간 최소화
   });
 
+  const { data: gcpAccountsList } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   // 활성 계정만 필터링
   const activeAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account) => account.active === true);
   }, [awsAccounts]);
+
+  const hasCloudAccounts = useMemo(() => {
+    const hasAws = (awsAccounts?.length ?? 0) > 0;
+    const hasGcp = (gcpAccountsList?.length ?? 0) > 0;
+    const hasAzure = (azureAccounts?.length ?? 0) > 0;
+    const hasNcp = (ncpAccounts?.length ?? 0) > 0;
+    return hasAws || hasGcp || hasAzure || hasNcp;
+  }, [awsAccounts, gcpAccountsList, azureAccounts, ncpAccounts]);
 
   const hasAwsAccounts = activeAccounts.length > 0;
 
   const { data: resources, isLoading, isError, error: resourcesError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
     queryFn: getResources,
-    enabled: hasAwsAccounts,
+    enabled: hasCloudAccounts,
     retry: 1,
   });
 
@@ -111,12 +151,32 @@ export function ResourceManagementSection() {
     retry: 1,
   });
 
+  // GCP 리소스 조회
+  const { data: gcpAccountResources, refetch: refetchGcp } = useQuery({
+    queryKey: ['gcp-resources'],
+    queryFn: getAllGcpResources,
+    retry: 1,
+  });
+
+  // GCP 리소스를 resourceId로 인덱싱된 Map으로 변환
+  const gcpResourceMap = useMemo(() => {
+    const map = new Map<string, GcpResource>();
+    if (gcpAccountResources) {
+      for (const accountResources of gcpAccountResources) {
+        for (const resource of accountResources.resources) {
+          map.set(resource.resourceId, resource);
+        }
+      }
+    }
+    return map;
+  }, [gcpAccountResources]);
+
   // 리소스와 EC2 인스턴스 매핑
   const resourcesWithDetails = useMemo(() => {
-    if (!resources || !ec2Data) return [];
+    if (!resources) return [];
 
     return resources.map((resource) => {
-      const ec2Instance = ec2Data.find((ec2) => ec2.instanceId === resource.id);
+      const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
       let accountId: number | null = null;
       if (ec2Instance && activeAccounts.length > 0) {
         // 활성 계정만 사용
@@ -140,6 +200,7 @@ export function ResourceManagementSection() {
     try {
       await stopEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 정지 오류:', error);
@@ -154,6 +215,7 @@ export function ResourceManagementSection() {
     try {
       await startEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 시작 오류:', error);
@@ -172,6 +234,7 @@ export function ResourceManagementSection() {
     try {
       await terminateEc2Instance(accountId, instance.instanceId, region);
       queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     } catch (error: any) {
       console.error('인스턴스 삭제 오류:', error);
@@ -186,9 +249,14 @@ export function ResourceManagementSection() {
     setShowMetricsDialog(true);
   };
 
+  const handleShowGcpMetrics = (resourceId: string, instanceName: string, region?: string) => {
+    setSelectedGcpResource({ resourceId, instanceName, region });
+    setShowGcpMetricsDialog(true);
+  };
+
   const activeAccount = activeAccounts.length > 0 ? activeAccounts[0] : null;
 
-  if (!hasAwsAccounts) {
+  if (!hasCloudAccounts) {
     return (
       <Card className="border-2 border-blue-200 bg-blue-50">
         <CardContent className="p-8 text-center">
@@ -201,7 +269,7 @@ export function ResourceManagementSection() {
                 클라우드 계정을 먼저 연결하세요
               </h3>
               <p className="text-sm text-blue-700 mb-4">
-                리소스를 관리하려면 AWS 계정 연동이 필요합니다.
+                리소스를 관리하려면 클라우드 계정 연동이 필요합니다.
               </p>
             </div>
           </div>
@@ -228,7 +296,9 @@ export function ResourceManagementSection() {
                 onClick={() => {
                   refetch();
                   refetchEc2();
+                  refetchGcp();
                   queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+                  queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
                 }}
                 disabled={isFetching}
                 className="gap-2"
@@ -236,7 +306,7 @@ export function ResourceManagementSection() {
                 <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                 새로고침
               </Button>
-              {activeAccount && (
+              {/* {activeAccount && (
                 <Button
                   size="sm"
                   onClick={() => setShowCreateDialog(true)}
@@ -245,7 +315,7 @@ export function ResourceManagementSection() {
                   <Plus className="h-4 w-4" />
                   인스턴스 생성
                 </Button>
-              )}
+              )} */}
             </div>
           </div>
         </CardHeader>
@@ -274,6 +344,7 @@ export function ResourceManagementSection() {
                   onClick={() => {
                     refetch();
                     refetchEc2();
+                    refetchGcp();
                   }}
                   className="mt-3"
                 >
@@ -304,6 +375,8 @@ export function ResourceManagementSection() {
                   {resourcesWithDetails.map(({ resource, ec2Instance, accountId }) => {
                     const ServiceIcon = getServiceIcon(resource.service);
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
+                    const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance';
+                    const gcpResource = isGcpInstance ? gcpResourceMap.get(resource.id) : undefined;
                     const isOperating = operatingInstanceId === resource.id;
 
                     return (
@@ -314,7 +387,9 @@ export function ResourceManagementSection() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <ServiceIcon className="h-4 w-4 text-slate-500" />
-                            <Badge className="bg-sky-100 text-sky-700">{resource.provider}</Badge>
+                            <Badge className={PROVIDER_COLORS[resource.provider]}>
+                              {resource.provider}
+                            </Badge>
                             <span className="text-sm text-slate-600">{resource.service}</span>
                           </div>
                         </td>
@@ -324,6 +399,11 @@ export function ResourceManagementSection() {
                             {isEc2 && (
                               <div className="text-xs text-slate-500 font-mono mt-1">
                                 {ec2Instance.instanceId}
+                              </div>
+                            )}
+                            {resource.provider === 'GCP' && resource.service === 'Instance' && (
+                              <div className="text-xs text-slate-500 font-mono mt-1">
+                                {resource.id}
                               </div>
                             )}
                           </div>
@@ -390,6 +470,22 @@ export function ResourceManagementSection() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
+                            ) : isGcpInstance && gcpResource ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleShowGcpMetrics(
+                                    gcpResource.resourceId,
+                                    gcpResource.resourceName || gcpResource.resourceId,
+                                    resource.region
+                                  )
+                                }
+                                className="h-8 px-2"
+                                title="메트릭 보기"
+                              >
+                                <Activity className="h-4 w-4 text-blue-600" />
+                              </Button>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -414,7 +510,9 @@ export function ResourceManagementSection() {
           onSuccess={async () => {
             await refetch();
             await refetchEc2();
+            await refetchGcp();
             queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
+            queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
             queryClient.invalidateQueries({ queryKey: ['resources'] });
           }}
         />
@@ -428,6 +526,16 @@ export function ResourceManagementSection() {
           instanceId={selectedInstance.instance.instanceId}
           instanceName={selectedInstance.instance.name || selectedInstance.instance.instanceId}
           region={selectedInstance.region}
+        />
+      )}
+
+      {selectedGcpResource && (
+        <GcpInstanceMetricsDialog
+          open={showGcpMetricsDialog}
+          onOpenChange={setShowGcpMetricsDialog}
+          resourceId={selectedGcpResource.resourceId}
+          instanceName={selectedGcpResource.instanceName}
+          region={selectedGcpResource.region}
         />
       )}
     </>

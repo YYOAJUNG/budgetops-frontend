@@ -86,19 +86,22 @@ export function UserMenu({ user }: UserMenuProps) {
             <span>클라우드 계정 연동</span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => router.push('/billing')}
+            onClick={() => {
+              router.push('/mypage#subscription');
+              setOpen(false);
+            }}
             className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
           >
             <CreditCard className="mr-3 h-4 w-4 text-gray-500" />
             <span>구독 및 결제</span>
           </DropdownMenuItem>
-          <DropdownMenuItem
+          {/* <DropdownMenuItem
             onClick={() => router.push('/settings')}
             className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
           >
             <Settings className="mr-3 h-4 w-4 text-gray-500" />
             <span>설정</span>
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
           {user && (
             <>
               <DropdownMenuSeparator className="bg-gray-100" />

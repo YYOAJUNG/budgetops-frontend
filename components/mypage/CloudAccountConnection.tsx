@@ -11,6 +11,9 @@ import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
+import { getAzureAccounts, deleteAzureAccount, type AzureAccount } from '@/lib/api/azure';
+import { getGcpAccounts, deleteGcpAccount, type GcpAccount } from '@/lib/api/gcp';
+import { getNcpAccounts, deleteNcpAccount, type NcpAccount } from '@/lib/api/ncp';
 
 export function CloudAccountConnection() {
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -20,14 +23,32 @@ export function CloudAccountConnection() {
     queryKey: ['currentUser'],
     queryFn: getCurrentUser,
   });
-  const { data: awsAccounts, refetch: refetchAws, isLoading: isLoadingAccounts } = useQuery({
+  const { data: awsAccounts, refetch: refetchAws, isLoading: isLoadingAws } = useQuery({
     queryKey: ['awsAccounts'],
     queryFn: getAwsAccounts,
     staleTime: 0, // 항상 최신 데이터 가져오기
     gcTime: 0, // 캐시 시간 최소화 (React Query v5)
   });
+  const { data: azureAccounts, refetch: refetchAzure, isLoading: isLoadingAzure } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const { data: gcpAccounts, refetch: refetchGcp, isLoading: isLoadingGcp } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    gcTime: 0, // 캐시 시간 최소화 (React Query v5)
+  });
+  const { data: ncpAccounts, refetch: refetchNcp, isLoading: isLoadingNcp } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
   const mergedAccounts = useMemo<CloudAccount[]>(() => {
-    const mapped: CloudAccount[] =
+    const awsMapped: CloudAccount[] =
       (awsAccounts || []).map((a: AwsAccount) => ({
         id: String(a.id),
         provider: 'AWS',
@@ -37,9 +58,39 @@ export function CloudAccountConnection() {
         lastSync: new Date().toISOString(),
         monthlyCost: 0,
       }));
-    // API 결과만 반환 (더미 데이터 제거)
-    return mapped;
-  }, [awsAccounts]);
+    const gcpMapped: CloudAccount[] =
+      (gcpAccounts || []).map((g: GcpAccount) => ({
+        id: String(g.id),
+        provider: 'GCP',
+        accountName: g.name || g.serviceAccountName, // 사용자가 입력한 계정 이름, 없으면 serviceAccountName 사용
+        accountId: `${g.serviceAccountName}@${g.projectId}`, // serviceaccountname@projectid 형식
+        status: 'connected' as const,
+        lastSync: g.createdAt || new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    const azureMapped: CloudAccount[] =
+      (azureAccounts || []).map((a: AzureAccount) => ({
+        id: `azure-${a.id}`,
+        provider: 'Azure' as const,
+        accountName: a.name,
+        accountId: a.subscriptionId,
+        status: a.active ? 'connected' : 'pending',
+        lastSync: new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    const ncpMapped: CloudAccount[] =
+      (ncpAccounts || []).map((n: NcpAccount) => ({
+        id: `ncp-${n.id}`,
+        provider: 'NCP' as const,
+        accountName: n.name,
+        accountId: n.accessKey,
+        status: n.active ? 'connected' : 'pending',
+        lastSync: new Date().toISOString(),
+        monthlyCost: 0,
+      }));
+    // AWS, GCP, Azure, NCP 계정을 합쳐서 반환
+    return [...awsMapped, ...gcpMapped, ...azureMapped, ...ncpMapped];
+  }, [awsAccounts, gcpAccounts, azureAccounts, ncpAccounts]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -75,14 +126,52 @@ export function CloudAccountConnection() {
       const awsAccount = awsAccounts?.find((a: AwsAccount) => String(a.id) === id);
       if (awsAccount) {
         await deleteAwsAccount(awsAccount.id);
+        // 캐시 완전히 제거 및 목록 재조회
+        queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+        await refetchAws();
+        // 추가로 한 번 더 무효화하여 최신 데이터 확보
+        queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+        await refetchAws();
+      } else {
+        // GCP 계정인 경우 API 호출
+        const gcpAccount = gcpAccounts?.find((g: GcpAccount) => String(g.id) === id);
+        if (gcpAccount) {
+          console.log('Deleting GCP account:', gcpAccount.id, gcpAccount);
+          await deleteGcpAccount(gcpAccount.id);
+          // 캐시 완전히 제거 및 목록 재조회
+          queryClient.removeQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.removeQueries({ queryKey: ['gcp-resources'] });
+          await refetchGcp();
+          // 추가로 한 번 더 무효화하여 최신 데이터 확보
+          queryClient.invalidateQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+          await refetchGcp();
+        } else {
+          // Azure 계정인 경우 API 호출
+          const azureAccount = azureAccounts?.find((a: AzureAccount) => `azure-${a.id}` === id);
+          if (azureAccount) {
+            await deleteAzureAccount(azureAccount.id);
+            // 캐시 완전히 제거 및 목록 재조회
+            queryClient.removeQueries({ queryKey: ['azureAccounts'] });
+            await refetchAzure();
+            // 추가로 한 번 더 무효화하여 최신 데이터 확보
+            queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+            await refetchAzure();
+          } else {
+            // NCP 계정인 경우 API 호출
+            const ncpAccount = ncpAccounts?.find((n: NcpAccount) => `ncp-${n.id}` === id);
+            if (ncpAccount) {
+              await deleteNcpAccount(ncpAccount.id);
+              // 캐시 완전히 제거 및 목록 재조회
+              queryClient.removeQueries({ queryKey: ['ncpAccounts'] });
+              await refetchNcp();
+              // 추가로 한 번 더 무효화하여 최신 데이터 확보
+              queryClient.invalidateQueries({ queryKey: ['ncpAccounts'] });
+              await refetchNcp();
+            }
+          }
+        }
       }
-      
-      // 캐시 완전히 제거 및 목록 재조회
-      queryClient.removeQueries({ queryKey: ['awsAccounts'] });
-      await refetchAws();
-      // 추가로 한 번 더 무효화하여 최신 데이터 확보
-      queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
-      await refetchAws();
     } catch (error: any) {
       console.error('계정 삭제 오류:', error);
       const errorMessage = error?.response?.data?.message || error?.message || '계정 삭제 중 오류가 발생했습니다.';
@@ -101,7 +190,7 @@ export function CloudAccountConnection() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">클라우드 계정 연동</h2>
-          <p className="text-gray-600 mt-1">AWS, GCP, Azure 계정을 연결하여 비용을 관리하세요</p>
+          <p className="text-gray-600 mt-1">AWS, GCP, Azure, NCP 계정을 연결하여 비용을 관리하세요</p>
         </div>
         <Button
           onClick={handleAddAccount}
@@ -218,14 +307,27 @@ export function CloudAccountConnection() {
         onSuccess={async () => {
           // 계정 추가 성공 시 캐시 완전히 제거 및 재조회
           queryClient.removeQueries({ queryKey: ['awsAccounts'] });
+          queryClient.removeQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.removeQueries({ queryKey: ['azureAccounts'] });
+          queryClient.removeQueries({ queryKey: ['ncpAccounts'] });
           await refetchAws();
+          await refetchGcp();
+          await refetchAzure();
+          await refetchNcp();
           // 추가로 한 번 더 무효화하여 최신 데이터 확보
           queryClient.invalidateQueries({ queryKey: ['awsAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['gcpAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+          queryClient.invalidateQueries({ queryKey: ['ncpAccounts'] });
           await refetchAws();
+          await refetchGcp();
+          await refetchAzure();
+          await refetchNcp();
           // 리소스 및 비용 관련 캐시도 무효화
           queryClient.invalidateQueries({ queryKey: ['resources'] });
           queryClient.invalidateQueries({ queryKey: ['ec2-instances'] });
           queryClient.invalidateQueries({ queryKey: ['awsAccountCosts'] });
+          queryClient.invalidateQueries({ queryKey: ['azureAccountCosts'] });
         }}
         userName={user?.name || '사용자'}
       />

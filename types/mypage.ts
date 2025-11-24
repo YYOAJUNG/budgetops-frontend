@@ -13,7 +13,7 @@ export interface UserProfile {
 }
 
 // Cloud account types
-export type CloudProvider = 'AWS' | 'GCP' | 'Azure';
+export type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'NCP' | 'Oracle' | 'Alibaba';
 export type AccountStatus = 'connected' | 'error' | 'pending';
 
 export interface CloudAccount {
