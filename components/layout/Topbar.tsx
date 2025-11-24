@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { MessageCircle } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect } from 'react';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/api/notifications';
@@ -54,7 +54,13 @@ export function Topbar() {
           className="p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative"
           aria-label="AI 어시스턴트"
         >
-          <MessageCircle className="h-5 w-5 text-indigo-600 group-hover:scale-110 transition-transform" />
+          <Image 
+            src="/ai-chat-icon.png" 
+            alt="AI 어시스턴트" 
+            width={20} 
+            height={20} 
+            className="group-hover:scale-110 transition-transform"
+          />
           {!aiChatOpen && unread > 0 && (
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
           )}
