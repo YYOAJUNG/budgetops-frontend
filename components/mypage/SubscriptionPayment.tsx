@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -327,8 +327,16 @@ export function SubscriptionPayment() {
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
 
-  const { user, isLoading: authLoading } = useAuthStore();
+  const { user, isLoading: authLoading, checkAuth } = useAuthStore();
   const userId = user?.id;
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      checkAuth().catch((err) => {
+        console.error('[SubscriptionPayment] checkAuth failed:', err);
+      });
+    }
+  }, [authLoading, user, checkAuth]);
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription', userId],
@@ -348,20 +356,11 @@ export function SubscriptionPayment() {
     enabled: !!userId,
   });
 
-  if (authLoading) {
+  if (authLoading || !userId) {
     return (
       <div className="p-8">
         <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
         <p className="text-gray-600 mt-1">사용자 정보를 불러오는 중입니다...</p>
-      </div>
-    );
-  }
-
-  if (!userId) {
-    return (
-      <div className="p-8">
-        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
-        <p className="text-gray-600 mt-1">로그인이 필요합니다.</p>
       </div>
     );
   }
