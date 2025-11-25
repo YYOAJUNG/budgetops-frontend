@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Globe, Shield, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toggle } from '@/components/ui/toggle';
 import { SettingsState } from '@/types/mypage';
+import { deleteCurrentUser } from '@/lib/api/user';
+import { useAuthStore } from '@/store/auth';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
@@ -32,6 +35,9 @@ export function Settings() {
       twoFactorAuth: false,
     },
   });
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const router = useRouter();
+  const { logout } = useAuthStore();
 
   const handleToggle = (section: keyof SettingsState, key: string) => {
     setSettings((prev) => ({
@@ -55,6 +61,32 @@ export function Settings() {
 
   const handleSave = () => {
     // TODO: API 호출로 설정 저장
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+
+    const confirmed = window.confirm(
+      '정말로 회원 탈퇴를 진행하시겠습니까?\n모든 클라우드 연동 정보와 결제/빌링 데이터가 삭제되며 이 작업은 되돌릴 수 없습니다.'
+    );
+    if (!confirmed) return;
+
+    setIsDeletingAccount(true);
+    try {
+      await deleteCurrentUser();
+      await logout();
+      alert('회원 탈퇴가 완료되었습니다. 지금까지 이용해 주셔서 감사합니다.');
+      router.push('/');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        '회원 탈퇴 처리 중 문제가 발생했습니다.';
+      alert(message);
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   return (
@@ -244,12 +276,21 @@ export function Settings() {
               />
             </div>
 
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-200 flex flex-wrap items-center gap-3">
               <Button
                 variant="outline"
                 className="border-gray-300 text-gray-700"
               >
                 비밀번호 변경
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteAccount}
+                disabled={isDeletingAccount}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeletingAccount ? '탈퇴 처리 중...' : '회원 탈퇴'}
               </Button>
             </div>
           </CardContent>
