@@ -105,6 +105,7 @@ import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/
 import { getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
 import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
+import { getBudgetUsage } from '@/lib/api/budget';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -123,6 +124,10 @@ export function Dashboard() {
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
   const { data: recommendationsRaw } = useRecommendations(tenantId);
+  const { data: budgetUsage } = useQuery({
+    queryKey: ['budgetUsage'],
+    queryFn: getBudgetUsage,
+  });
   
   // AWS 계정 목록 조회
   const { data: awsAccounts } = useQuery({
@@ -400,6 +405,10 @@ export function Dashboard() {
 
   // 이번 달 총 비용에 AWS, Azure, NCP 비용도 포함 (통화 변환 적용)
   const totalCurrentMonthCost = useMemo(() => {
+    if (budgetUsage) {
+      const sourceCurrency = (budgetUsage.currency ?? 'KRW') as 'KRW' | 'USD';
+      return convertCurrency(budgetUsage.currentMonthCost ?? 0, sourceCurrency, currency);
+    }
     // AWS 비용은 USD로 반환되므로, 선택된 currency에 맞게 변환
     const convertedAwsCost = convertCurrency(totalAwsCostUsd, 'USD', currency);
     // Azure 비용은 원래 통화에서 선택된 currency로 변환
@@ -408,7 +417,7 @@ export function Dashboard() {
     const convertedNcpCost = convertCurrency(totalNcpCost.amount, totalNcpCost.currency as 'KRW' | 'USD', currency);
     // costSeries의 비용과 변환된 AWS, Azure, NCP 비용을 합산
     return currentMonthCost + convertedAwsCost + convertedAzureCost + convertedNcpCost;
-  }, [currentMonthCost, totalAwsCostUsd, totalAzureCost, totalNcpCost, currency]);
+  }, [budgetUsage, currentMonthCost, totalAwsCostUsd, totalAzureCost, totalNcpCost, currency]);
 
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
@@ -420,12 +429,36 @@ export function Dashboard() {
     0
   );
 
-  const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const fallbackBudgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const budgetUtilization = budgetUsage?.usagePercentage ?? fallbackBudgetUtilization;
 
   const totalSavings = recommendations.reduce(
     (sum: number, r: Recommendation) => sum + (r.saving ?? 0),
     0
   );
+
+  const budgetAdditionalInfo = useMemo(() => {
+    if (!budgetUsage || (budgetUsage.monthlyBudgetLimit ?? 0) <= 0) {
+      return <p className="text-xs text-gray-500">예산을 설정해 주세요.</p>;
+    }
+    const sourceCurrency = (budgetUsage.currency ?? 'KRW') as 'KRW' | 'USD';
+    const currentCostDisplay = formatCurrency(
+      convertCurrency(budgetUsage.currentMonthCost ?? 0, sourceCurrency, currency),
+      currency
+    );
+    const budgetDisplay = formatCurrency(
+      convertCurrency(budgetUsage.monthlyBudgetLimit ?? 0, 'KRW', currency),
+      currency
+    );
+    return (
+      <>
+        <p className="text-xs text-gray-500">이번 달 비용 {currentCostDisplay}</p>
+        <p className="text-xs text-gray-500">
+          설정 예산 {budgetDisplay} · 임계값 {budgetUsage.alertThreshold ?? 0}%
+        </p>
+      </>
+    );
+  }, [budgetUsage, currency]);
 
   return (
     <div className="space-y-6">
@@ -449,6 +482,7 @@ export function Dashboard() {
           title="예산 소진률"
           value={`${budgetUtilization.toFixed(1)}%`}
           icon={<Target className="h-4 w-4" />}
+          additionalInfo={budgetAdditionalInfo}
         />
         <StatCard
           title="프리티어 사용률"

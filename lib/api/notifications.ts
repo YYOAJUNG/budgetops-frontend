@@ -3,6 +3,7 @@ import { checkAwsAlerts, AwsAlert } from './aws';
 import { checkGcpAlerts, GcpAlert } from './gcp';
 import { checkAzureAlerts, AzureAlert } from './azure';
 import { checkNcpAlerts, NcpAlert } from './ncp';
+import { checkBudgetAlerts, type BudgetAlert } from './budget';
 
 /**
  * AWS 알림(EC2/RDS/S3 등)을 AppNotification 형태로 변환
@@ -100,6 +101,22 @@ function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
   };
 }
 
+function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
+  const usageMessage = alert.message
+    ? alert.message
+    : `예산의 ${alert.usagePercentage?.toFixed(1) ?? 0}%를 사용했습니다.`;
+
+  return {
+    id: `budget-alert-${alert.triggeredAt}`,
+    title: '예산 임계값 도달',
+    message: usageMessage,
+    timestamp: alert.triggeredAt ?? new Date().toISOString(),
+    isRead: false,
+    importance: 'high',
+    service: 'Budget',
+  };
+}
+
 /**
  * 백엔드에서 실시간 알림 가져오기
  */
@@ -148,6 +165,14 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     notifications.push(...ncpNotifications);
   } catch (error) {
     console.error('[Notifications] Failed to fetch NCP alerts:', error);
+  }
+
+  // 예산 임계값 알림
+  try {
+    const budgetAlerts = await checkBudgetAlerts();
+    budgetAlerts.forEach((alert) => notifications.push(convertBudgetAlertToNotification(alert)));
+  } catch (error) {
+    console.error('[Notifications] Failed to fetch budget alerts:', error);
   }
 
   console.log(`[Notifications] Total ${notifications.length} alerts fetched`);
