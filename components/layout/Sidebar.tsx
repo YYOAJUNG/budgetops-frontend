@@ -72,8 +72,8 @@ export function Sidebar() {
       >
       <div className={cn(
         "flex h-16 items-center justify-between border-b border-gray-200",
-        "px-6 md:px-0",
-        sidebarCollapsed && "md:justify-center"
+        "px-6",
+        sidebarCollapsed && "md:justify-center md:px-0"
       )}>
         <Link href="/dashboard" className="flex items-center overflow-hidden">
           <h1 className={cn(

@@ -64,8 +64,8 @@ export function Topbar() {
         <Menu className="h-6 w-6 text-gray-700" />
       </button>
 
-      {/* Spacer for mobile, hidden on desktop */}
-      <div className="flex-1 md:hidden" />
+      {/* Spacer to push icons to the right */}
+      <div className="flex-1" />
 
       <div className="flex items-center space-x-2">
         <Button
