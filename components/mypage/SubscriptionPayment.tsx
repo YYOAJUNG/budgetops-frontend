@@ -352,7 +352,7 @@ export function SubscriptionPayment() {
     enabled: !!userId,
   });
 
-  if (authLoading || !userId) {
+  if (isUserLoading || !userId) {
     return (
       <div className="p-8">
         <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
@@ -387,7 +387,7 @@ export function SubscriptionPayment() {
    */
   const handlePlanSelect = async (planId: string) => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 
@@ -450,7 +450,7 @@ export function SubscriptionPayment() {
    */
   const handlePaymentMethodSubmit = async () => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 
@@ -506,7 +506,7 @@ export function SubscriptionPayment() {
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 
