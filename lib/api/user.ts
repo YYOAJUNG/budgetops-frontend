@@ -58,3 +58,8 @@ export async function updateUser(userData: Partial<User>): Promise<User> {
 
   return { ...mockUser, ...userData };
 }
+
+// 회원 탈퇴
+export async function deleteCurrentUser(): Promise<void> {
+  await api.delete('/members/me');
+}
