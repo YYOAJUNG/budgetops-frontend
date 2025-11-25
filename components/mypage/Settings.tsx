@@ -39,7 +39,7 @@ export function Settings() {
     },
   });
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [budgetAmount, setBudgetAmount] = useState<number>(0);
+  const [budgetAmountInput, setBudgetAmountInput] = useState<string>('');
   const [alertThreshold, setAlertThreshold] = useState<number>(80);
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -52,7 +52,11 @@ export function Settings() {
 
   useEffect(() => {
     if (budgetSettings) {
-      setBudgetAmount(budgetSettings.monthlyBudgetLimit ?? 0);
+      setBudgetAmountInput(
+        budgetSettings.monthlyBudgetLimit !== undefined && budgetSettings.monthlyBudgetLimit !== null
+          ? String(budgetSettings.monthlyBudgetLimit)
+          : ''
+      );
       setAlertThreshold(budgetSettings.alertThreshold ?? 80);
     }
   }, [budgetSettings]);
@@ -71,6 +75,12 @@ export function Settings() {
       alert(message);
     },
   });
+
+  const budgetAmount = useMemo(() => {
+    if (!budgetAmountInput) return 0;
+    const parsed = Number(budgetAmountInput);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }, [budgetAmountInput]);
 
   const formattedBudget = useMemo(() => {
     return budgetAmount.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
@@ -127,6 +137,10 @@ export function Settings() {
   };
 
   const handleBudgetSave = () => {
+    if (!budgetAmountInput) {
+      alert('예산 한도를 입력해주세요.');
+      return;
+    }
     if (budgetAmount <= 0) {
       alert('예산 한도는 0보다 커야 합니다.');
       return;
@@ -174,8 +188,9 @@ export function Settings() {
                   <Input
                     type="number"
                     min={0}
-                    value={budgetAmount}
-                    onChange={(e) => setBudgetAmount(Number(e.target.value))}
+                    inputMode="numeric"
+                    value={budgetAmountInput}
+                    onChange={(e) => setBudgetAmountInput(e.target.value)}
                     disabled={isBudgetLoading}
                     className="appearance-none"
                   />
