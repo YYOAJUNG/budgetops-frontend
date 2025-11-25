@@ -4,14 +4,19 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Menu } from 'lucide-react';
 import { useEffect } from 'react';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/api/notifications';
 
+// 모바일 반응형 관련 상수
+const MOBILE_MENU_BUTTON = 'md:hidden p-2 rounded-lg transition-all hover:bg-gray-100';
+const TOPBAR_BASE = 'flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur px-4 md:px-6 shadow-sm';
+const AI_CHAT_BUTTON = 'p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative';
+
 export function Topbar() {
   const { user } = useAuthStore();
-  const { toggleAIChat, aiChatOpen } = useUIStore();
+  const { toggleAIChat, aiChatOpen, toggleMobileSidebar } = useUIStore();
   const {
     notifications,
     setNotifications,
@@ -47,11 +52,23 @@ export function Topbar() {
   const unread = unreadCount();
 
   return (
-    <div className="flex h-16 items-center justify-end border-b border-slate-200 bg-white/95 backdrop-blur px-6 shadow-sm">
-      <div className="flex items-center space-x-2">
+    <div className={TOPBAR_BASE}>
+      {/* Mobile Hamburger Menu */}
+      <button
+        onClick={toggleMobileSidebar}
+        className={MOBILE_MENU_BUTTON}
+        aria-label="메뉴 열기"
+      >
+        <Menu className="h-6 w-6 text-gray-700" />
+      </button>
+
+      {/* Spacer for mobile, hidden on desktop */}
+      <div className="flex-1 md:hidden" />
+
+      <div className="flex items-center space-x-2 md:ml-auto">
         <button
           onClick={toggleAIChat}
-          className="p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative"
+          className={AI_CHAT_BUTTON}
           aria-label="AI 어시스턴트"
         >
           <MessageCircle className="h-5 w-5 text-indigo-600 group-hover:scale-110 transition-transform" />
