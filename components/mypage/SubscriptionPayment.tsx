@@ -23,6 +23,7 @@ import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
 import { useAuthStore } from '@/store/auth';
+import { getCurrentUser } from '@/lib/api/user';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -326,9 +327,11 @@ export function SubscriptionPayment() {
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [isUserResolving, setIsUserResolving] = useState(false);
 
-  const { user, isLoading: authLoading, checkAuth } = useAuthStore();
-  const userId = user?.id;
+  const { user, isLoading: authLoading, checkAuth, login } = useAuthStore();
+  const userId = user?.id ?? resolvedUserId;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -337,6 +340,43 @@ export function SubscriptionPayment() {
       });
     }
   }, [authLoading, user, checkAuth]);
+
+  useEffect(() => {
+    if (user?.id) {
+      setResolvedUserId(user.id);
+      return;
+    }
+    if (authLoading || isUserResolving) return;
+
+    let cancelled = false;
+    const fetchUser = async () => {
+      setIsUserResolving(true);
+      try {
+        const current = await getCurrentUser();
+        if (cancelled) return;
+        setResolvedUserId(String(current.id));
+        if (!user) {
+          login({
+            id: String(current.id),
+            email: current.email,
+            name: current.name,
+            role: 'user',
+          });
+        }
+      } catch (error) {
+        console.error('[SubscriptionPayment] failed to fetch user info:', error);
+      } finally {
+        if (!cancelled) {
+          setIsUserResolving(false);
+        }
+      }
+    };
+
+    fetchUser();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isUserResolving, user, login]);
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription', userId],
@@ -368,7 +408,7 @@ export function SubscriptionPayment() {
     };
   }, [subscription]);
 
-  if (authLoading || !userId) {
+  if ((authLoading || isUserResolving) && !userId) {
     return (
       <div className="p-8">
         <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
