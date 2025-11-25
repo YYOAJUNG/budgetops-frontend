@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Globe, Shield, Moon } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, Globe, Shield, Moon, Wallet, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toggle } from '@/components/ui/toggle';
 import { SettingsState } from '@/types/mypage';
 import { deleteCurrentUser } from '@/lib/api/user';
 import { useAuthStore } from '@/store/auth';
+import { Input } from '@/components/ui/input';
+import { getBudgetSettings, updateBudgetSettings } from '@/lib/api/budget';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
@@ -36,8 +39,42 @@ export function Settings() {
     },
   });
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [budgetAmount, setBudgetAmount] = useState<number>(0);
+  const [alertThreshold, setAlertThreshold] = useState<number>(80);
+  const queryClient = useQueryClient();
   const router = useRouter();
   const { logout } = useAuthStore();
+
+  const { data: budgetSettings, isLoading: isBudgetLoading } = useQuery({
+    queryKey: ['budgetSettings'],
+    queryFn: getBudgetSettings,
+  });
+
+  useEffect(() => {
+    if (budgetSettings) {
+      setBudgetAmount(budgetSettings.monthlyBudgetLimit ?? 0);
+      setAlertThreshold(budgetSettings.alertThreshold ?? 80);
+    }
+  }, [budgetSettings]);
+
+  const budgetMutation = useMutation({
+    mutationFn: updateBudgetSettings,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['budgetSettings'], data);
+      alert('예산 설정이 저장되었습니다.');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        '예산 설정 저장 중 오류가 발생했습니다.';
+      alert(message);
+    },
+  });
+
+  const formattedBudget = useMemo(() => {
+    return budgetAmount.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+  }, [budgetAmount]);
 
   const handleToggle = (section: keyof SettingsState, key: string) => {
     setSettings((prev) => ({
@@ -89,6 +126,17 @@ export function Settings() {
     }
   };
 
+  const handleBudgetSave = () => {
+    if (budgetAmount <= 0) {
+      alert('예산 한도는 0보다 커야 합니다.');
+      return;
+    }
+    budgetMutation.mutate({
+      monthlyBudgetLimit: Number(budgetAmount.toFixed(0)),
+      alertThreshold,
+    });
+  };
+
   return (
     <div className="p-4 md:p-8">
       <div className={MOBILE_HEADER_LAYOUT}>
@@ -105,6 +153,79 @@ export function Settings() {
       </div>
 
       <div className="space-y-6">
+        {/* 예산 및 알림 임계값 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-gray-700" />
+              통합 예산 설정
+            </CardTitle>
+            <CardDescription>
+              모든 CSP 비용을 합산하여 관리할 통합 예산과 알림 임계값을 설정하세요
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                월 통합 예산 (KRW)
+              </label>
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(Number(e.target.value))}
+                    disabled={isBudgetLoading}
+                    className="appearance-none"
+                  />
+                </div>
+                <div className="text-gray-600 text-sm md:text-base whitespace-nowrap">
+                  ≈ ₩{formattedBudget}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-900">
+                  알림 임계값 ({alertThreshold}%)
+                </label>
+                <span className="text-sm text-gray-500">0% ~ 100%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={alertThreshold}
+                onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                disabled={isBudgetLoading}
+                className="w-full accent-blue-600"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                설정한 비율만큼 예산을 소진하면 즉시 알림을 보내드립니다.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={handleBudgetSave}
+                disabled={budgetMutation.isPending || isBudgetLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {budgetMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  '예산 저장'
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 알림 설정 */}
         <Card>
           <CardHeader>
