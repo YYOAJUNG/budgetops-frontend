@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import { PurchaseQuestionUnitDialog } from './PurchaseQuestionUnitDialog';
 import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
-import { useAuthStore } from '@/store/auth';
+import { getCurrentUser } from '@/lib/api/user';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -327,16 +327,12 @@ export function SubscriptionPayment() {
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
 
-  const { user, isLoading: authLoading, checkAuth } = useAuthStore();
-  const userId = user?.id;
+  const { data: currentUser, isLoading: isUserLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: getCurrentUser,
+  });
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      checkAuth().catch((err) => {
-        console.error('[SubscriptionPayment] checkAuth failed:', err);
-      });
-    }
-  }, [authLoading, user, checkAuth]);
+  const userId = currentUser?.id;
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription', userId],
@@ -356,7 +352,7 @@ export function SubscriptionPayment() {
     enabled: !!userId,
   });
 
-  if (authLoading || !userId) {
+  if (isUserLoading || !userId) {
     return (
       <div className="p-8">
         <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
@@ -391,7 +387,7 @@ export function SubscriptionPayment() {
    */
   const handlePlanSelect = async (planId: string) => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 
@@ -454,7 +450,7 @@ export function SubscriptionPayment() {
    */
   const handlePaymentMethodSubmit = async () => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 
@@ -510,7 +506,7 @@ export function SubscriptionPayment() {
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
       return;
     }
 

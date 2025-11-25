@@ -3,7 +3,7 @@
 import { api } from './client';
 
 export interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
   company?: string;
@@ -17,7 +17,7 @@ export interface User {
 
 // Mock 사용자 데이터 (개발/테스트용)
 export const mockUser: User = {
-  id: '1',
+  id: 1,
   name: '조예진',
   email: 'whdpwls@ajou.ac.kr',
   company: 'BudgetOps',
