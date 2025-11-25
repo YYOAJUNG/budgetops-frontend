@@ -24,11 +24,32 @@ import { api } from '@/lib/api/client';
 import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
 
 // 상수
-const DEFAULT_QUESTION_UNIT_VALUES = {
-  current: 80,
-  max: 100,
-  resetDate: '2025.11.01',
+const DEFAULT_TOKEN_VALUES = {
+  current: 10000,  // Free 플랜 일일 할당 (하루 3-4회 질문 가능)
+  max: 10000,      // Free 플랜 일일 최대
 } as const;
+
+// 다음 달 1일 계산
+const getNextMonthFirstDay = () => {
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return nextMonth.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).replace(/\. /g, '.').replace(/\.$/, '');
+};
+
+// 토큰 숫자를 읽기 쉬운 형태로 변환
+function formatTokenAmount(amount: number): string {
+  if (amount >= 1000000) {
+    return `${(amount / 1000000).toFixed(amount % 1000000 === 0 ? 0 : 1)}m`;
+  }
+  if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}k`;
+  }
+  return amount.toString();
+}
 
 // 헬퍼 함수
 const formatNextPaymentDate = (date: string | undefined) => {
@@ -93,47 +114,47 @@ function CurrentSubscriptionCard({
   );
 }
 
-// 서브 컴포넌트: Question Unit 현황 카드
-function QuestionUnitStatusCard({
-  currentQuestionUnits,
-  maxQuestionUnits,
-  questionUnitResetDate,
+// 서브 컴포넌트: 토큰 현황 카드
+function TokenStatusCard({
+  currentTokens,
+  maxTokens,
+  tokenResetDate,
   isPro,
   onPurchaseClick,
 }: {
-  currentQuestionUnits: number;
-  maxQuestionUnits: number;
-  questionUnitResetDate: string;
+  currentTokens: number;
+  maxTokens: number;
+  tokenResetDate: string;
   isPro: boolean;
   onPurchaseClick?: () => void;
 }) {
-  const questionUnitPercentage = useMemo(
-    () => (currentQuestionUnits / maxQuestionUnits) * 100,
-    [currentQuestionUnits, maxQuestionUnits]
+  const tokenPercentage = useMemo(
+    () => maxTokens > 0 ? (currentTokens / maxTokens) * 100 : 0,
+    [currentTokens, maxTokens]
   );
 
   return (
     <Card className="mb-8 border-amber-200 bg-amber-50">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-600" />
-            <span>Question Unit 현황</span>
+            <span>토큰 현황</span>
           </CardTitle>
-          <span className="text-sm text-gray-600">{questionUnitResetDate} 리셋</span>
+          <span className="text-xs sm:text-sm text-gray-600">{tokenResetDate} 리셋</span>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
             <div className="flex items-baseline gap-2 mb-1">
-              <h3 className="text-2xl font-bold text-gray-900">{currentQuestionUnits}</h3>
-              <span className="text-gray-600">/ {maxQuestionUnits}</span>
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{formatTokenAmount(currentTokens)}</h3>
+              <span className="text-sm sm:text-base text-gray-600">/ {formatTokenAmount(maxTokens)}</span>
             </div>
-            <div className="w-64 bg-gray-200 rounded-full h-2 overflow-hidden mt-2">
+            <div className="w-full sm:w-64 bg-gray-200 rounded-full h-2 overflow-hidden mt-2">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all duration-300"
-                style={{ width: `${questionUnitPercentage}%` }}
+                style={{ width: `${tokenPercentage}%` }}
               />
             </div>
           </div>
@@ -142,12 +163,13 @@ function QuestionUnitStatusCard({
               onClick={onPurchaseClick}
               disabled={!isPro}
               className={cn(
+                'text-sm sm:text-base whitespace-nowrap',
                 isPro
                   ? 'bg-amber-500 hover:bg-amber-600 text-white'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               )}
             >
-              Question Unit 추가 구매
+              토큰 추가 구매
             </Button>
             {!isPro && (
               <p className="text-xs text-gray-600 text-center">
@@ -312,20 +334,20 @@ export function SubscriptionPayment() {
     queryFn: getPaymentHistory,
   });
 
-  // Question Unit 정보 (임시 데이터, 나중에 API로 교체)
-  const questionUnitInfo = useMemo(
+  // 토큰 정보
+  const tokenInfo = useMemo(
     () => ({
-      current: subscription?.currentTokens ?? DEFAULT_QUESTION_UNIT_VALUES.current,
-      max: subscription?.maxTokens ?? DEFAULT_QUESTION_UNIT_VALUES.max,
-      resetDate: subscription?.tokenResetDate ?? DEFAULT_QUESTION_UNIT_VALUES.resetDate,
+      current: subscription?.currentTokens ?? DEFAULT_TOKEN_VALUES.current,
+      max: subscription?.maxTokens ?? DEFAULT_TOKEN_VALUES.max,
+      resetDate: subscription?.tokenResetDate ?? getNextMonthFirstDay(),
       isPro: subscription?.planId === 'pro',
     }),
     [subscription]
   );
 
-  const handleQuestionUnitPurchase = () => {
-    if (questionUnitInfo.isPro) {
-      // Pro 플랜 - Question Unit 구매 다이얼로그 표시
+  const handleTokenPurchase = () => {
+    if (tokenInfo.isPro) {
+      // Pro 플랜 - 토큰 구매 다이얼로그 표시
       setShowPurchaseDialog(true);
     }
     // Free 플랜일 때는 버튼이 disabled이므로 이 함수가 호출되지 않음
@@ -441,7 +463,7 @@ export function SubscriptionPayment() {
   };
 
   /**
-   * Question Unit 구매 핸들러 - 빌링키 자동결제
+   * 토큰 구매 핸들러 - 빌링키 자동결제
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     try {
@@ -454,7 +476,7 @@ export function SubscriptionPayment() {
         return;
       }
 
-      // 백엔드에 Question Unit 구매 요청 (빌링키로 자동결제)
+      // 백엔드에 토큰 구매 요청 (빌링키로 자동결제)
       await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
         packageId,
         amount,
@@ -468,7 +490,7 @@ export function SubscriptionPayment() {
       setShowPurchaseDialog(false);
       alert(PAYMENT_SUCCESS.TOKEN_PURCHASED(amount));
     } catch (error) {
-      console.error('Question Unit purchase error:', error);
+      console.error('Token purchase error:', error);
       alert(PAYMENT_ERRORS.TOKEN_PURCHASE_FAILED);
     } finally {
       setIsLoadingPurchase(false);
@@ -484,12 +506,12 @@ export function SubscriptionPayment() {
 
       <CurrentSubscriptionCard subscription={subscription} onChangePlan={() => setShowPlans(true)} />
 
-      <QuestionUnitStatusCard
-        currentQuestionUnits={questionUnitInfo.current}
-        maxQuestionUnits={questionUnitInfo.max}
-        questionUnitResetDate={questionUnitInfo.resetDate}
-        isPro={questionUnitInfo.isPro}
-        onPurchaseClick={handleQuestionUnitPurchase}
+      <TokenStatusCard
+        currentTokens={tokenInfo.current}
+        maxTokens={tokenInfo.max}
+        tokenResetDate={tokenInfo.resetDate}
+        isPro={tokenInfo.isPro}
+        onPurchaseClick={handleTokenPurchase}
       />
 
       <PlanChangeDialog
