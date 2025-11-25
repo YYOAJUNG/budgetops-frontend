@@ -19,9 +19,10 @@ import {
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
 import { PurchaseQuestionUnitDialog } from './PurchaseQuestionUnitDialog';
-import { registerPaymentMethod, requestPayment, generateOrderUid } from '@/lib/portone';
+import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
-import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
+import { TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
+import { useAuthStore } from '@/store/auth';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -326,20 +327,44 @@ export function SubscriptionPayment() {
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
 
+  const { user, isLoading: authLoading } = useAuthStore();
+  const userId = user?.id;
+
   const { data: subscription, refetch: refetchSubscription } = useQuery({
-    queryKey: ['currentSubscription'],
-    queryFn: getCurrentSubscription,
+    queryKey: ['currentSubscription', userId],
+    queryFn: () => getCurrentSubscription(userId!),
+    enabled: !!userId,
   });
 
   const { data: paymentMethod, refetch: refetchPaymentMethod } = useQuery({
-    queryKey: ['paymentMethod'],
-    queryFn: getPaymentMethod,
+    queryKey: ['paymentMethod', userId],
+    queryFn: () => getPaymentMethod(userId!),
+    enabled: !!userId,
   });
 
   const { data: paymentHistory, refetch: refetchPaymentHistory } = useQuery({
-    queryKey: ['paymentHistory'],
-    queryFn: getPaymentHistory,
+    queryKey: ['paymentHistory', userId],
+    queryFn: () => getPaymentHistory(userId!),
+    enabled: !!userId,
   });
+
+  if (authLoading) {
+    return (
+      <div className="p-8">
+        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
+        <p className="text-gray-600 mt-1">사용자 정보를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="p-8">
+        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
+        <p className="text-gray-600 mt-1">로그인이 필요합니다.</p>
+      </div>
+    );
+  }
 
   // 토큰 정보
   const tokenInfo = useMemo(() => {
@@ -366,6 +391,11 @@ export function SubscriptionPayment() {
    * 플랜 선택 핸들러 - 실제 결제는 건너뛰고 백엔드 플랜만 변경
    */
   const handlePlanSelect = async (planId: string) => {
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     try {
       setIsLoadingPlan(true);
 
@@ -381,7 +411,7 @@ export function SubscriptionPayment() {
 
       // Free 플랜: 결제 없이 즉시 변경
       if (planId === 'free') {
-        await updateSubscription(planId);
+        await updateSubscription(userId, planId);
         await refetchSubscription();
         setShowPlans(false);
         alert(PAYMENT_SUCCESS.PLAN_CHANGED);
@@ -396,7 +426,7 @@ export function SubscriptionPayment() {
         }
 
         // 백엔드에서 플랜 변경 (nextBillingDate 자동 설정됨)
-        await updateSubscription(planId);
+        await updateSubscription(userId, planId);
         await Promise.all([
           refetchSubscription(),
           refetchPaymentHistory(),
@@ -424,10 +454,15 @@ export function SubscriptionPayment() {
    * 카카오페이 결제 수단 등록 처리
    */
   const handlePaymentMethodSubmit = async () => {
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     try {
       setIsLoadingPaymentMethod(true);
 
-      const customerUid = `customer_${TEMP_USER_ID}`;
+      const customerUid = `customer_${userId}`;
       const result = await registerPaymentMethod(
         customerUid,
         TEST_USER.name,
@@ -439,7 +474,7 @@ export function SubscriptionPayment() {
         return;
       }
 
-      await api.post(`/v1/users/${TEMP_USER_ID}/payment/register`, {
+      await api.post(`/v1/users/${encodeURIComponent(userId)}/payment/register`, {
         impUid: result.impUid,
         customerUid: result.customerUid,
       });
@@ -452,7 +487,7 @@ export function SubscriptionPayment() {
         expiryMonth: undefined,
         expiryYear: undefined,
       };
-      await savePaymentMethod(cardInfo);
+      await savePaymentMethod(userId, cardInfo);
 
       await Promise.all([
         refetchPaymentMethod(),
@@ -475,6 +510,11 @@ export function SubscriptionPayment() {
    * 토큰 구매 핸들러 - 빌링키 자동결제
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
     try {
       setIsLoadingPurchase(true);
 
@@ -486,7 +526,7 @@ export function SubscriptionPayment() {
       }
 
       // 백엔드에 토큰 구매 요청 (빌링키로 자동결제)
-      await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
+      await api.post(`/v1/users/${encodeURIComponent(userId)}/payment/purchase-tokens`, {
         packageId,
         amount,
         price,
