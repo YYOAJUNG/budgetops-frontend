@@ -1,24 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Mail, Globe, Shield, Moon, Database } from 'lucide-react';
+import { Bell, Globe, Shield, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toggle } from '@/components/ui/toggle';
 import { SettingsState } from '@/types/mypage';
+
+// 모바일 반응형 관련 상수
+const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
+const MOBILE_RESPONSIVE_BUTTON = 'w-full md:w-auto';
+const MOBILE_HEADER_LAYOUT = 'flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4';
+const MOBILE_TOGGLE_LAYOUT = 'flex items-center justify-between gap-4';
 
 export function Settings() {
   const [settings, setSettings] = useState<SettingsState>({
     notifications: {
       budgetAlerts: true,
       anomalyDetection: true,
-      weeklyReport: true,
-      monthlyReport: false,
-    },
-    email: {
-      marketing: false,
-      productUpdates: true,
-      securityAlerts: true,
+      slackNotifications: true,
     },
     preferences: {
       language: 'ko',
@@ -58,15 +58,15 @@ export function Settings() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-8">
+      <div className={MOBILE_HEADER_LAYOUT}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">설정</h2>
-          <p className="text-gray-600 mt-1">애플리케이션 설정을 관리하세요</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">설정</h2>
+          <p className={`${MOBILE_RESPONSIVE_TEXT} text-gray-600 mt-1`}>애플리케이션 설정을 관리하세요</p>
         </div>
         <Button
           onClick={handleSave}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className={`bg-blue-600 hover:bg-blue-700 text-white ${MOBILE_RESPONSIVE_BUTTON}`}
         >
           변경사항 저장
         </Button>
@@ -85,10 +85,10 @@ export function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">예산 알림</p>
-                <p className="text-sm text-gray-600">예산 임계값 도달 시 알림</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>예산 알림</p>
+                <p className="text-xs md:text-sm text-gray-600">예산 임계값 도달 시 알림</p>
               </div>
               <Toggle
                 checked={settings.notifications.budgetAlerts}
@@ -96,10 +96,10 @@ export function Settings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">이상징후 탐지</p>
-                <p className="text-sm text-gray-600">비정상적인 지출 패턴 감지 시 알림</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>이상징후 탐지</p>
+                <p className="text-xs md:text-sm text-gray-600">비정상적인 지출 패턴 감지 시 알림</p>
               </div>
               <Toggle
                 checked={settings.notifications.anomalyDetection}
@@ -107,72 +107,14 @@ export function Settings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">주간 리포트</p>
-                <p className="text-sm text-gray-600">매주 비용 요약 리포트</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>Slack 알림</p>
+                <p className="text-xs md:text-sm text-gray-600">리소스 상태 및 임계값 초과 시 Slack으로 알림 전송</p>
               </div>
               <Toggle
-                checked={settings.notifications.weeklyReport}
-                onChange={() => handleToggle('notifications', 'weeklyReport')}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">월간 리포트</p>
-                <p className="text-sm text-gray-600">매월 상세 비용 리포트</p>
-              </div>
-              <Toggle
-                checked={settings.notifications.monthlyReport}
-                onChange={() => handleToggle('notifications', 'monthlyReport')}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 이메일 설정 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-gray-700" />
-              이메일 설정
-            </CardTitle>
-            <CardDescription>
-              이메일 수신 설정을 관리합니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">마케팅 이메일</p>
-                <p className="text-sm text-gray-600">프로모션 및 뉴스레터</p>
-              </div>
-              <Toggle
-                checked={settings.email.marketing}
-                onChange={() => handleToggle('email', 'marketing')}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">제품 업데이트</p>
-                <p className="text-sm text-gray-600">새로운 기능 및 개선사항</p>
-              </div>
-              <Toggle
-                checked={settings.email.productUpdates}
-                onChange={() => handleToggle('email', 'productUpdates')}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">보안 알림</p>
-                <p className="text-sm text-gray-600">계정 보안 관련 중요 알림</p>
-              </div>
-              <Toggle
-                checked={settings.email.securityAlerts}
-                onChange={() => handleToggle('email', 'securityAlerts')}
+                checked={settings.notifications.slackNotifications}
+                onChange={() => handleToggle('notifications', 'slackNotifications')}
               />
             </div>
           </CardContent>
@@ -308,40 +250,6 @@ export function Settings() {
                 className="border-gray-300 text-gray-700"
               >
                 비밀번호 변경
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 데이터 관리 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-gray-700" />
-              데이터 관리
-            </CardTitle>
-            <CardDescription>
-              데이터 내보내기 및 삭제를 관리합니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">데이터 내보내기</p>
-                <p className="text-sm text-gray-600">모든 데이터를 다운로드</p>
-              </div>
-              <Button variant="outline" className="border-gray-300 text-gray-700">
-                내보내기
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-              <div>
-                <p className="font-medium text-red-900">모든 데이터 삭제</p>
-                <p className="text-sm text-red-600">이 작업은 되돌릴 수 없습니다</p>
-              </div>
-              <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-100">
-                삭제
               </Button>
             </div>
           </CardContent>

@@ -3,6 +3,7 @@ export type CloudProvider = 'AWS' | 'GCP' | 'AZURE' | 'NCP';
 export interface AccountFormData {
   provider: CloudProvider;
   name: string;
+  region?: string;
   accessKey?: string;
   secretKey?: string;
   projectId?: string;

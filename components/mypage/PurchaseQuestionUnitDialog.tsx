@@ -6,14 +6,14 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface PurchaseTokenDialogProps {
+interface PurchaseQuestionUnitDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPurchase?: (packageId: string, amount: number, price: number) => void;
   isLoading?: boolean;
 }
 
-interface TokenPackage {
+interface QuestionUnitPackage {
   id: string;
   amount: number;
   price: number;
@@ -21,39 +21,39 @@ interface TokenPackage {
   popular?: boolean;
 }
 
-const TOKEN_PACKAGES: TokenPackage[] = [
+const QUESTION_UNIT_PACKAGES: QuestionUnitPackage[] = [
   {
     id: 'small',
-    amount: 100,
-    price: 5000,
+    amount: 30,
+    price: 4000,
   },
   {
     id: 'medium',
-    amount: 500,
-    price: 20000,
-    bonus: 50,
+    amount: 50,
+    price: 6000,
+    bonus: 10,
     popular: true,
   },
   {
     id: 'large',
-    amount: 1000,
-    price: 35000,
-    bonus: 150,
+    amount: 100,
+    price: 8000,
+    bonus: 20,
   },
 ];
 
-export function PurchaseTokenDialog({
+export function PurchaseQuestionUnitDialog({
   open,
   onOpenChange,
   onPurchase,
   isLoading = false,
-}: PurchaseTokenDialogProps) {
+}: PurchaseQuestionUnitDialogProps) {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
   const handlePurchase = () => {
-    const pkg = TOKEN_PACKAGES.find((p) => p.id === selectedPackage);
+    const pkg = QUESTION_UNIT_PACKAGES.find((p) => p.id === selectedPackage);
     if (pkg) {
-      // 백엔드는 기본 토큰 수량만 검증 (보너스 제외)
+      // 백엔드는 기본 Question Unit 수량만 검증 (보너스 제외)
       onPurchase?.(pkg.id, pkg.amount, pkg.price);
     }
   };
@@ -65,15 +65,15 @@ export function PurchaseTokenDialog({
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 text-amber-600 animate-spin" />
-              <p className="text-sm font-medium text-gray-700">토큰 구매 중...</p>
+              <p className="text-sm font-medium text-gray-700">Question Unit 구매 중...</p>
             </div>
           </div>
         )}
         {/* 헤더 */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">토큰 구매</h2>
-            <p className="text-gray-600 mt-1">필요한 토큰 패키지를 선택하세요</p>
+            <h2 className="text-2xl font-bold text-gray-900">Question Unit 구매</h2>
+            <p className="text-gray-600 mt-1">필요한 Question Unit 패키지를 선택하세요</p>
           </div>
           <button
             onClick={() => onOpenChange(false)}
@@ -87,7 +87,7 @@ export function PurchaseTokenDialog({
         {/* 본문 */}
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {TOKEN_PACKAGES.map((pkg) => (
+            {QUESTION_UNIT_PACKAGES.map((pkg) => (
               <button
                 key={pkg.id}
                 onClick={() => setSelectedPackage(pkg.id)}
@@ -130,7 +130,7 @@ export function PurchaseTokenDialog({
                       ₩{pkg.price.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      토큰당 ₩{Math.round(pkg.price / (pkg.amount + (pkg.bonus || 0)))}
+                      Unit당 ₩{Math.round(pkg.price / (pkg.amount + (pkg.bonus || 0)))}
                     </p>
                   </div>
                 </div>
@@ -144,11 +144,11 @@ export function PurchaseTokenDialog({
               <span className="text-xs text-gray-600">i</span>
             </div>
             <div className="text-sm text-gray-600">
-              <p className="font-medium mb-1">토큰 사용 안내</p>
+              <p className="font-medium mb-1">Question Unit 사용 안내</p>
               <ul className="space-y-1 text-xs">
-                <li>• 구매한 토큰은 즉시 계정에 추가됩니다</li>
-                <li>• 토큰은 월간 할당량과 별도로 사용됩니다</li>
-                <li>• 구매한 토큰은 만료되지 않습니다</li>
+                <li>• 구매한 Question Unit은 즉시 계정에 추가됩니다</li>
+                <li>• Question Unit은 월간 할당량과 별도로 사용됩니다</li>
+                <li>• 구매한 Question Unit은 만료되지 않습니다</li>
               </ul>
             </div>
           </div>
