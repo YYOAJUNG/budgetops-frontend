@@ -15,6 +15,13 @@ import { getAzureAccounts, deleteAzureAccount, type AzureAccount } from '@/lib/a
 import { getGcpAccounts, deleteGcpAccount, type GcpAccount } from '@/lib/api/gcp';
 import { getNcpAccounts, deleteNcpAccount, type NcpAccount } from '@/lib/api/ncp';
 
+// 모바일 반응형 관련 상수
+const MOBILE_HEADER_LAYOUT = 'flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4';
+const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
+const MOBILE_CARD_LAYOUT = 'flex flex-col md:flex-row md:items-start md:justify-between gap-4';
+const MOBILE_BUTTON_GROUP = 'flex flex-col md:flex-row gap-2 md:ml-4';
+const MOBILE_BUTTON_SIZE = 'w-full md:w-auto';
+
 export function CloudAccountConnection() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
@@ -186,11 +193,11 @@ export function CloudAccountConnection() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-8">
+      <div className={MOBILE_HEADER_LAYOUT}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">클라우드 계정 연동</h2>
-          <p className="text-gray-600 mt-1">AWS, GCP, Azure, NCP 계정을 연결하여 비용을 관리하세요</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 whitespace-nowrap">클라우드 계정 연동</h2>
+          <p className={`${MOBILE_RESPONSIVE_TEXT} text-gray-600 mt-1`}>AWS, GCP, Azure, NCP 계정을 연결하여 비용을 관리하세요</p>
         </div>
         <Button
           onClick={handleAddAccount}
@@ -226,11 +233,11 @@ export function CloudAccountConnection() {
             return (
               <div
                 key={account.id}
-                className="p-6 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                className="p-4 md:p-6 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between">
+                <div className={MOBILE_CARD_LAYOUT}>
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
                       <Badge
                         variant="outline"
                         className={`${PROVIDER_COLORS[account.provider]} font-semibold`}
@@ -239,7 +246,7 @@ export function CloudAccountConnection() {
                       </Badge>
                       <Badge
                         variant="outline"
-                        className={ACCOUNT_STATUS_CONFIG[account.status].color}
+                        className={`${ACCOUNT_STATUS_CONFIG[account.status].color} inline-flex items-center`}
                       >
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {ACCOUNT_STATUS_CONFIG[account.status].label}
@@ -249,29 +256,29 @@ export function CloudAccountConnection() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">
                       {account.accountName}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-gray-600 mb-4 break-all">
                       계정 ID: {account.accountId}
                     </p>
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-gray-600">마지막 동기화</p>
-                        <p className="font-medium text-gray-900">{account.lastSync}</p>
+                        <p className="text-xs md:text-sm text-gray-600">마지막 동기화</p>
+                        <p className={`${MOBILE_RESPONSIVE_TEXT} font-medium text-gray-900 break-all`}>{account.lastSync}</p>
                       </div>
                       <div>
-                        <p className="text-gray-600">이번 달 비용</p>
-                        <p className="font-medium text-gray-900">
+                        <p className="text-xs md:text-sm text-gray-600">이번 달 비용</p>
+                        <p className={`${MOBILE_RESPONSIVE_TEXT} font-medium text-gray-900`}>
                           ${account.monthlyCost.toLocaleString()}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className={MOBILE_BUTTON_GROUP}>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 text-gray-700"
+                      className={`border-gray-300 text-gray-700 ${MOBILE_BUTTON_SIZE}`}
                     >
                       동기화
                     </Button>
@@ -280,7 +287,7 @@ export function CloudAccountConnection() {
                       size="sm"
                       onClick={() => handleDeleteAccount(account.id)}
                       disabled={deletingAccountId === account.id}
-                      className="border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      className={`border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 ${MOBILE_BUTTON_SIZE} inline-flex items-center justify-center`}
                     >
                       <Trash2 className="h-4 w-4" />
                       {deletingAccountId === account.id && <span className="ml-1">삭제 중...</span>}

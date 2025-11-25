@@ -7,6 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Toggle } from '@/components/ui/toggle';
 import { SettingsState } from '@/types/mypage';
 
+// 모바일 반응형 관련 상수
+const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
+const MOBILE_RESPONSIVE_BUTTON = 'w-full md:w-auto';
+const MOBILE_HEADER_LAYOUT = 'flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4';
+const MOBILE_TOGGLE_LAYOUT = 'flex items-center justify-between gap-4';
+
 export function Settings() {
   const [settings, setSettings] = useState<SettingsState>({
     notifications: {
@@ -52,15 +58,15 @@ export function Settings() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-8">
+      <div className={MOBILE_HEADER_LAYOUT}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">설정</h2>
-          <p className="text-gray-600 mt-1">애플리케이션 설정을 관리하세요</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">설정</h2>
+          <p className={`${MOBILE_RESPONSIVE_TEXT} text-gray-600 mt-1`}>애플리케이션 설정을 관리하세요</p>
         </div>
         <Button
           onClick={handleSave}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className={`bg-blue-600 hover:bg-blue-700 text-white ${MOBILE_RESPONSIVE_BUTTON}`}
         >
           변경사항 저장
         </Button>
@@ -79,10 +85,10 @@ export function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">예산 알림</p>
-                <p className="text-sm text-gray-600">예산 임계값 도달 시 알림</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>예산 알림</p>
+                <p className="text-xs md:text-sm text-gray-600">예산 임계값 도달 시 알림</p>
               </div>
               <Toggle
                 checked={settings.notifications.budgetAlerts}
@@ -90,10 +96,10 @@ export function Settings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">이상징후 탐지</p>
-                <p className="text-sm text-gray-600">비정상적인 지출 패턴 감지 시 알림</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>이상징후 탐지</p>
+                <p className="text-xs md:text-sm text-gray-600">비정상적인 지출 패턴 감지 시 알림</p>
               </div>
               <Toggle
                 checked={settings.notifications.anomalyDetection}
@@ -101,10 +107,10 @@ export function Settings() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">Slack 알림</p>
-                <p className="text-sm text-gray-600">리소스 상태 및 임계값 초과 시 Slack으로 알림 전송</p>
+            <div className={MOBILE_TOGGLE_LAYOUT}>
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium text-gray-900 ${MOBILE_RESPONSIVE_TEXT}`}>Slack 알림</p>
+                <p className="text-xs md:text-sm text-gray-600">리소스 상태 및 임계값 초과 시 Slack으로 알림 전송</p>
               </div>
               <Toggle
                 checked={settings.notifications.slackNotifications}
