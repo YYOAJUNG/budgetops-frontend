@@ -22,15 +22,15 @@ interface QuestionUnitPackage {
 }
 
 const QUESTION_UNIT_PACKAGES: QuestionUnitPackage[] = [
-  { id: 'small', amount: 10000, price: 4000 },
-  { id: 'medium', amount: 20000, price: 6000, popular: true },
-  { id: 'large', amount: 50000, price: 10000 },
+  { id: 'small', amount: 10000, price: 5000 },
+  { id: 'medium', amount: 30000, price: 12000, popular: true },
+  { id: 'large', amount: 50000, price: 18000 },
 ];
 
 const USAGE_INFO = [
   '구매한 토큰은 즉시 계정에 추가됩니다',
   '토큰은 월간 할당량과 별도로 사용됩니다',
-  '구매한 토큰은 만료되지 않습니다',
+  '최대 100k 토큰까지 보유할 수 있습니다',
 ];
 
 // 토큰 숫자를 읽기 쉬운 형태로 변환 (예: 100000 -> "100k")
@@ -177,7 +177,7 @@ export function PurchaseQuestionUnitDialog({
         <DialogHeader onClose={handleClose} disabled={isLoading} />
 
         <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6 mt-4">
             {QUESTION_UNIT_PACKAGES.map((pkg) => (
               <PackageCard
                 key={pkg.id}

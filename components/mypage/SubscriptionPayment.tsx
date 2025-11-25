@@ -25,9 +25,16 @@ import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
-  current: 10000,  // Free 플랜 일일 할당 (하루 3-4회 질문 가능)
-  max: 10000,      // Free 플랜 일일 최대
+  current: 10000,  // Free 플랜 월간 할당 (하루 3-4회 질문 가능)
+  max: 10000,      // Free 플랜 월간 최대
 } as const;
+
+const PRO_TOKEN_VALUES = {
+  current: 30000,  // Pro 플랜 월간 할당 (기존 10k + 추가 20k)
+  max: 30000,      // Pro 플랜 월간 최대
+} as const;
+
+const MAX_TOKEN_LIMIT = 100000; // 최대 토큰 보유량
 
 // 다음 달 1일 계산
 const getNextMonthFirstDay = () => {
@@ -335,15 +342,17 @@ export function SubscriptionPayment() {
   });
 
   // 토큰 정보
-  const tokenInfo = useMemo(
-    () => ({
-      current: subscription?.currentTokens ?? DEFAULT_TOKEN_VALUES.current,
-      max: subscription?.maxTokens ?? DEFAULT_TOKEN_VALUES.max,
+  const tokenInfo = useMemo(() => {
+    const isPro = subscription?.planId === 'pro';
+    const defaultValues = isPro ? PRO_TOKEN_VALUES : DEFAULT_TOKEN_VALUES;
+
+    return {
+      current: subscription?.currentTokens ?? defaultValues.current,
+      max: subscription?.maxTokens ?? defaultValues.max,
       resetDate: subscription?.tokenResetDate ?? getNextMonthFirstDay(),
-      isPro: subscription?.planId === 'pro',
-    }),
-    [subscription]
-  );
+      isPro,
+    };
+  }, [subscription]);
 
   const handleTokenPurchase = () => {
     if (tokenInfo.isPro) {
