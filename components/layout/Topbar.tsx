@@ -4,7 +4,9 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { MessageCircle, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { useEffect } from 'react';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/api/notifications';
@@ -65,17 +67,25 @@ export function Topbar() {
       {/* Spacer for mobile, hidden on desktop */}
       <div className="flex-1 md:hidden" />
 
-      <div className="flex items-center space-x-2 md:ml-auto">
-        <button
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={toggleAIChat}
-          className={AI_CHAT_BUTTON}
+          className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative group"
           aria-label="AI 어시스턴트"
         >
-          <MessageCircle className="h-5 w-5 text-indigo-600 group-hover:scale-110 transition-transform" />
+          <Image
+            src="/ai-chat-icon.png"
+            alt="AI 어시스턴트"
+            width={20}
+            height={20}
+            className="h-5 w-5 group-hover:scale-110 transition-transform"
+          />
           {!aiChatOpen && unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />
           )}
-        </button>
+        </Button>
         <NotificationMenu
           notifications={notifications as Notification[]}
           unreadCount={unread}

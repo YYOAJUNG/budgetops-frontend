@@ -188,3 +188,41 @@ export async function getNcpAccountCosts(
   );
   return data;
 }
+
+/**
+ * NCP 알림 인터페이스
+ */
+export interface NcpAlert {
+  id?: number;
+  accountId: number;
+  accountName: string;
+  serverInstanceNo: string;
+  serverName: string;
+  ruleId: string;
+  ruleTitle: string;
+  violatedMetric: string;
+  currentValue: number | null;
+  threshold: number | null;
+  message: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  status: 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+  createdAt: string;
+  sentAt?: string;
+  acknowledgedAt?: string;
+}
+
+/**
+ * 모든 NCP 계정의 알림 점검 실행
+ */
+export async function checkNcpAlerts(): Promise<NcpAlert[]> {
+  const { data } = await api.post<NcpAlert[]>('/ncp/alerts/check');
+  return data;
+}
+
+/**
+ * 특정 NCP 계정의 알림 점검 실행
+ */
+export async function checkNcpAlertsByAccount(accountId: number): Promise<NcpAlert[]> {
+  const { data } = await api.post<NcpAlert[]>(`/ncp/alerts/check/${accountId}`);
+  return data;
+}
