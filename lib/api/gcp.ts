@@ -172,3 +172,42 @@ export async function getGcpInstanceMetrics(
   return data;
 }
 
+/**
+ * GCP 알림 인터페이스
+ */
+export interface GcpAlert {
+  id?: number;
+  accountId: number;
+  accountName: string;
+  resourceId: string;
+  resourceName: string;
+  ruleId: string;
+  ruleTitle: string;
+  violatedMetric: string;
+  currentValue: number | null;
+  threshold: number | null;
+  message: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  status: 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+  createdAt: string;
+  sentAt?: string;
+  acknowledgedAt?: string;
+}
+
+/**
+ * 모든 GCP 계정의 알림 점검 실행
+ * 백엔드: POST /gcp/alerts/check
+ */
+export async function checkGcpAlerts(): Promise<GcpAlert[]> {
+  const { data } = await api.post<GcpAlert[]>('/gcp/alerts/check');
+  return data;
+}
+
+/**
+ * 특정 GCP 계정의 알림 점검 실행
+ * 백엔드: POST /gcp/alerts/check/{accountId}
+ */
+export async function checkGcpAlertsByAccount(accountId: number): Promise<GcpAlert[]> {
+  const { data } = await api.post<GcpAlert[]>(`/gcp/alerts/check/${accountId}`);
+  return data;
+}

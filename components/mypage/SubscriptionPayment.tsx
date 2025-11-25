@@ -18,13 +18,13 @@ import {
 } from '@/lib/api/subscription';
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
-import { PurchaseTokenDialog } from './PurchaseTokenDialog';
+import { PurchaseQuestionUnitDialog } from './PurchaseQuestionUnitDialog';
 import { registerPaymentMethod, requestPayment, generateOrderUid } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
 
 // 상수
-const DEFAULT_TOKEN_VALUES = {
+const DEFAULT_QUESTION_UNIT_VALUES = {
   current: 80,
   max: 100,
   resetDate: '2025.11.01',
@@ -93,23 +93,23 @@ function CurrentSubscriptionCard({
   );
 }
 
-// 서브 컴포넌트: 토큰 현황 카드
-function TokenStatusCard({
-  currentTokens,
-  maxTokens,
-  tokenResetDate,
+// 서브 컴포넌트: Question Unit 현황 카드
+function QuestionUnitStatusCard({
+  currentQuestionUnits,
+  maxQuestionUnits,
+  questionUnitResetDate,
   isPro,
   onPurchaseClick,
 }: {
-  currentTokens: number;
-  maxTokens: number;
-  tokenResetDate: string;
+  currentQuestionUnits: number;
+  maxQuestionUnits: number;
+  questionUnitResetDate: string;
   isPro: boolean;
   onPurchaseClick?: () => void;
 }) {
-  const tokenPercentage = useMemo(
-    () => (currentTokens / maxTokens) * 100,
-    [currentTokens, maxTokens]
+  const questionUnitPercentage = useMemo(
+    () => (currentQuestionUnits / maxQuestionUnits) * 100,
+    [currentQuestionUnits, maxQuestionUnits]
   );
 
   return (
@@ -118,22 +118,22 @@ function TokenStatusCard({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-600" />
-            <span>토큰 현황</span>
+            <span>Question Unit 현황</span>
           </CardTitle>
-          <span className="text-sm text-gray-600">{tokenResetDate} 리셋</span>
+          <span className="text-sm text-gray-600">{questionUnitResetDate} 리셋</span>
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-baseline gap-2 mb-1">
-              <h3 className="text-2xl font-bold text-gray-900">{currentTokens}</h3>
-              <span className="text-gray-600">/ {maxTokens}</span>
+              <h3 className="text-2xl font-bold text-gray-900">{currentQuestionUnits}</h3>
+              <span className="text-gray-600">/ {maxQuestionUnits}</span>
             </div>
             <div className="w-64 bg-gray-200 rounded-full h-2 overflow-hidden mt-2">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all duration-300"
-                style={{ width: `${tokenPercentage}%` }}
+                style={{ width: `${questionUnitPercentage}%` }}
               />
             </div>
           </div>
@@ -147,7 +147,7 @@ function TokenStatusCard({
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
               )}
             >
-              토큰 추가 구매
+              Question Unit 추가 구매
             </Button>
             {!isPro && (
               <p className="text-xs text-gray-600 text-center">
@@ -312,20 +312,20 @@ export function SubscriptionPayment() {
     queryFn: getPaymentHistory,
   });
 
-  // 토큰 정보 (임시 데이터, 나중에 API로 교체)
-  const tokenInfo = useMemo(
+  // Question Unit 정보 (임시 데이터, 나중에 API로 교체)
+  const questionUnitInfo = useMemo(
     () => ({
-      current: subscription?.currentTokens ?? DEFAULT_TOKEN_VALUES.current,
-      max: subscription?.maxTokens ?? DEFAULT_TOKEN_VALUES.max,
-      resetDate: subscription?.tokenResetDate ?? DEFAULT_TOKEN_VALUES.resetDate,
+      current: subscription?.currentTokens ?? DEFAULT_QUESTION_UNIT_VALUES.current,
+      max: subscription?.maxTokens ?? DEFAULT_QUESTION_UNIT_VALUES.max,
+      resetDate: subscription?.tokenResetDate ?? DEFAULT_QUESTION_UNIT_VALUES.resetDate,
       isPro: subscription?.planId === 'pro',
     }),
     [subscription]
   );
 
-  const handleTokenPurchase = () => {
-    if (tokenInfo.isPro) {
-      // Pro 플랜 - 토큰 구매 다이얼로그 표시
+  const handleQuestionUnitPurchase = () => {
+    if (questionUnitInfo.isPro) {
+      // Pro 플랜 - Question Unit 구매 다이얼로그 표시
       setShowPurchaseDialog(true);
     }
     // Free 플랜일 때는 버튼이 disabled이므로 이 함수가 호출되지 않음
@@ -441,7 +441,7 @@ export function SubscriptionPayment() {
   };
 
   /**
-   * 토큰 구매 핸들러 - 빌링키 자동결제
+   * Question Unit 구매 핸들러 - 빌링키 자동결제
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
     try {
@@ -454,7 +454,7 @@ export function SubscriptionPayment() {
         return;
       }
 
-      // 백엔드에 토큰 구매 요청 (빌링키로 자동결제)
+      // 백엔드에 Question Unit 구매 요청 (빌링키로 자동결제)
       await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
         packageId,
         amount,
@@ -468,7 +468,7 @@ export function SubscriptionPayment() {
       setShowPurchaseDialog(false);
       alert(PAYMENT_SUCCESS.TOKEN_PURCHASED(amount));
     } catch (error) {
-      console.error('Token purchase error:', error);
+      console.error('Question Unit purchase error:', error);
       alert(PAYMENT_ERRORS.TOKEN_PURCHASE_FAILED);
     } finally {
       setIsLoadingPurchase(false);
@@ -484,12 +484,12 @@ export function SubscriptionPayment() {
 
       <CurrentSubscriptionCard subscription={subscription} onChangePlan={() => setShowPlans(true)} />
 
-      <TokenStatusCard
-        currentTokens={tokenInfo.current}
-        maxTokens={tokenInfo.max}
-        tokenResetDate={tokenInfo.resetDate}
-        isPro={tokenInfo.isPro}
-        onPurchaseClick={handleTokenPurchase}
+      <QuestionUnitStatusCard
+        currentQuestionUnits={questionUnitInfo.current}
+        maxQuestionUnits={questionUnitInfo.max}
+        questionUnitResetDate={questionUnitInfo.resetDate}
+        isPro={questionUnitInfo.isPro}
+        onPurchaseClick={handleQuestionUnitPurchase}
       />
 
       <PlanChangeDialog
@@ -500,7 +500,7 @@ export function SubscriptionPayment() {
         isLoading={isLoadingPlan}
       />
 
-      <PurchaseTokenDialog
+      <PurchaseQuestionUnitDialog
         open={showPurchaseDialog}
         onOpenChange={setShowPurchaseDialog}
         onPurchase={handlePurchase}

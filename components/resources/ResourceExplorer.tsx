@@ -413,6 +413,8 @@ export function ResourceExplorer() {
                     ? 'border-orange-200 bg-orange-50 text-orange-800'
                     : provider === 'GCP'
                     ? 'border-blue-200 bg-blue-50 text-blue-800'
+                    : provider === 'NCP'
+                    ? 'border-green-200 bg-green-50 text-green-800'
                     : 'border-sky-200 bg-sky-50 text-sky-800'
                 }
               >
@@ -516,6 +518,8 @@ export function ResourceExplorer() {
                                 ? 'bg-orange-100 text-orange-700'
                                 : resource.provider === 'GCP'
                                 ? 'bg-blue-100 text-blue-700'
+                                : resource.provider === 'NCP'
+                                ? 'bg-green-100 text-green-700'
                                 : 'bg-sky-100 text-sky-700'
                             }>{resource.provider}</Badge>
                             <span className="text-sm text-slate-600">{resource.service}</span>
@@ -726,6 +730,8 @@ function ResourceCard({
                 ? 'bg-orange-100 text-orange-700'
                 : resource.provider === 'GCP'
                 ? 'bg-blue-100 text-blue-700'
+                : resource.provider === 'NCP'
+                ? 'bg-green-100 text-green-700'
                 : 'bg-sky-100 text-sky-700'
             }>{resource.provider}</Badge>
             <div className="flex items-center gap-1">

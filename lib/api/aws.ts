@@ -288,6 +288,30 @@ export interface AccountCost {
   totalCost: number;
 }
 
+// ------------ AWS EC2 알림 ------------
+
+export type AwsAlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AwsAlertStatus = 'PENDING' | 'SENT' | 'ACKNOWLEDGED';
+
+export interface AwsAlert {
+  id?: number;
+  accountId: number;
+  accountName: string;
+  instanceId: string;
+  instanceName: string;
+  ruleId: string;
+  ruleTitle: string;
+  violatedMetric: string;
+  currentValue: number | null;
+  threshold: number | null;
+  message: string;
+  severity: AwsAlertSeverity;
+  status: AwsAlertStatus;
+  createdAt?: string;
+  sentAt?: string | null;
+  acknowledgedAt?: string | null;
+}
+
 /**
  * 특정 AWS 계정의 비용 조회
  * @param accountId AWS 계정 ID
@@ -345,6 +369,24 @@ export async function getAllAwsAccountsCosts(
     '/aws/accounts/costs',
     { params }
   );
+  return data;
+}
+
+/**
+ * 모든 AWS 계정의 모든 서비스(EC2, RDS, S3 등) 알림 점검 실행
+ * 백엔드: POST /aws/alerts/check
+ */
+export async function checkAwsAlerts(): Promise<AwsAlert[]> {
+  const { data } = await api.post<AwsAlert[]>('/aws/alerts/check');
+  return data;
+}
+
+/**
+ * 특정 AWS 계정의 모든 서비스 알림 점검 실행
+ * 백엔드: POST /aws/alerts/check/{accountId}
+ */
+export async function checkAwsAlertsByAccount(accountId: number): Promise<AwsAlert[]> {
+  const { data } = await api.post<AwsAlert[]>(`/aws/alerts/check/${accountId}`);
   return data;
 }
 

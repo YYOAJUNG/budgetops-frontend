@@ -150,7 +150,7 @@ export function AIChatPanel() {
   return (
     <div
       className={cn(
-        'fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col',
+        'fixed right-0 top-0 h-full w-[480px] bg-white shadow-2xl z-50 flex flex-col',
         TRANSITION_CLASS,
         aiChatOpen ? 'translate-x-0' : 'translate-x-full'
       )}
