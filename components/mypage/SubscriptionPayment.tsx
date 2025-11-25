@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import { PurchaseQuestionUnitDialog } from './PurchaseQuestionUnitDialog';
 import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
 import { TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
-import { getCurrentUser } from '@/lib/api/user';
+import { useAuthStore } from '@/store/auth';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
@@ -327,12 +327,16 @@ export function SubscriptionPayment() {
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
 
-  const { data: currentUser, isLoading: isUserLoading } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: getCurrentUser,
-  });
+  const { user, isLoading: authLoading, checkAuth } = useAuthStore();
+  const userId = user?.id;
 
-  const userId = currentUser?.id;
+  useEffect(() => {
+    if (!authLoading && !user) {
+      checkAuth().catch((error) => {
+        console.error('[SubscriptionPayment] checkAuth failed:', error);
+      });
+    }
+  }, [authLoading, user, checkAuth]);
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
     queryKey: ['currentSubscription', userId],
@@ -364,7 +368,7 @@ export function SubscriptionPayment() {
     };
   }, [subscription]);
 
-  if (isUserLoading || !userId) {
+  if (authLoading || !userId) {
     return (
       <div className="p-8">
         <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
