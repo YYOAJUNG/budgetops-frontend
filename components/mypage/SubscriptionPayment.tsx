@@ -352,16 +352,6 @@ export function SubscriptionPayment() {
     enabled: !!userId,
   });
 
-  if (isUserLoading || !userId) {
-    return (
-      <div className="p-8">
-        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
-        <p className="text-gray-600 mt-1">사용자 정보를 불러오는 중입니다...</p>
-      </div>
-    );
-  }
-
-  // 토큰 정보
   const tokenInfo = useMemo(() => {
     const isPro = subscription?.planId === 'pro';
     const defaultValues = isPro ? PRO_TOKEN_VALUES : DEFAULT_TOKEN_VALUES;
@@ -373,6 +363,15 @@ export function SubscriptionPayment() {
       isPro,
     };
   }, [subscription]);
+
+  if (isUserLoading || !userId) {
+    return (
+      <div className="p-8">
+        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
+        <p className="text-gray-600 mt-1">사용자 정보를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   const handleTokenPurchase = () => {
     if (tokenInfo.isPro) {
