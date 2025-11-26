@@ -25,13 +25,13 @@ import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
-  current: 10000,  // Free 플랜 월간 할당 (하루 3-4회 질문 가능)
+  current: 10000,  // Free 플랜 월간 할당
   max: 10000,      // Free 플랜 월간 최대
 } as const;
 
 const PRO_TOKEN_VALUES = {
-  current: 30000,  // Pro 플랜 월간 할당 (기존 10k + 추가 20k)
-  max: 30000,      // Pro 플랜 월간 최대
+  current: 30000,  // Pro 플랜 월간 할당 (기본 10k + Pro 추가 20k)
+  max: 100000,     // Pro 플랜 최대 보유량
 } as const;
 
 const MAX_TOKEN_LIMIT = 100000; // 최대 토큰 보유량
