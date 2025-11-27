@@ -32,9 +32,15 @@ import {
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
-import { getNcpAccounts } from '@/lib/api/ncp';
+import {
+  getNcpAccounts,
+  NcpServerInstance,
+  startServerInstances,
+  stopServerInstances,
+} from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
+import { NcpMetricsDialog } from './NcpMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
 
 const SORT_OPTIONS = [
@@ -148,6 +154,7 @@ export function ResourceExplorer() {
   const [viewType, setViewType] = useState<'list' | 'card'>('card');
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
+  const [showNcpMetricsDialog, setShowNcpMetricsDialog] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
@@ -156,6 +163,12 @@ export function ResourceExplorer() {
   const [selectedGcpResource, setSelectedGcpResource] = useState<{
     resourceId: string;
     instanceName: string;
+    region?: string;
+  } | null>(null);
+  const [selectedNcpResource, setSelectedNcpResource] = useState<{
+    instanceNo: string;
+    instanceName: string;
+    accountId: number;
     region?: string;
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
@@ -258,6 +271,38 @@ export function ResourceExplorer() {
     } catch (error: any) {
       console.error('인스턴스 삭제 오류:', error);
       alert(error?.response?.data?.message || error?.message || '인스턴스 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
+  // NCP 서버 제어 함수들
+  const handleNcpStop = async (instanceNo: string, instanceName: string, accountId: number, region?: string) => {
+    if (!confirm(`${instanceName} 서버를 정지하시겠습니까?`)) {
+      return;
+    }
+    setOperatingInstanceId(instanceNo);
+    try {
+      await stopServerInstances(accountId, [instanceNo], region);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+    } catch (error: any) {
+      console.error('서버 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '서버 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
+  const handleNcpStart = async (instanceNo: string, accountId: number, region?: string) => {
+    setOperatingInstanceId(instanceNo);
+    try {
+      await startServerInstances(accountId, [instanceNo], region);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+    } catch (error: any) {
+      console.error('서버 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '서버 시작 중 오류가 발생했습니다.');
     } finally {
       setOperatingInstanceId(null);
     }
@@ -504,6 +549,14 @@ export function ResourceExplorer() {
                     const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+                    const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
+                    let ncpAccountId: number | null = null;
+                    if (isNcpServer && ncpAccounts && ncpAccounts.length > 0) {
+                      const activeAccount = ncpAccounts.find(acc => acc.active);
+                      if (activeAccount) {
+                        ncpAccountId = activeAccount.id;
+                      }
+                    }
                     
                     return (
                       <tr
@@ -534,6 +587,11 @@ export function ResourceExplorer() {
                               </div>
                             )}
                             {isGcpInstance && (
+                              <div className="text-xs text-slate-500 font-mono mt-1">
+                                {resource.id}
+                              </div>
+                            )}
+                            {isNcpServer && (
                               <div className="text-xs text-slate-500 font-mono mt-1">
                                 {resource.id}
                               </div>
@@ -615,10 +673,10 @@ export function ResourceExplorer() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  setSelectedGcpResource({ 
-                                    resourceId: gcpResource.resourceId, 
+                                  setSelectedGcpResource({
+                                    resourceId: gcpResource.resourceId,
                                     instanceName: gcpResource.resourceName || gcpResource.resourceId,
-                                    region: resource.region 
+                                    region: resource.region
                                   });
                                   setShowGcpMetricsDialog(true);
                                 }}
@@ -627,6 +685,49 @@ export function ResourceExplorer() {
                               >
                                 <Activity className="h-4 w-4" />
                               </Button>
+                            ) : isNcpServer && ncpAccountId ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedNcpResource({
+                                      instanceNo: resource.id,
+                                      instanceName: resource.name,
+                                      accountId: ncpAccountId,
+                                      region: resource.region
+                                    });
+                                    setShowNcpMetricsDialog(true);
+                                  }}
+                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="메트릭 보기"
+                                >
+                                  <Activity className="h-4 w-4" />
+                                </Button>
+                                {resource.status === 'running' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleNcpStop(resource.id, resource.name, ncpAccountId, resource.region)}
+                                    disabled={operatingInstanceId === resource.id}
+                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    title="정지"
+                                  >
+                                    <Square className="h-4 w-4" />
+                                  </Button>
+                                ) : resource.status === 'stopped' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleNcpStart(resource.id, ncpAccountId, resource.region)}
+                                    disabled={operatingInstanceId === resource.id}
+                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="시작"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                              </>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -692,6 +793,16 @@ export function ResourceExplorer() {
           resourceId={selectedGcpResource.resourceId}
           instanceName={selectedGcpResource.instanceName}
           region={selectedGcpResource.region}
+        />
+      )}
+      {selectedNcpResource && (
+        <NcpMetricsDialog
+          open={showNcpMetricsDialog}
+          onOpenChange={setShowNcpMetricsDialog}
+          accountId={selectedNcpResource.accountId}
+          instanceNo={selectedNcpResource.instanceNo}
+          instanceName={selectedNcpResource.instanceName}
+          region={selectedNcpResource.region}
         />
       )}
     </div>

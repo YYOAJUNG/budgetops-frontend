@@ -59,6 +59,20 @@ export interface NcpCostSummary {
   totalDiscountAmount: number;
 }
 
+export interface MetricDataPoint {
+  timestamp: string;
+  value: number | null;
+}
+
+export interface NcpServerMetrics {
+  instanceNo: string;
+  instanceName: string;
+  cpuUsage: MetricDataPoint[];
+  memoryUsage: MetricDataPoint[];
+  networkIn: MetricDataPoint[];
+  networkOut: MetricDataPoint[];
+}
+
 /**
  * NCP 계정 목록 조회
  */
@@ -171,6 +185,29 @@ export async function stopServerInstances(
   const { data } = await api.post<NcpServerInstance[]>(
     `/ncp/accounts/${accountId}/servers/instances/stop`,
     serverInstanceNos,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * 서버 인스턴스 메트릭 조회
+ * @param accountId NCP 계정 ID
+ * @param instanceNo 서버 인스턴스 번호
+ * @param regionCode 리전 코드 (선택사항)
+ * @param hours 조회 기간(시간 단위, 기본값: 1)
+ */
+export async function getNcpInstanceMetrics(
+  accountId: number,
+  instanceNo: string,
+  regionCode?: string,
+  hours: number = 1
+): Promise<NcpServerMetrics> {
+  const params: any = { hours };
+  if (regionCode) params.regionCode = regionCode;
+
+  const { data } = await api.get<NcpServerMetrics>(
+    `/ncp/accounts/${accountId}/servers/instances/${instanceNo}/metrics`,
     { params }
   );
   return data;
