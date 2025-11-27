@@ -78,9 +78,9 @@ export function Topbar() {
           <Image
             src="/ai-chat-icon.png"
             alt="AI 어시스턴트"
-            width={20}
-            height={20}
-            className="h-5 w-5 group-hover:scale-110 transition-transform"
+            width={22}
+            height={22}
+            className="h-5.5 w-5.5 group-hover:scale-110 transition-transform -mt-1"
           />
           {!aiChatOpen && unread > 0 && (
             <span className="absolute top-1 right-1 h-2 w-2 bg-indigo-500 rounded-full animate-pulse" />

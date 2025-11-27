@@ -52,9 +52,18 @@ export const useAuthStore = create<AuthState>()(
 
         set({ isLoading: true });
         try {
-          // Mock 모드인 경우 스킵
+            // Mock 모드인 경우 모의 사용자로 자동 로그인
           if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
-            set({ isLoading: false });
+            set({
+              user: {
+                id: 'mock-user-1',
+                email: 'test@example.com',
+                name: '테스트 사용자',
+                role: 'user',
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
             return;
           }
 
