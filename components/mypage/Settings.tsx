@@ -86,6 +86,8 @@ export function Settings() {
     return budgetAmount.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
   }, [budgetAmount]);
 
+  const isAccountSpecificMode = budgetSettings?.mode === 'ACCOUNT_SPECIFIC';
+
   const handleToggle = (section: keyof SettingsState, key: string) => {
     setSettings((prev) => ({
       ...prev,
@@ -146,8 +148,10 @@ export function Settings() {
       return;
     }
     budgetMutation.mutate({
+      mode: 'CONSOLIDATED',
       monthlyBudgetLimit: Number(budgetAmount.toFixed(0)),
       alertThreshold,
+      accountBudgets: [],
     });
   };
 
@@ -179,6 +183,20 @@ export function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {isAccountSpecificMode && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                현재는 계정별 예산 모드가 활성화되어 있습니다. 통합 예산 값은 참고만 가능하며 변경은{' '}
+                <Button
+                  type="button"
+                  variant="link"
+                  className="px-1 text-blue-900 underline"
+                  onClick={() => router.push('/budgets')}
+                >
+                  예산 관리 화면
+                </Button>
+                에서 진행해주세요.
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-900 mb-2">
                 월 통합 예산 (KRW)
@@ -191,7 +209,7 @@ export function Settings() {
                     inputMode="numeric"
                     value={budgetAmountInput}
                     onChange={(e) => setBudgetAmountInput(e.target.value)}
-                    disabled={isBudgetLoading}
+                    disabled={isBudgetLoading || isAccountSpecificMode}
                     className="appearance-none"
                   />
                 </div>
@@ -214,7 +232,7 @@ export function Settings() {
                 max={100}
                 value={alertThreshold}
                 onChange={(e) => setAlertThreshold(Number(e.target.value))}
-                disabled={isBudgetLoading}
+                disabled={isBudgetLoading || isAccountSpecificMode}
                 className="w-full accent-blue-600"
               />
               <p className="text-xs text-gray-500 mt-2">
@@ -225,7 +243,7 @@ export function Settings() {
             <div className="flex justify-end">
               <Button
                 onClick={handleBudgetSave}
-                disabled={budgetMutation.isPending || isBudgetLoading}
+                disabled={budgetMutation.isPending || isBudgetLoading || isAccountSpecificMode}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {budgetMutation.isPending ? (

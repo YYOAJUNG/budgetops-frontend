@@ -102,9 +102,12 @@ function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
 }
 
 function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
+  const targetLabel = alert.accountName
+    ? `${alert.accountName}${alert.provider ? ` (${alert.provider})` : ''}`
+    : '통합 예산';
   const usageMessage = alert.message
     ? alert.message
-    : `예산의 ${alert.usagePercentage?.toFixed(1) ?? 0}%를 사용했습니다.`;
+    : `${targetLabel}에서 예산의 ${alert.usagePercentage?.toFixed(1) ?? 0}%를 사용했습니다.`;
 
   return {
     id: `budget-alert-${alert.triggeredAt}`,
@@ -113,7 +116,7 @@ function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
     timestamp: alert.triggeredAt ?? new Date().toISOString(),
     isRead: false,
     importance: 'high',
-    service: 'Budget',
+    service: alert.provider ? `${alert.provider} Budget` : 'Budget',
   };
 }
 
