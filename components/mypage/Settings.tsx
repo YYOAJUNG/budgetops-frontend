@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Globe, Shield, Moon, Wallet, Loader2 } from 'lucide-react';
+import { AlertCircle, Bell, Globe, Shield, Moon, Wallet, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toggle } from '@/components/ui/toggle';
@@ -11,13 +11,42 @@ import { SettingsState } from '@/types/mypage';
 import { deleteCurrentUser } from '@/lib/api/user';
 import { useAuthStore } from '@/store/auth';
 import { Input } from '@/components/ui/input';
-import { getBudgetSettings, updateBudgetSettings } from '@/lib/api/budget';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn, formatCurrency } from '@/lib/utils';
+import {
+  getBudgetSettings,
+  getBudgetUsage,
+  updateBudgetSettings,
+  type AccountBudgetUsage,
+  type BudgetMode,
+  type CloudProvider,
+} from '@/lib/api/budget';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
 const MOBILE_RESPONSIVE_BUTTON = 'w-full md:w-auto';
 const MOBILE_HEADER_LAYOUT = 'flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4';
 const MOBILE_TOGGLE_LAYOUT = 'flex items-center justify-between gap-4';
+
+type AccountBudgetFormState = {
+  provider: CloudProvider;
+  accountId: number;
+  accountName: string;
+  enabled: boolean;
+  monthlyBudgetLimit: number;
+  alertThreshold: number;
+};
+
+const DEFAULT_THRESHOLD = 80;
+
+const PROVIDER_BADGE_COLORS: Record<CloudProvider, string> = {
+  AWS: 'bg-orange-50 text-orange-700 border-orange-200',
+  AZURE: 'bg-blue-50 text-blue-700 border-blue-200',
+  GCP: 'bg-green-50 text-green-700 border-green-200',
+  NCP: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 
 export function Settings() {
   const [settings, setSettings] = useState<SettingsState>({
@@ -40,7 +69,9 @@ export function Settings() {
   });
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [budgetAmountInput, setBudgetAmountInput] = useState<string>('');
-  const [alertThreshold, setAlertThreshold] = useState<number>(80);
+  const [alertThreshold, setAlertThreshold] = useState<number>(DEFAULT_THRESHOLD);
+  const [budgetMode, setBudgetMode] = useState<BudgetMode>('CONSOLIDATED');
+  const [accountBudgetsState, setAccountBudgetsState] = useState<Record<string, AccountBudgetFormState>>({});
   const queryClient = useQueryClient();
   const router = useRouter();
   const { logout } = useAuthStore();
@@ -50,21 +81,96 @@ export function Settings() {
     queryFn: getBudgetSettings,
   });
 
+  const { data: budgetUsage, isLoading: isBudgetUsageLoading } = useQuery({
+    queryKey: ['budgetUsage'],
+    queryFn: getBudgetUsage,
+  });
+
   useEffect(() => {
-    if (budgetSettings) {
-      setBudgetAmountInput(
-        budgetSettings.monthlyBudgetLimit !== undefined && budgetSettings.monthlyBudgetLimit !== null
-          ? String(budgetSettings.monthlyBudgetLimit)
-          : ''
-      );
-      setAlertThreshold(budgetSettings.alertThreshold ?? 80);
+    if (!budgetSettings) {
+      return;
     }
+    setBudgetMode(budgetSettings.mode ?? 'CONSOLIDATED');
+    setBudgetAmountInput(
+      budgetSettings.monthlyBudgetLimit !== undefined && budgetSettings.monthlyBudgetLimit !== null
+        ? String(budgetSettings.monthlyBudgetLimit)
+        : ''
+    );
+    setAlertThreshold(budgetSettings.alertThreshold ?? DEFAULT_THRESHOLD);
   }, [budgetSettings]);
+
+  useEffect(() => {
+    if (!budgetUsage && !(budgetSettings?.accountBudgets?.length)) {
+      return;
+    }
+    setAccountBudgetsState((prev) => {
+      const next: Record<string, AccountBudgetFormState> = {};
+
+      const registerAccount = (account: {
+        provider: CloudProvider;
+        accountId: number;
+        accountName?: string | null;
+        currentLimit: number;
+        currentThreshold: number;
+        enabled: boolean;
+      }) => {
+        const key = buildAccountKey(account.provider, account.accountId);
+        const existing = prev[key];
+        next[key] = existing
+          ? {
+              ...existing,
+              accountName: account.accountName ?? existing.accountName,
+            }
+          : {
+              provider: account.provider,
+              accountId: account.accountId,
+              accountName: account.accountName ?? `${account.provider} #${account.accountId}`,
+              enabled: account.enabled,
+              monthlyBudgetLimit: account.currentLimit,
+              alertThreshold: account.currentThreshold,
+            };
+      };
+
+      (budgetUsage?.accountUsages ?? []).forEach((usage) => {
+        const matchedSetting = budgetSettings?.accountBudgets.find(
+          (budget) => budget.provider === usage.provider && Number(budget.accountId) === usage.accountId
+        );
+
+        registerAccount({
+          provider: usage.provider,
+          accountId: usage.accountId,
+          accountName: usage.accountName,
+          currentLimit:
+            matchedSetting?.monthlyBudgetLimit ??
+            (usage.monthlyBudgetLimit !== undefined && usage.monthlyBudgetLimit !== null ? usage.monthlyBudgetLimit : 0),
+          currentThreshold: matchedSetting?.alertThreshold ?? (budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD),
+          enabled: Boolean(matchedSetting) || Boolean(usage.hasBudget),
+        });
+      });
+
+      (budgetSettings?.accountBudgets ?? []).forEach((setting) => {
+        const key = buildAccountKey(setting.provider, setting.accountId);
+        if (!next[key]) {
+          next[key] = {
+            provider: setting.provider,
+            accountId: Number(setting.accountId),
+            accountName: setting.accountName ?? `${setting.provider} #${setting.accountId}`,
+            enabled: true,
+            monthlyBudgetLimit: setting.monthlyBudgetLimit,
+            alertThreshold: setting.alertThreshold ?? (budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD),
+          };
+        }
+      });
+
+      return next;
+    });
+  }, [budgetUsage, budgetSettings]);
 
   const budgetMutation = useMutation({
     mutationFn: updateBudgetSettings,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.setQueryData(['budgetSettings'], data);
+      await queryClient.invalidateQueries({ queryKey: ['budgetUsage'] });
       alert('예산 설정이 저장되었습니다.');
     },
     onError: (error: any) => {
@@ -82,11 +188,52 @@ export function Settings() {
     return Number.isNaN(parsed) ? 0 : parsed;
   }, [budgetAmountInput]);
 
-  const formattedBudget = useMemo(() => {
-    return budgetAmount.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
-  }, [budgetAmount]);
+  const invalidAccounts = useMemo(
+    () =>
+      Object.values(accountBudgetsState).filter(
+        (account) => account.enabled && (!account.monthlyBudgetLimit || account.monthlyBudgetLimit <= 0)
+      ),
+    [accountBudgetsState]
+  );
 
-  const isAccountSpecificMode = budgetSettings?.mode === 'ACCOUNT_SPECIFIC';
+  const accountUsageList = budgetUsage?.accountUsages ?? [];
+
+  const combinedAccountList = useMemo(() => {
+    const missingAccounts = Object.values(accountBudgetsState).filter(
+      (state) => !accountUsageList.some((usage) => usage.provider === state.provider && usage.accountId === state.accountId)
+    );
+
+    const fallbackAccounts: AccountBudgetUsage[] = missingAccounts.map((state) => ({
+      provider: state.provider,
+      accountId: state.accountId,
+      accountName: state.accountName,
+      currentMonthCost: 0,
+      monthlyBudgetLimit: state.monthlyBudgetLimit,
+      alertThreshold: state.alertThreshold,
+      usagePercentage: 0,
+      thresholdReached: false,
+      hasBudget: state.enabled,
+    }));
+
+    return [...accountUsageList, ...fallbackAccounts].sort((a, b) => {
+      const providerDiff = a.provider.localeCompare(b.provider);
+      if (providerDiff !== 0) {
+        return providerDiff;
+      }
+      const nameA = a.accountName ?? '';
+      const nameB = b.accountName ?? '';
+      return nameA.localeCompare(nameB);
+    });
+  }, [accountBudgetsState, accountUsageList]);
+
+  const hasAccounts = combinedAccountList.length > 0;
+  const isBudgetSectionLoading = isBudgetLoading || isBudgetUsageLoading;
+  const consolidatedUsagePercentage = budgetUsage?.usagePercentage ?? 0;
+  const globalThresholdReached = Boolean(budgetUsage?.thresholdReached);
+  const totalMonthCost = budgetUsage?.currentMonthCost ?? 0;
+  const budgetMonth = budgetUsage?.month;
+  const budgetCurrency = budgetUsage?.currency ?? 'KRW';
+  const isSaveDisabled = budgetMutation.isPending || isBudgetSectionLoading || invalidAccounts.length > 0;
 
   const handleToggle = (section: keyof SettingsState, key: string) => {
     setSettings((prev) => ({
@@ -138,21 +285,136 @@ export function Settings() {
     }
   };
 
-  const handleBudgetSave = () => {
-    if (!budgetAmountInput) {
-      alert('예산 한도를 입력해주세요.');
-      return;
-    }
-    if (budgetAmount <= 0) {
-      alert('예산 한도는 0보다 커야 합니다.');
-      return;
-    }
-    budgetMutation.mutate({
-      mode: 'CONSOLIDATED',
-      monthlyBudgetLimit: Number(budgetAmount.toFixed(0)),
-      alertThreshold,
-      accountBudgets: [],
+  const handleAccountToggle = (key: string, enabled: boolean) => {
+    setAccountBudgetsState((prev) => {
+      if (!prev[key]) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          enabled,
+        },
+      };
     });
+  };
+
+  const handleAccountValueChange = (key: string, field: 'monthlyBudgetLimit' | 'alertThreshold', value: number) => {
+    const sanitizedValue = Number.isNaN(value) ? 0 : value;
+    setAccountBudgetsState((prev) => {
+      if (!prev[key]) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          [field]: sanitizedValue,
+        },
+      };
+    });
+  };
+
+  const handleBudgetSave = () => {
+    const parsedBudget = Number(budgetAmountInput);
+    if (!budgetAmountInput || Number.isNaN(parsedBudget) || parsedBudget <= 0) {
+      alert('예산 한도를 0보다 큰 값으로 입력해주세요.');
+      return;
+    }
+
+    if (invalidAccounts.length > 0) {
+      alert('활성화된 계정별 예산의 월 예산 값은 0보다 커야 합니다.');
+      return;
+    }
+
+    budgetMutation.mutate({
+      mode: budgetMode,
+      monthlyBudgetLimit: Math.round(parsedBudget),
+      alertThreshold,
+      accountBudgets: Object.values(accountBudgetsState)
+        .filter((account) => account.enabled && account.monthlyBudgetLimit > 0)
+        .map((account) => ({
+          provider: account.provider,
+          accountId: account.accountId,
+          monthlyBudgetLimit: Math.round(account.monthlyBudgetLimit),
+          alertThreshold: account.alertThreshold,
+        })),
+    });
+  };
+
+  const renderAccountRow = (account: AccountBudgetUsage) => {
+    const key = buildAccountKey(account.provider, account.accountId);
+    const state = accountBudgetsState[key];
+    const enabled = state?.enabled ?? false;
+    const limit = state?.monthlyBudgetLimit ?? 0;
+    const threshold = state?.alertThreshold ?? alertThreshold;
+    const accountName = state?.accountName ?? account.accountName ?? `${account.provider} #${account.accountId}`;
+    const exceedsLimit = enabled && limit > 0 && account.currentMonthCost > limit;
+
+    return (
+      <div
+        key={key}
+        className="grid grid-cols-1 gap-4 border-b border-gray-100 py-4 last:border-b-0 md:grid-cols-[180px_1fr_1fr_180px_180px]"
+      >
+        <div className="space-y-1">
+          <Badge variant="outline" className={cn('w-fit capitalize', PROVIDER_BADGE_COLORS[account.provider])}>
+            {account.provider}
+          </Badge>
+          <p className="text-sm font-semibold text-gray-900">{accountName}</p>
+          <p className="text-xs text-gray-500">ID: {account.accountId}</p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>이번 달 비용</span>
+            <span className={cn('font-medium', exceedsLimit && 'text-red-600')}>
+              {formatCurrency(account.currentMonthCost, 'KRW')}
+            </span>
+          </div>
+          <Progress value={Math.min(account.usagePercentage ?? 0, 100)} className="h-2" />
+          <p className="text-xs text-gray-500">
+            사용률 {account.usagePercentage?.toFixed(1) ?? 0}%{' '}
+            {account.monthlyBudgetLimit ? `· 예산 ${formatCurrency(account.monthlyBudgetLimit ?? 0, 'KRW')}` : ''}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">계정별 예산 사용</span>
+            <Toggle
+              checked={enabled}
+              onChange={(checked) => handleAccountToggle(key, checked)}
+              disabled={budgetMutation.isPending}
+            />
+          </div>
+          <p className="text-xs text-gray-500">비활성화 시 통합 예산이 적용됩니다.</p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">월 예산 (KRW)</label>
+          <Input
+            type="number"
+            min={0}
+            disabled={!enabled || budgetMutation.isPending}
+            value={enabled ? String(limit) : ''}
+            onChange={(e) => handleAccountValueChange(key, 'monthlyBudgetLimit', Number(e.target.value))}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">임계값 (%)</label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            disabled={!enabled || budgetMutation.isPending}
+            value={enabled ? String(threshold) : ''}
+            onChange={(e) => handleAccountValueChange(key, 'alertThreshold', Number(e.target.value))}
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -171,91 +433,140 @@ export function Settings() {
       </div>
 
       <div className="space-y-6">
-        {/* 예산 및 알림 임계값 */}
+        {/* 통합/계정별 예산 설정 */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-gray-700" />
-              통합 예산 설정
+              예산 관리
             </CardTitle>
-            <CardDescription>
-              모든 CSP 비용을 합산하여 관리할 통합 예산과 알림 임계값을 설정하세요
-            </CardDescription>
+            <CardDescription>통합 예산과 계정별 한도를 한 곳에서 설정하세요.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {isAccountSpecificMode && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                현재는 계정별 예산 모드가 활성화되어 있습니다. 통합 예산 값은 참고만 가능하며 변경은{' '}
-                <Button
-                  type="button"
-                  variant="link"
-                  className="px-1 text-blue-900 underline"
-                  onClick={() => router.push('/budgets')}
-                >
-                  예산 관리 화면
-                </Button>
-                에서 진행해주세요.
+            {isBudgetSectionLoading ? (
+              <div className="space-y-4">
+                <div className="h-24 rounded-lg border border-dashed border-gray-200 bg-gray-50 animate-pulse" />
+                <div className="h-40 rounded-lg border border-dashed border-gray-200 bg-gray-50 animate-pulse" />
               </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                월 통합 예산 (KRW)
-              </label>
-              <div className="flex flex-col md:flex-row md:items-center gap-3">
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    value={budgetAmountInput}
-                    onChange={(e) => setBudgetAmountInput(e.target.value)}
-                    disabled={isBudgetLoading || isAccountSpecificMode}
-                    className="appearance-none"
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <Badge variant={globalThresholdReached ? 'destructive' : 'outline'}>
+                    {globalThresholdReached ? '임계값 초과' : '안정 상태'}
+                  </Badge>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <SummaryTile
+                    label="이번 달 총 비용"
+                    value={formatCurrency(totalMonthCost, budgetCurrency)}
+                    caption={budgetMonth}
+                  />
+                  <SummaryTile label="설정된 월 예산" value={formatCurrency(budgetAmount, 'KRW')} caption="통합 한도" />
+                  <SummaryTile
+                    label="사용률"
+                    value={`${consolidatedUsagePercentage.toFixed(1)}%`}
+                    caption={`임계값 ${alertThreshold}%`}
                   />
                 </div>
-                <div className="text-gray-600 text-sm md:text-base whitespace-nowrap">
-                  ≈ ₩{formattedBudget}
+                <div className="space-y-2">
+                  <Progress value={Math.min(consolidatedUsagePercentage, 100)} className="h-3" />
+                  <p className="text-xs text-gray-500">
+                    통합 예산은 모든 계정에 기본으로 적용되며, 계정별 예산을 설정하지 않은 경우 이 한도가 사용됩니다.
+                  </p>
                 </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-900">
-                  알림 임계값 ({alertThreshold}%)
-                </label>
-                <span className="text-sm text-gray-500">0% ~ 100%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={alertThreshold}
-                onChange={(e) => setAlertThreshold(Number(e.target.value))}
-                disabled={isBudgetLoading || isAccountSpecificMode}
-                className="w-full accent-blue-600"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                설정한 비율만큼 예산을 소진하면 즉시 알림을 보내드립니다.
-              </p>
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                onClick={handleBudgetSave}
-                disabled={budgetMutation.isPending || isBudgetLoading || isAccountSpecificMode}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {budgetMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    저장 중...
-                  </>
-                ) : (
-                  '예산 저장'
-                )}
-              </Button>
-            </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">월 통합 예산 (KRW)</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={budgetAmountInput}
+                      onChange={(e) => setBudgetAmountInput(e.target.value)}
+                      disabled={budgetMutation.isPending}
+                      className="appearance-none"
+                    />
+                    <p className="text-xs text-gray-500">현재 값: {formatCurrency(budgetAmount, 'KRW')}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">알림 임계값 ({alertThreshold}%)</label>
+                      <span className="text-xs text-gray-500">0% ~ 100%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={alertThreshold}
+                      onChange={(e) => setAlertThreshold(Number(e.target.value))}
+                      disabled={budgetMutation.isPending}
+                      className="w-full accent-blue-600"
+                    />
+                    <p className="text-xs text-gray-500">설정한 비율만큼 예산을 소진하면 즉시 알림을 보내드립니다.</p>
+                  </div>
+                </div>
+                <Tabs value={budgetMode} onValueChange={(value) => setBudgetMode(value as BudgetMode)}>
+                  <TabsList>
+                    <TabsTrigger value="CONSOLIDATED">통합 예산</TabsTrigger>
+                    <TabsTrigger value="ACCOUNT_SPECIFIC">계정별 예산</TabsTrigger>
+                  </TabsList>
+                  <TabsContent
+                    value="CONSOLIDATED"
+                    className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900"
+                  >
+                    통합 예산 모드에서는 모든 계정이 동일한 한도와 임계값을 공유합니다.
+                  </TabsContent>
+                  <TabsContent value="ACCOUNT_SPECIFIC" className="space-y-4">
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
+                      계정별 예산을 활성화하면 켜 둔 계정부터 별도의 예산과 임계값을 사용합니다. 설정하지 않은 계정은
+                      통합 예산을 따릅니다.
+                    </div>
+                    {hasAccounts ? (
+                      <div className="rounded-lg border border-gray-200">
+                        <div className="hidden border-b border-gray-100 px-4 py-3 text-xs font-semibold text-gray-500 md:grid md:grid-cols-[180px_1fr_1fr_180px_180px]">
+                          <span>계정</span>
+                          <span>이번 달 비용</span>
+                          <span>계정별 예산</span>
+                          <span>월 예산 입력</span>
+                          <span>임계값 (%)</span>
+                        </div>
+                        <div>{combinedAccountList.map((account) => renderAccountRow(account))}</div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 p-6 text-gray-500">
+                        <ShieldCheck className="h-5 w-5" />
+                        클라우드 계정을 먼저 연동하면 계정별 예산을 설정할 수 있습니다.
+                      </div>
+                    )}
+                    {invalidAccounts.length > 0 && (
+                      <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4" />
+                        활성화된 계정별 예산의 월 예산 값은 0보다 커야 합니다.
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+                <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 md:flex-row md:items-center md:justify-between">
+                  <p className="text-sm text-gray-600">
+                    저장 시 모드 전환, 통합 예산, 계정별 예산 설정이 한 번에 반영됩니다.
+                  </p>
+                  <Button
+                    onClick={handleBudgetSave}
+                    disabled={isSaveDisabled}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {budgetMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      '예산 설정 저장'
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -452,4 +763,18 @@ export function Settings() {
       </div>
     </div>
   );
+}
+
+function SummaryTile({ label, value, caption }: { label: string; value: string; caption?: string }) {
+  return (
+    <div className="rounded-lg border border-gray-100 p-4 shadow-sm">
+      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
+      {caption && <p className="text-xs text-gray-500">{caption}</p>}
+    </div>
+  );
+}
+
+function buildAccountKey(provider: CloudProvider, accountId: number | string) {
+  return `${provider}:${accountId}`;
 }
