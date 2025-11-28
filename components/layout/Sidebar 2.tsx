@@ -8,7 +8,6 @@ import {
   DollarSign,
   TrendingUp,
   AlertTriangle,
-  Target,
   Cloud,
   Lightbulb,
   Calculator,
@@ -30,7 +29,6 @@ const navigation = [
       { name: 'Forecast', href: '/costs/forecast', icon: TrendingUp },
     ]
   },
-  { name: 'Budgets', href: '/budgets', icon: Target },
   { name: '리소스 관리', href: '/accounts', icon: Cloud },
   { name: 'Recommendations', href: '/recommendations', icon: Lightbulb },
   { name: 'Simulators', href: '/simulators/db-billing', icon: Calculator },
