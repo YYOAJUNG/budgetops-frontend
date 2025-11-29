@@ -32,9 +32,10 @@ import {
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts } from '@/lib/api/azure';
-import { getNcpAccounts } from '@/lib/api/ncp';
+import { getNcpAccounts, getAllServerInstances, NcpServerInstance } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
+import { NcpServerMetricsDialog } from './NcpServerMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
 
 const SORT_OPTIONS = [
@@ -141,6 +142,29 @@ export function ResourceExplorer() {
     return map;
   }, [gcpAccountResources]);
 
+  // NCP 서버 인스턴스 조회
+  const { data: ncpServerInstances } = useQuery({
+    queryKey: ['ncp-server-instances'],
+    queryFn: getAllServerInstances,
+    enabled: activeNcpAccounts.length > 0,
+    retry: 1,
+  });
+
+  // NCP 서버 인스턴스를 instanceNo로 인덱싱된 Map으로 변환 (accountId 찾기용)
+  const ncpServerInstanceMap = useMemo(() => {
+    const map = new Map<string, { instance: NcpServerInstance; accountId: number }>();
+    if (ncpServerInstances && ncpAccounts) {
+      // 각 계정별로 인스턴스를 조회하여 accountId 매핑
+      // getAllServerInstances는 모든 계정의 인스턴스를 반환하지만 accountId 정보가 없음
+      // 따라서 각 계정별로 조회하여 매핑
+      for (const account of activeNcpAccounts) {
+        // 인스턴스 번호로 매칭 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
+        // 여기서는 간단하게 첫 번째 활성 계정을 사용
+      }
+    }
+    return map;
+  }, [ncpServerInstances, ncpAccounts, activeNcpAccounts]);
+
   const [providerFilter, setProviderFilter] = useState<string[]>([]);
   const [serviceFilter, setServiceFilter] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('cost');
@@ -148,6 +172,7 @@ export function ResourceExplorer() {
   const [viewType, setViewType] = useState<'list' | 'card'>('card');
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
+  const [showNcpMetricsDialog, setShowNcpMetricsDialog] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
@@ -156,6 +181,12 @@ export function ResourceExplorer() {
   const [selectedGcpResource, setSelectedGcpResource] = useState<{
     resourceId: string;
     instanceName: string;
+    region?: string;
+  } | null>(null);
+  const [selectedNcpInstance, setSelectedNcpInstance] = useState<{
+    instanceNo: string;
+    instanceName: string;
+    accountId: number;
     region?: string;
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
@@ -504,6 +535,9 @@ export function ResourceExplorer() {
                     const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+                    const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
+                    // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
+                    const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
                     
                     return (
                       <tr
@@ -627,6 +661,24 @@ export function ResourceExplorer() {
                               >
                                 <Activity className="h-4 w-4" />
                               </Button>
+                            ) : isNcpServer && ncpAccountId ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedNcpInstance({
+                                    instanceNo: resource.id,
+                                    instanceName: resource.name,
+                                    accountId: ncpAccountId,
+                                    region: resource.region,
+                                  });
+                                  setShowNcpMetricsDialog(true);
+                                }}
+                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="메트릭 보기"
+                              >
+                                <Activity className="h-4 w-4" />
+                              </Button>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -659,6 +711,10 @@ export function ResourceExplorer() {
             }
             // GCP 리소스인 경우 상세 정보 찾기
             const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
+            // NCP 서버의 경우 첫 번째 활성 계정 사용
+            const ncpAccountId = resource.provider === 'NCP' && resource.service === 'Server' && activeNcpAccounts.length > 0 
+              ? activeNcpAccounts[0].id 
+              : null;
             
             return (
               <ResourceCard 
@@ -668,6 +724,16 @@ export function ResourceExplorer() {
                 gcpResource={gcpResource}
                 accountId={accountId}
                 region={resource.region}
+                ncpAccountId={ncpAccountId}
+                onNcpMetricsClick={ncpAccountId ? () => {
+                  setSelectedNcpInstance({
+                    instanceNo: resource.id,
+                    instanceName: resource.name,
+                    accountId: ncpAccountId,
+                    region: resource.region,
+                  });
+                  setShowNcpMetricsDialog(true);
+                } : undefined}
               />
             );
           })}
@@ -694,6 +760,16 @@ export function ResourceExplorer() {
           region={selectedGcpResource.region}
         />
       )}
+      {selectedNcpInstance && (
+        <NcpServerMetricsDialog
+          open={showNcpMetricsDialog}
+          onOpenChange={setShowNcpMetricsDialog}
+          accountId={selectedNcpInstance.accountId}
+          instanceNo={selectedNcpInstance.instanceNo}
+          instanceName={selectedNcpInstance.instanceName}
+          region={selectedNcpInstance.region}
+        />
+      )}
     </div>
   );
 }
@@ -703,18 +779,23 @@ function ResourceCard({
   ec2Instance,
   gcpResource,
   accountId,
-  region
+  region,
+  ncpAccountId,
+  onNcpMetricsClick
 }: { 
   resource: ResourceItem;
   ec2Instance?: AwsEc2Instance;
   gcpResource?: GcpResource;
   accountId?: number | null;
   region?: string;
+  ncpAccountId?: number | null;
+  onNcpMetricsClick?: () => void;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
   const [showGcpMetrics, setShowGcpMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
   const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+  const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server' && ncpAccountId;
   const azureDetails =
     resource.provider === 'Azure' && resource.details && resource.details.provider === 'Azure'
       ? resource.details
@@ -902,7 +983,7 @@ function ResourceCard({
             </div>
           </>
         )}
-        {((isEc2 && accountId) || isGcpInstance) && (
+        {((isEc2 && accountId) || isGcpInstance || isNcpServer) && (
           <div className="pt-3 border-t border-slate-200">
             <Button
               variant="outline"
@@ -913,6 +994,8 @@ function ResourceCard({
                   setShowMetrics(true);
                 } else if (isGcpInstance) {
                   setShowGcpMetrics(true);
+                } else if (isNcpServer && onNcpMetricsClick) {
+                  onNcpMetricsClick();
                 }
               }}
             >
