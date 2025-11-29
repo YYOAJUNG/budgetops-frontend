@@ -177,6 +177,68 @@ export async function stopServerInstances(
 }
 
 /**
+ * NCP 서버 인스턴스 메트릭 인터페이스
+ */
+export interface NcpServerMetrics {
+  instanceNo: string;
+  instanceName: string;
+  region: string;
+  cpuUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkIn: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkOut: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskRead: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskWrite: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  fileSystemUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+}
+
+/**
+ * 서버 인스턴스 메트릭 조회
+ * @param accountId NCP 계정 ID
+ * @param instanceNo 서버 인스턴스 번호
+ * @param regionCode 리전 코드 (선택사항)
+ * @param hours 조회 기간 (시간, 기본값: 1)
+ */
+export async function getServerInstanceMetrics(
+  accountId: number,
+  instanceNo: string,
+  regionCode?: string,
+  hours: number = 1
+): Promise<NcpServerMetrics> {
+  const params: any = { hours };
+  if (regionCode) params.regionCode = regionCode;
+  
+  const { data } = await api.get<NcpServerMetrics>(
+    `/ncp/accounts/${accountId}/servers/instances/${instanceNo}/metrics`,
+    { params }
+  );
+  return data;
+}
+
+/**
  * 특정 NCP 계정의 비용 조회
  * @param accountId NCP 계정 ID
  * @param startMonth 시작 월 (YYYYMM 형식, 선택사항)
