@@ -20,7 +20,7 @@ export interface Notification {
   isRead: boolean;
   importance?: 'low' | 'normal' | 'high';
   service?: string;
-  provider?: 'AWS' | 'GCP' | 'Azure';
+  provider?: 'AWS' | 'GCP' | 'Azure' | 'NCP';
 }
 
 interface NotificationMenuProps {
@@ -30,6 +30,8 @@ interface NotificationMenuProps {
   onNotificationClick?: (id: string) => void;
   onViewAll?: () => void;
 }
+
+const MAX_PREVIEW_NOTIFICATIONS = 3;
 
 export function NotificationMenu({
   notifications,
@@ -69,7 +71,7 @@ export function NotificationMenu({
               알림이 없습니다
             </div>
           ) : (
-            notifications.map((notification, index) => (
+            notifications.slice(0, MAX_PREVIEW_NOTIFICATIONS).map((notification, index) => (
               <div key={notification.id}>
                 {index > 0 && <DropdownMenuSeparator className="bg-gray-50" />}
                 <DropdownMenuItem
@@ -86,6 +88,8 @@ export function NotificationMenu({
                                 ? 'bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5'
                                 : notification.provider === 'GCP'
                                 ? 'bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5'
+                                : notification.provider === 'NCP'
+                                ? 'bg-green-100 text-green-700 text-xs px-1.5 py-0.5'
                                 : 'bg-sky-100 text-sky-700 text-xs px-1.5 py-0.5'
                             }
                           >

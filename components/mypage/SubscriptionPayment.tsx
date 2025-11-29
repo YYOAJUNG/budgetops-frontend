@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreditCard, CheckCircle, Calendar, Download, Receipt, Plus, Zap, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,17 +18,47 @@ import {
 } from '@/lib/api/subscription';
 import { SUBSCRIPTION_PLANS, PAYMENT_STATUS_CONFIG } from '@/constants/mypage';
 import { type SubscriptionPlan } from '@/types/mypage';
-import { PurchaseTokenDialog } from './PurchaseTokenDialog';
-import { registerPaymentMethod, requestPayment, generateOrderUid } from '@/lib/portone';
+import { PurchaseQuestionUnitDialog } from './PurchaseQuestionUnitDialog';
+import { registerPaymentMethod } from '@/lib/portone';
 import { api } from '@/lib/api/client';
-import { TEMP_USER_ID, TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
+import { TEST_USER, PAYMENT_ERRORS, PAYMENT_SUCCESS } from '@/lib/constants/payment';
+import { useAuthStore } from '@/store/auth';
+import { getCurrentUser } from '@/lib/api/user';
 
 // 상수
 const DEFAULT_TOKEN_VALUES = {
-  current: 80,
-  max: 100,
-  resetDate: '2025.11.01',
+  current: 10000,  // Free 플랜 월간 할당
+  max: 10000,      // Free 플랜 월간 최대
 } as const;
+
+const PRO_TOKEN_VALUES = {
+  current: 30000,  // Pro 플랜 월간 할당 (기본 10k + Pro 추가 20k)
+  max: 100000,     // Pro 플랜 최대 보유량
+} as const;
+
+const MAX_TOKEN_LIMIT = 100000; // 최대 토큰 보유량
+
+// 다음 달 1일 계산
+const getNextMonthFirstDay = () => {
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return nextMonth.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).replace(/\. /g, '.').replace(/\.$/, '');
+};
+
+// 토큰 숫자를 읽기 쉬운 형태로 변환
+function formatTokenAmount(amount: number): string {
+  if (amount >= 1000000) {
+    return `${(amount / 1000000).toFixed(amount % 1000000 === 0 ? 0 : 1)}m`;
+  }
+  if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}k`;
+  }
+  return amount.toString();
+}
 
 // 헬퍼 함수
 const formatNextPaymentDate = (date: string | undefined) => {
@@ -108,29 +138,29 @@ function TokenStatusCard({
   onPurchaseClick?: () => void;
 }) {
   const tokenPercentage = useMemo(
-    () => (currentTokens / maxTokens) * 100,
+    () => maxTokens > 0 ? (currentTokens / maxTokens) * 100 : 0,
     [currentTokens, maxTokens]
   );
 
   return (
     <Card className="mb-8 border-amber-200 bg-amber-50">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-amber-600" />
             <span>토큰 현황</span>
           </CardTitle>
-          <span className="text-sm text-gray-600">{tokenResetDate} 리셋</span>
+          <span className="text-xs sm:text-sm text-gray-600">{tokenResetDate} 리셋</span>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
             <div className="flex items-baseline gap-2 mb-1">
-              <h3 className="text-2xl font-bold text-gray-900">{currentTokens}</h3>
-              <span className="text-gray-600">/ {maxTokens}</span>
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{formatTokenAmount(currentTokens)}</h3>
+              <span className="text-sm sm:text-base text-gray-600">/ {formatTokenAmount(maxTokens)}</span>
             </div>
-            <div className="w-64 bg-gray-200 rounded-full h-2 overflow-hidden mt-2">
+            <div className="w-full sm:w-64 bg-gray-200 rounded-full h-2 overflow-hidden mt-2">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all duration-300"
                 style={{ width: `${tokenPercentage}%` }}
@@ -142,6 +172,7 @@ function TokenStatusCard({
               onClick={onPurchaseClick}
               disabled={!isPro}
               className={cn(
+                'text-sm sm:text-base whitespace-nowrap',
                 isPro
                   ? 'bg-amber-500 hover:bg-amber-600 text-white'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -296,32 +327,95 @@ export function SubscriptionPayment() {
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [isLoadingPaymentMethod, setIsLoadingPaymentMethod] = useState(false);
   const [isLoadingPurchase, setIsLoadingPurchase] = useState(false);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [isUserResolving, setIsUserResolving] = useState(false);
+
+  const { user, isLoading: authLoading, checkAuth, login } = useAuthStore();
+  const userId = user?.id ?? resolvedUserId;
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      checkAuth().catch((error) => {
+        console.error('[SubscriptionPayment] checkAuth failed:', error);
+      });
+    }
+  }, [authLoading, user, checkAuth]);
+
+  useEffect(() => {
+    if (user?.id) {
+      setResolvedUserId(user.id);
+      return;
+    }
+    if (authLoading || isUserResolving) return;
+
+    let cancelled = false;
+    const fetchUser = async () => {
+      setIsUserResolving(true);
+      try {
+        const current = await getCurrentUser();
+        if (cancelled) return;
+        setResolvedUserId(String(current.id));
+        if (!user) {
+          login({
+            id: String(current.id),
+            email: current.email,
+            name: current.name,
+            role: 'user',
+          });
+        }
+      } catch (error) {
+        console.error('[SubscriptionPayment] failed to fetch user info:', error);
+      } finally {
+        if (!cancelled) {
+          setIsUserResolving(false);
+        }
+      }
+    };
+
+    fetchUser();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isUserResolving, user, login]);
 
   const { data: subscription, refetch: refetchSubscription } = useQuery({
-    queryKey: ['currentSubscription'],
-    queryFn: getCurrentSubscription,
+    queryKey: ['currentSubscription', userId],
+    queryFn: () => getCurrentSubscription(userId!),
+    enabled: !!userId,
   });
 
   const { data: paymentMethod, refetch: refetchPaymentMethod } = useQuery({
-    queryKey: ['paymentMethod'],
-    queryFn: getPaymentMethod,
+    queryKey: ['paymentMethod', userId],
+    queryFn: () => getPaymentMethod(userId!),
+    enabled: !!userId,
   });
 
   const { data: paymentHistory, refetch: refetchPaymentHistory } = useQuery({
-    queryKey: ['paymentHistory'],
-    queryFn: getPaymentHistory,
+    queryKey: ['paymentHistory', userId],
+    queryFn: () => getPaymentHistory(userId!),
+    enabled: !!userId,
   });
 
-  // 토큰 정보 (임시 데이터, 나중에 API로 교체)
-  const tokenInfo = useMemo(
-    () => ({
-      current: subscription?.currentTokens ?? DEFAULT_TOKEN_VALUES.current,
-      max: subscription?.maxTokens ?? DEFAULT_TOKEN_VALUES.max,
-      resetDate: subscription?.tokenResetDate ?? DEFAULT_TOKEN_VALUES.resetDate,
-      isPro: subscription?.planId === 'pro',
-    }),
-    [subscription]
-  );
+  const tokenInfo = useMemo(() => {
+    const isPro = subscription?.planId === 'pro';
+    const defaultValues = isPro ? PRO_TOKEN_VALUES : DEFAULT_TOKEN_VALUES;
+
+    return {
+      current: subscription?.currentTokens ?? defaultValues.current,
+      max: subscription?.maxTokens ?? defaultValues.max,
+      resetDate: subscription?.tokenResetDate ?? getNextMonthFirstDay(),
+      isPro,
+    };
+  }, [subscription]);
+
+  if ((authLoading || isUserResolving) && !userId) {
+    return (
+      <div className="p-8">
+        <h2 className="text-2xl font-bold text-gray-900">구독 및 결제</h2>
+        <p className="text-gray-600 mt-1">사용자 정보를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   const handleTokenPurchase = () => {
     if (tokenInfo.isPro) {
@@ -335,6 +429,11 @@ export function SubscriptionPayment() {
    * 플랜 선택 핸들러 - 실제 결제는 건너뛰고 백엔드 플랜만 변경
    */
   const handlePlanSelect = async (planId: string) => {
+    if (!userId) {
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
+      return;
+    }
+
     try {
       setIsLoadingPlan(true);
 
@@ -350,7 +449,7 @@ export function SubscriptionPayment() {
 
       // Free 플랜: 결제 없이 즉시 변경
       if (planId === 'free') {
-        await updateSubscription(planId);
+        await updateSubscription(userId, planId);
         await refetchSubscription();
         setShowPlans(false);
         alert(PAYMENT_SUCCESS.PLAN_CHANGED);
@@ -365,7 +464,7 @@ export function SubscriptionPayment() {
         }
 
         // 백엔드에서 플랜 변경 (nextBillingDate 자동 설정됨)
-        await updateSubscription(planId);
+        await updateSubscription(userId, planId);
         await Promise.all([
           refetchSubscription(),
           refetchPaymentHistory(),
@@ -393,10 +492,15 @@ export function SubscriptionPayment() {
    * 카카오페이 결제 수단 등록 처리
    */
   const handlePaymentMethodSubmit = async () => {
+    if (!userId) {
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
+      return;
+    }
+
     try {
       setIsLoadingPaymentMethod(true);
 
-      const customerUid = `customer_${TEMP_USER_ID}`;
+      const customerUid = `customer_${userId}`;
       const result = await registerPaymentMethod(
         customerUid,
         TEST_USER.name,
@@ -408,7 +512,7 @@ export function SubscriptionPayment() {
         return;
       }
 
-      await api.post(`/v1/users/${TEMP_USER_ID}/payment/register`, {
+      await api.post(`/v1/users/${encodeURIComponent(userId)}/payment/register`, {
         impUid: result.impUid,
         customerUid: result.customerUid,
       });
@@ -421,7 +525,7 @@ export function SubscriptionPayment() {
         expiryMonth: undefined,
         expiryYear: undefined,
       };
-      await savePaymentMethod(cardInfo);
+      await savePaymentMethod(userId, cardInfo);
 
       await Promise.all([
         refetchPaymentMethod(),
@@ -444,6 +548,11 @@ export function SubscriptionPayment() {
    * 토큰 구매 핸들러 - 빌링키 자동결제
    */
   const handlePurchase = async (packageId: string, amount: number, price: number) => {
+    if (!userId) {
+      console.warn('사용자 정보가 아직 로딩되지 않았습니다.');
+      return;
+    }
+
     try {
       setIsLoadingPurchase(true);
 
@@ -455,7 +564,7 @@ export function SubscriptionPayment() {
       }
 
       // 백엔드에 토큰 구매 요청 (빌링키로 자동결제)
-      await api.post(`/v1/users/${TEMP_USER_ID}/payment/purchase-tokens`, {
+      await api.post(`/v1/users/${encodeURIComponent(userId)}/payment/purchase-tokens`, {
         packageId,
         amount,
         price,
@@ -500,7 +609,7 @@ export function SubscriptionPayment() {
         isLoading={isLoadingPlan}
       />
 
-      <PurchaseTokenDialog
+      <PurchaseQuestionUnitDialog
         open={showPurchaseDialog}
         onOpenChange={setShowPurchaseDialog}
         onPurchase={handlePurchase}

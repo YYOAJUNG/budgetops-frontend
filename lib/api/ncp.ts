@@ -50,6 +50,15 @@ export interface NcpMonthlyCost {
   currency?: string;
 }
 
+export interface NcpCostSummary {
+  month: string; // YYYYMM 형식
+  totalCost: number;
+  currency: string;
+  totalDemandAmount: number;
+  totalUseAmount: number;
+  totalDiscountAmount: number;
+}
+
 /**
  * NCP 계정 목록 조회
  */
@@ -168,6 +177,68 @@ export async function stopServerInstances(
 }
 
 /**
+ * NCP 서버 인스턴스 메트릭 인터페이스
+ */
+export interface NcpServerMetrics {
+  instanceNo: string;
+  instanceName: string;
+  region: string;
+  cpuUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkIn: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkOut: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskRead: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskWrite: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  fileSystemUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+}
+
+/**
+ * 서버 인스턴스 메트릭 조회
+ * @param accountId NCP 계정 ID
+ * @param instanceNo 서버 인스턴스 번호
+ * @param regionCode 리전 코드 (선택사항)
+ * @param hours 조회 기간 (시간, 기본값: 1)
+ */
+export async function getServerInstanceMetrics(
+  accountId: number,
+  instanceNo: string,
+  regionCode?: string,
+  hours: number = 1
+): Promise<NcpServerMetrics> {
+  const params: any = { hours };
+  if (regionCode) params.regionCode = regionCode;
+  
+  const { data } = await api.get<NcpServerMetrics>(
+    `/ncp/accounts/${accountId}/servers/instances/${instanceNo}/metrics`,
+    { params }
+  );
+  return data;
+}
+
+/**
  * 특정 NCP 계정의 비용 조회
  * @param accountId NCP 계정 ID
  * @param startMonth 시작 월 (YYYYMM 형식, 선택사항)
@@ -212,6 +283,25 @@ export interface NcpAlert {
 }
 
 /**
+ * 특정 NCP 계정의 비용 요약 조회
+ * @param accountId NCP 계정 ID
+ * @param month 조회 월 (YYYYMM 형식, 선택사항 - 미지정 시 현재 월)
+ */
+export async function getNcpAccountCostSummary(
+  accountId: number,
+  month?: string
+): Promise<NcpCostSummary> {
+  const params: any = {};
+  if (month) params.month = month;
+
+  const { data } = await api.get<NcpCostSummary>(
+    `/ncp/accounts/${accountId}/costs/summary`,
+    { params }
+  );
+  return data;
+}
+
+/**
  * 모든 NCP 계정의 알림 점검 실행
  */
 export async function checkNcpAlerts(): Promise<NcpAlert[]> {
@@ -225,4 +315,81 @@ export async function checkNcpAlerts(): Promise<NcpAlert[]> {
 export async function checkNcpAlertsByAccount(accountId: number): Promise<NcpAlert[]> {
   const { data } = await api.post<NcpAlert[]>(`/ncp/alerts/check/${accountId}`);
   return data;
+}
+
+/**
+ * 모든 NCP 계정의 비용 요약 조회
+ * @param month 조회 월 (YYYYMM 형식, 선택사항 - 미지정 시 현재 월)
+ */
+export async function getAllNcpAccountsCostsSummary(
+  month?: string
+): Promise<Array<{ accountId: number; accountName: string; totalCost: number; currency: string }>> {
+  try {
+    const activeAccounts = await getActiveNcpAccounts();
+    if (activeAccounts.length === 0) {
+      return [];
+    }
+
+    const costSummaries = await fetchCostSummariesForAccounts(activeAccounts, month);
+    console.log(`Fetched cost summaries from ${activeAccounts.length} active NCP account(s)`);
+    return costSummaries;
+  } catch (error) {
+    console.error('Failed to fetch all NCP account cost summaries:', error);
+    return [];
+  }
+}
+
+/**
+ * 활성 NCP 계정 목록 조회
+ */
+async function getActiveNcpAccounts(): Promise<NcpAccount[]> {
+  const accounts = await getNcpAccounts();
+  const activeAccounts = accounts.filter((account) => account.active === true);
+
+  if (activeAccounts.length === 0) {
+    console.warn('No active NCP accounts found');
+  }
+
+  return activeAccounts;
+}
+
+/**
+ * 여러 계정의 비용 요약을 병렬로 조회
+ */
+async function fetchCostSummariesForAccounts(
+  accounts: NcpAccount[],
+  month?: string
+): Promise<Array<{ accountId: number; accountName: string; totalCost: number; currency: string }>> {
+  const costSummaryPromises = accounts.map((account) =>
+    fetchAccountCostSummary(account, month)
+  );
+
+  return await Promise.all(costSummaryPromises);
+}
+
+/**
+ * 단일 계정의 비용 요약 조회 (에러 처리 포함)
+ */
+async function fetchAccountCostSummary(
+  account: NcpAccount,
+  month?: string
+): Promise<{ accountId: number; accountName: string; totalCost: number; currency: string }> {
+  try {
+    const summary = await getNcpAccountCostSummary(account.id, month);
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      totalCost: summary.totalCost,
+      currency: summary.currency,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch cost summary for account ${account.id} (${account.name}):`, error);
+    // 에러 발생 시 0원으로 반환하여 다른 계정 조회는 계속 진행
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      totalCost: 0,
+      currency: 'KRW',
+    };
+  }
 }

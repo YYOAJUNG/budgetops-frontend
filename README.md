@@ -55,7 +55,7 @@ npm run start   # 기본 3000 포트, NEXT_PUBLIC_* 환경변수 적용
 - **lint**: ESLint 체크
 
 ### 디렉터리 구조(요약)
-- `app/`: App Router 페이지 구성 (`dashboard`, `accounts`, `budgets`, `costs/*`, `reports`, `recommendations`, `copilot`, `mypage`, `onboarding`, `simulators/db-billing` 등)
+- `app/`: App Router 페이지 구성 (`dashboard`, `accounts`, `costs/*`, `reports`, `recommendations`, `copilot`, `mypage`, `onboarding`, `simulators/db-billing` 등)
 - `components/`: UI 및 도메인 컴포넌트
 - `lib/api/`: API 클라이언트 래퍼 및 엔드포인트 함수 (`client.ts`, `aws.ts`, `user.ts`, `subscription.ts` 등)
 - `store/`: Zustand 스토어(`auth.ts`, `ui.ts` 등)

@@ -52,9 +52,18 @@ export const useAuthStore = create<AuthState>()(
 
         set({ isLoading: true });
         try {
-          // Mock 모드인 경우 스킵
+            // Mock 모드인 경우 모의 사용자로 자동 로그인
           if (process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
-            set({ isLoading: false });
+            set({
+              user: {
+                id: 'mock-user-1',
+                email: 'test@example.com',
+                name: '테스트 사용자',
+                role: 'user',
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
             return;
           }
 
@@ -69,10 +78,13 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const userInfo = await getCurrentUser();
+          const normalizedId = userInfo.id !== undefined && userInfo.id !== null
+            ? String(userInfo.id)
+            : '';
           // 백엔드에서 받은 사용자 정보를 상태에 저장
           set({
             user: {
-              id: userInfo.id,
+              id: normalizedId,
               email: userInfo.email,
               name: userInfo.name,
               role: 'user', // 백엔드 응답에 role이 있으면 그걸 사용

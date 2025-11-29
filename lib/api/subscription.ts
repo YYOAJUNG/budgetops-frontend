@@ -2,11 +2,14 @@
  * 구독 및 결제 API
  */
 import { api } from './client';
-import { TEMP_USER_ID } from '../constants/payment';
 
 // ========== Helper Functions ==========
 
-const getUserId = (): number => TEMP_USER_ID;
+const userPathSegment = (userId: string | number): string =>
+  encodeURIComponent(String(userId));
+
+const paymentMethodStorageKey = (userId: string | number): string =>
+  `paymentMethod:${String(userId)}`;
 
 const transformBillingResponse = (data: any): Subscription => ({
   planId: data.planId,
@@ -18,11 +21,6 @@ const transformBillingResponse = (data: any): Subscription => ({
   maxTokens: data.maxTokens,
   tokenResetDate: data.tokenResetDate,
 });
-
-const calculateBonusTokens = (packageId: string): number => {
-  const bonusMap: Record<string, number> = { small: 0, medium: 50, large: 150 };
-  return bonusMap[packageId] || 0;
-};
 
 // ========== Type Definitions ==========
 
@@ -120,32 +118,28 @@ export const mockPaymentHistory: PaymentHistory[] = [
 
 // ========== API Functions ==========
 
-export async function getCurrentSubscription(): Promise<Subscription> {
-  // 항상 실제 백엔드 사용 (결제만 Mock 처리)
-  const userId = getUserId();
-  const response = await api.get(`/v1/users/${userId}/billing`);
+export async function getCurrentSubscription(userId: string | number): Promise<Subscription> {
+  const response = await api.get(`/v1/users/${userPathSegment(userId)}/billing`);
   return transformBillingResponse(response.data);
 }
 
-export async function getPaymentMethod(): Promise<PaymentMethod & { isRegistered: boolean }> {
-  // 항상 백엔드 API로 등록 여부 확인
-  const userId = getUserId();
+export async function getPaymentMethod(
+  userId: string | number
+): Promise<PaymentMethod & { isRegistered: boolean }> {
   try {
-    const response = await api.get(`/v1/users/${userId}/payment/status`);
+    const response = await api.get(`/v1/users/${userPathSegment(userId)}/payment/status`);
     const isRegistered = response.data;
 
     if (isRegistered && typeof window !== 'undefined') {
-      // 등록되어 있으면 localStorage의 카드 정보 반환
-      const savedCardInfo = localStorage.getItem('paymentMethod');
+      const savedCardInfo = localStorage.getItem(paymentMethodStorageKey(userId));
       if (savedCardInfo) {
         const cardInfo = JSON.parse(savedCardInfo);
         return { ...cardInfo, isRegistered: true };
       }
     }
 
-    // 등록되어 있지 않으면 localStorage도 삭제
     if (!isRegistered && typeof window !== 'undefined') {
-      localStorage.removeItem('paymentMethod');
+      localStorage.removeItem(paymentMethodStorageKey(userId));
     }
 
     return {
@@ -159,7 +153,6 @@ export async function getPaymentMethod(): Promise<PaymentMethod & { isRegistered
     };
   } catch (error) {
     console.error('[getPaymentMethod] API 오류:', error);
-    // API 오류 시 등록되지 않은 것으로 간주
     return {
       id: '',
       type: 'card',
@@ -172,17 +165,18 @@ export async function getPaymentMethod(): Promise<PaymentMethod & { isRegistered
   }
 }
 
-export async function savePaymentMethod(cardInfo: PaymentMethod): Promise<void> {
+export async function savePaymentMethod(
+  userId: string | number,
+  cardInfo: PaymentMethod
+): Promise<void> {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('paymentMethod', JSON.stringify(cardInfo));
+    localStorage.setItem(paymentMethodStorageKey(userId), JSON.stringify(cardInfo));
   }
 }
 
-export async function getPaymentHistory(): Promise<PaymentHistory[]> {
-  // 항상 백엔드에서 결제 내역 조회
-  const userId = getUserId();
+export async function getPaymentHistory(userId: string | number): Promise<PaymentHistory[]> {
   try {
-    const response = await api.get(`/v1/users/${userId}/payment/history`);
+    const response = await api.get(`/v1/users/${userPathSegment(userId)}/payment/history`);
     return response.data;
   } catch (error) {
     console.error('[getPaymentHistory] API 오류:', error);
@@ -190,21 +184,27 @@ export async function getPaymentHistory(): Promise<PaymentHistory[]> {
   }
 }
 
-export async function updateSubscription(planId: string): Promise<Subscription> {
+export async function updateSubscription(
+  userId: string | number,
+  planId: string
+): Promise<Subscription> {
   console.log('[updateSubscription] 시작 - planId:', planId);
 
-  // 항상 실제 백엔드 사용 (백엔드에서 nextBillingDate 자동 설정)
-  const userId = getUserId();
   const planName = planId.toUpperCase();
-  const response = await api.put(`/v1/users/${userId}/billing/plan/${planName}`);
+  const response = await api.put(
+    `/v1/users/${userPathSegment(userId)}/billing/plan/${planName}`
+  );
   console.log('[updateSubscription] API 응답:', response.data);
   return transformBillingResponse(response.data);
 }
 
 export async function purchaseTokens(
+  userId: string | number,
   request: TokenPurchaseRequest
 ): Promise<TokenPurchaseResponse> {
-  const userId = getUserId();
-  const response = await api.post(`/v1/users/${userId}/payment/purchase-tokens`, request);
+  const response = await api.post(
+    `/v1/users/${userPathSegment(userId)}/payment/purchase-tokens`,
+    request
+  );
   return response.data;
 }

@@ -1,12 +1,14 @@
 import { AppNotification } from '@/store/notifications';
-import { checkAwsEc2Alerts, AwsEc2Alert } from './aws';
+import { checkAwsAlerts, AwsAlert } from './aws';
 import { checkGcpAlerts, GcpAlert } from './gcp';
+import { checkAzureAlerts, AzureAlert } from './azure';
 import { checkNcpAlerts, NcpAlert } from './ncp';
+import { checkBudgetAlerts, type BudgetAlert } from './budget';
 
 /**
  * AWS 알림(EC2/RDS/S3 등)을 AppNotification 형태로 변환
  */
-function convertAwsAlertToNotification(alert: AwsEc2Alert): AppNotification {
+function convertAwsAlertToNotification(alert: AwsAlert): AppNotification {
   // 심각도에 따른 중요도 매핑
   const importanceMap: Record<string, 'low' | 'normal' | 'high'> = {
     INFO: 'low',
@@ -55,6 +57,29 @@ function convertGcpAlertToNotification(alert: GcpAlert): AppNotification {
 }
 
 /**
+ * Azure 알림을 AppNotification 형태로 변환
+ */
+function convertAzureAlertToNotification(alert: AzureAlert): AppNotification {
+  // 심각도에 따른 중요도 매핑
+  const importanceMap: Record<string, 'low' | 'normal' | 'high'> = {
+    INFO: 'low',
+    WARNING: 'normal',
+    CRITICAL: 'high',
+  };
+
+  return {
+    id: `azure-alert-${alert.resourceId}-${alert.ruleId}`,
+    title: alert.ruleTitle,
+    message: `${alert.resourceName || alert.resourceId} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
+    timestamp: alert.createdAt || new Date().toISOString(),
+    isRead: alert.status === 'ACKNOWLEDGED',
+    importance: importanceMap[alert.severity] || 'normal',
+    service: 'Virtual Machines',
+    provider: 'Azure',
+  };
+}
+
+/**
  * NCP 알림을 AppNotification 형태로 변환
  */
 function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
@@ -76,6 +101,25 @@ function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
   };
 }
 
+function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
+  const targetLabel = alert.accountName
+    ? `${alert.accountName}${alert.provider ? ` (${alert.provider})` : ''}`
+    : '통합 예산';
+  const usageMessage = alert.message
+    ? alert.message
+    : `${targetLabel}에서 예산의 ${alert.usagePercentage?.toFixed(1) ?? 0}%를 사용했습니다.`;
+
+  return {
+    id: `budget-alert-${alert.triggeredAt}`,
+    title: '예산 임계값 도달',
+    message: usageMessage,
+    timestamp: alert.triggeredAt ?? new Date().toISOString(),
+    isRead: false,
+    importance: 'high',
+    service: alert.provider ? `${alert.provider} Budget` : 'Budget',
+  };
+}
+
 /**
  * 백엔드에서 실시간 알림 가져오기
  */
@@ -85,7 +129,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
   // AWS 알림
   try {
     console.log('[Notifications] Fetching AWS alerts...');
-    const awsAlerts = await checkAwsEc2Alerts();
+    const awsAlerts = await checkAwsAlerts();
     console.log(`[Notifications] Received ${awsAlerts.length} AWS alerts`);
     const awsNotifications = awsAlerts.map(convertAwsAlertToNotification);
     notifications.push(...awsNotifications);
@@ -104,6 +148,17 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     console.error('[Notifications] Failed to fetch GCP alerts:', error);
   }
 
+  // Azure 알림
+  try {
+    console.log('[Notifications] Fetching Azure alerts...');
+    const azureAlerts = await checkAzureAlerts();
+    console.log(`[Notifications] Received ${azureAlerts.length} Azure alerts`);
+    const azureNotifications = azureAlerts.map(convertAzureAlertToNotification);
+    notifications.push(...azureNotifications);
+  } catch (error) {
+    console.error('[Notifications] Failed to fetch Azure alerts:', error);
+  }
+
   // NCP 알림
   try {
     console.log('[Notifications] Fetching NCP alerts...');
@@ -113,6 +168,14 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     notifications.push(...ncpNotifications);
   } catch (error) {
     console.error('[Notifications] Failed to fetch NCP alerts:', error);
+  }
+
+  // 예산 임계값 알림
+  try {
+    const budgetAlerts = await checkBudgetAlerts();
+    budgetAlerts.forEach((alert) => notifications.push(convertBudgetAlertToNotification(alert)));
+  } catch (error) {
+    console.error('[Notifications] Failed to fetch budget alerts:', error);
   }
 
   console.log(`[Notifications] Total ${notifications.length} alerts fetched`);
