@@ -36,7 +36,8 @@ import { getNcpAccounts, getAllServerInstances, NcpServerInstance } from '@/lib/
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { NcpServerMetricsDialog } from './NcpServerMetricsDialog';
-import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2 } from 'lucide-react';
+import { NcpAggregatedMetricsDialog } from './NcpAggregatedMetricsDialog';
+import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2, BarChart3 } from 'lucide-react';
 
 const SORT_OPTIONS = [
   { value: 'cost', label: '비용' },
@@ -173,6 +174,10 @@ export function ResourceExplorer() {
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
   const [showNcpMetricsDialog, setShowNcpMetricsDialog] = useState(false);
+  const [showNcpAggregatedMetricsDialog, setShowNcpAggregatedMetricsDialog] = useState(false);
+  const [selectedNcpInstanceNos, setSelectedNcpInstanceNos] = useState<string[]>([]);
+  const [selectedNcpAccountId, setSelectedNcpAccountId] = useState<number | null>(null);
+  const [selectedNcpRegion, setSelectedNcpRegion] = useState<string | undefined>(undefined);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
@@ -299,7 +304,24 @@ export function ResourceExplorer() {
       {/* 필터 및 정렬 섹션 */}
       <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-slate-800">필터 및 정렬</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-slate-800">필터 및 정렬</CardTitle>
+            {selectedNcpInstanceNos.length > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  if (selectedNcpAccountId) {
+                    setShowNcpAggregatedMetricsDialog(true);
+                  }
+                }}
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                집계 메트릭 보기 ({selectedNcpInstanceNos.length}개)
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-3">
@@ -538,6 +560,7 @@ export function ResourceExplorer() {
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
                     // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
                     const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
+                    const isNcpSelected = isNcpServer && selectedNcpInstanceNos.includes(resource.id);
                     
                     return (
                       <tr
@@ -661,24 +684,6 @@ export function ResourceExplorer() {
                               >
                                 <Activity className="h-4 w-4" />
                               </Button>
-                            ) : isNcpServer && ncpAccountId ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedNcpInstance({
-                                    instanceNo: resource.id,
-                                    instanceName: resource.name,
-                                    accountId: ncpAccountId,
-                                    region: resource.region,
-                                  });
-                                  setShowNcpMetricsDialog(true);
-                                }}
-                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                title="메트릭 보기"
-                              >
-                                <Activity className="h-4 w-4" />
-                              </Button>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -715,6 +720,7 @@ export function ResourceExplorer() {
             const ncpAccountId = resource.provider === 'NCP' && resource.service === 'Server' && activeNcpAccounts.length > 0 
               ? activeNcpAccounts[0].id 
               : null;
+            const isNcpSelected = ncpAccountId && selectedNcpInstanceNos.includes(resource.id);
             
             return (
               <ResourceCard 
@@ -725,6 +731,20 @@ export function ResourceExplorer() {
                 accountId={accountId}
                 region={resource.region}
                 ncpAccountId={ncpAccountId}
+                isNcpSelected={isNcpSelected}
+                onNcpSelectChange={ncpAccountId ? (checked: boolean) => {
+                  if (checked) {
+                    setSelectedNcpInstanceNos([...selectedNcpInstanceNos, resource.id]);
+                    setSelectedNcpAccountId(ncpAccountId);
+                    setSelectedNcpRegion(resource.region);
+                  } else {
+                    setSelectedNcpInstanceNos(selectedNcpInstanceNos.filter(id => id !== resource.id));
+                    if (selectedNcpInstanceNos.length === 1) {
+                      setSelectedNcpAccountId(null);
+                      setSelectedNcpRegion(undefined);
+                    }
+                  }
+                } : undefined}
                 onNcpMetricsClick={ncpAccountId ? () => {
                   setSelectedNcpInstance({
                     instanceNo: resource.id,
@@ -770,6 +790,15 @@ export function ResourceExplorer() {
           region={selectedNcpInstance.region}
         />
       )}
+      {selectedNcpAccountId && selectedNcpInstanceNos.length > 0 && (
+        <NcpAggregatedMetricsDialog
+          open={showNcpAggregatedMetricsDialog}
+          onOpenChange={setShowNcpAggregatedMetricsDialog}
+          accountId={selectedNcpAccountId}
+          instanceNos={selectedNcpInstanceNos}
+          regionCode={selectedNcpRegion}
+        />
+      )}
     </div>
   );
 }
@@ -781,6 +810,8 @@ function ResourceCard({
   accountId,
   region,
   ncpAccountId,
+  isNcpSelected,
+  onNcpSelectChange,
   onNcpMetricsClick
 }: { 
   resource: ResourceItem;
@@ -789,6 +820,8 @@ function ResourceCard({
   accountId?: number | null;
   region?: string;
   ncpAccountId?: number | null;
+  isNcpSelected?: boolean;
+  onNcpSelectChange?: (checked: boolean) => void;
   onNcpMetricsClick?: () => void;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
@@ -984,7 +1017,21 @@ function ResourceCard({
           </>
         )}
         {((isEc2 && accountId) || isGcpInstance || isNcpServer) && (
-          <div className="pt-3 border-t border-slate-200">
+          <div className="pt-3 border-t border-slate-200 space-y-2">
+            {isNcpServer && onNcpSelectChange && (
+              <div className="flex items-center gap-2 pb-2">
+                <input
+                  type="checkbox"
+                  checked={isNcpSelected || false}
+                  onChange={(e) => onNcpSelectChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  title="집계 메트릭에 포함"
+                />
+                <label className="text-sm text-slate-600 cursor-pointer" onClick={() => onNcpSelectChange(!isNcpSelected)}>
+                  집계 메트릭에 포함
+                </label>
+              </div>
+            )}
             <Button
               variant="outline"
               size="sm"
