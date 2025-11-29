@@ -198,5 +198,3 @@ export async function markNotificationRead(id: string): Promise<void> {
   // 백엔드 연동 시 PUT /notifications/{id}/read 등으로 대체
   return;
 }
-
-
