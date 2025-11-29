@@ -90,7 +90,7 @@ function convertNcpAlertToNotification(alert: NcpAlert): AppNotification {
   };
 
   return {
-    id: `ncp-alert-${alert.serverInstanceNo}-${alert.ruleId}`,
+    id: `ncp-alert-${alert.serverInstanceNo}-${alert.ruleId}-${Date.now()}`,
     title: alert.ruleTitle,
     message: `${alert.serverName || alert.serverInstanceNo} - ${alert.violatedMetric} 임계치 초과 (현재: ${alert.currentValue?.toFixed(1)}%, 임계치: ${alert.threshold?.toFixed(1)}%)`,
     timestamp: alert.createdAt || new Date().toISOString(),
