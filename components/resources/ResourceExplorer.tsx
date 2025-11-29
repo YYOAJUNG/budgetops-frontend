@@ -560,7 +560,7 @@ export function ResourceExplorer() {
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
                     // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
                     const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
-                    const isNcpSelected = isNcpServer && selectedNcpInstanceNos.includes(resource.id);
+                    const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
                     
                     return (
                       <tr
@@ -720,7 +720,7 @@ export function ResourceExplorer() {
             const ncpAccountId = resource.provider === 'NCP' && resource.service === 'Server' && activeNcpAccounts.length > 0 
               ? activeNcpAccounts[0].id 
               : null;
-            const isNcpSelected = ncpAccountId && selectedNcpInstanceNos.includes(resource.id);
+            const isNcpSelected = ncpAccountId ? selectedNcpInstanceNos.includes(resource.id) : false;
             
             return (
               <ResourceCard 
