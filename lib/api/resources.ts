@@ -31,6 +31,7 @@ export type ResourceItem = {
   updatedAt: string;
   status: 'running' | 'stopped' | 'idle';
   details?: ResourceDetails;
+  accountId?: number;
 };
 
 const MOCK_RESOURCES: ResourceItem[] = [
@@ -321,7 +322,10 @@ export async function getResources(): Promise<ResourceItem[]> {
       for (const account of activeAzureAccounts) {
         try {
           const vms = await getAzureVirtualMachines(account.id);
-          const vmResources = vms.map(convertAzureVmToResource);
+          const vmResources = vms.map((vm) => ({
+            ...convertAzureVmToResource(vm),
+            accountId: account.id,
+          }));
           resources.push(...vmResources);
         } catch (error) {
           console.warn(`Failed to fetch Azure VMs for account ${account.id}:`, error);
