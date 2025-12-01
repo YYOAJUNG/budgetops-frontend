@@ -583,6 +583,12 @@ export function ResourceExplorer() {
                     const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+                    const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
+                    const azureDetails =
+                      resource.provider === 'Azure' && resource.details?.provider === 'Azure'
+                        ? resource.details
+                        : undefined;
+                    const isAzureOperating = operatingAzureVmId === resource.id;
                     
                     return (
                       <tr
