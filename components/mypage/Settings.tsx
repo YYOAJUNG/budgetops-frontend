@@ -497,14 +497,13 @@ export function Settings() {
     return (
       <div
         key={key}
-        className="grid grid-cols-1 gap-4 border-b border-gray-100 px-4 py-4 last:border-b-0 md:grid-cols-[200px_1fr_1fr_200px_180px]"
+        className="grid grid-cols-1 gap-4 border-b border-gray-100 px-6 py-4 last:border-b-0 md:grid-cols-[220px_1fr_1fr_200px_180px]"
       >
-        <div className="space-y-1">
+        <div className="space-y-1 pl-1 md:pl-2">
           <Badge variant="outline" className={cn('w-fit capitalize', PROVIDER_BADGE_COLORS[account.provider])}>
             {account.provider}
           </Badge>
           <p className="text-sm font-semibold text-gray-900">{accountName}</p>
-          <p className="text-xs text-gray-500">ID: {account.accountId}</p>
         </div>
 
         <div className="space-y-2">
