@@ -23,7 +23,7 @@ import {
   type BudgetMode,
   type CloudProvider,
 } from '@/lib/api/budget';
-import { getSlackSettings, updateSlackSettings } from '@/lib/api/notifications';
+import { getSlackSettings, updateSlackSettings, testSlackNotification } from '@/lib/api/notifications';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
@@ -211,6 +211,24 @@ export function Settings() {
         error?.response?.data?.error ||
         error?.message ||
         'Slack 설정 저장 중 오류가 발생했습니다.';
+      alert(message);
+    },
+  });
+
+  const slackTestMutation = useMutation({
+    mutationFn: testSlackNotification,
+    onSuccess: (data) => {
+      if (data.error) {
+        alert(`테스트 실패: ${data.error}`);
+      } else {
+        alert(data.message || '테스트 메시지가 성공적으로 전송되었습니다. Slack을 확인해주세요.');
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        '테스트 메시지 전송 중 오류가 발생했습니다.';
       alert(message);
     },
   });
@@ -675,24 +693,47 @@ export function Settings() {
               </p>
               <div className="flex flex-col gap-2 pt-2 text-xs text-gray-500 md:flex-row md:items-center md:justify-between">
                 <span>{slackEnabled ? '슬랙 알림이 활성화되어 있습니다.' : '슬랙 알림을 사용하려면 토글을 켜주세요.'}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSlackSave}
-                  disabled={
-                    isSlackSectionLoading || (slackEnabled && !slackWebhookInput.trim())
-                  }
-                  className="md:w-auto"
-                >
-                  {slackSettingsMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      저장 중...
-                    </>
-                  ) : (
-                    'Slack 설정 저장'
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => slackTestMutation.mutate()}
+                    disabled={
+                      !slackEnabled || 
+                      !slackWebhookInput.trim() || 
+                      slackTestMutation.isPending ||
+                      isSlackSectionLoading
+                    }
+                    className="md:w-auto"
+                  >
+                    {slackTestMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        전송 중...
+                      </>
+                    ) : (
+                      '테스트'
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSlackSave}
+                    disabled={
+                      isSlackSectionLoading || (slackEnabled && !slackWebhookInput.trim())
+                    }
+                    className="md:w-auto"
+                  >
+                    {slackSettingsMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      'Slack 설정 저장'
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
