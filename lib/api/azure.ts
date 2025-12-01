@@ -34,6 +34,21 @@ export interface AzureVirtualMachine {
   timeCreated: string;
 }
 
+export interface AzureMetricPoint {
+  timestamp: string;
+  value: number | null;
+  unit: string;
+}
+
+export interface AzureVmMetrics {
+  vmName: string;
+  resourceGroup: string;
+  cpuUtilization: AzureMetricPoint[];
+  networkIn: AzureMetricPoint[];
+  networkOut: AzureMetricPoint[];
+  memoryUtilization: AzureMetricPoint[];
+}
+
 export interface AzureDailyCost {
   accountId: number;
   date: string;
@@ -121,6 +136,54 @@ export async function getAllAzureAccountsCosts(
   return data;
 }
 
+export async function getAzureVmMetrics(
+  accountId: number,
+  vmName: string,
+  resourceGroup: string,
+  hours?: number
+): Promise<AzureVmMetrics> {
+  const params: Record<string, string | number> = { resourceGroup };
+  if (hours) {
+    params.hours = hours;
+  }
+  const encodedVmName = encodeURIComponent(vmName);
+  const { data } = await api.get<AzureVmMetrics>(
+    `/azure/accounts/${accountId}/virtual-machines/${encodedVmName}/metrics`,
+    { params }
+  );
+  return data;
+}
+
+export async function startAzureVirtualMachine(
+  accountId: number,
+  vmName: string,
+  resourceGroup: string
+): Promise<void> {
+  const params = { resourceGroup };
+  await api.post(
+    `/azure/accounts/${accountId}/virtual-machines/${encodeURIComponent(vmName)}/start`,
+    null,
+    { params }
+  );
+}
+
+export async function stopAzureVirtualMachine(
+  accountId: number,
+  vmName: string,
+  resourceGroup: string,
+  skipShutdown?: boolean
+): Promise<void> {
+  const params: Record<string, string> = { resourceGroup };
+  if (skipShutdown) {
+    params.skipShutdown = 'true';
+  }
+  await api.post(
+    `/azure/accounts/${accountId}/virtual-machines/${encodeURIComponent(vmName)}/stop`,
+    null,
+    { params }
+  );
+}
+
 /**
  * Azure 알림 인터페이스
  */
@@ -158,4 +221,3 @@ export async function checkAzureAlertsByAccount(accountId: number): Promise<Azur
   const { data } = await api.post<AzureAlert[]>(`/azure/alerts/check/${accountId}`);
   return data;
 }
-
