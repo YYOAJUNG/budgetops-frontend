@@ -142,6 +142,11 @@ export async function updateSlackSettings(payload: SlackSettingsRequest): Promis
   return data;
 }
 
+export async function testSlackNotification(): Promise<{ message?: string; error?: string }> {
+  const { data } = await api.post<{ message?: string; error?: string }>('/notifications/slack/test');
+  return data;
+}
+
 /**
  * 백엔드에서 실시간 알림 가져오기
  */
