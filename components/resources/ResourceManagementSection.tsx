@@ -16,11 +16,12 @@ import {
   terminateEc2Instance,
 } from '@/lib/api/aws';
 import { getAllGcpResources, GcpResource, getGcpAccounts } from '@/lib/api/gcp';
-import { getAzureAccounts } from '@/lib/api/azure';
+import { getAzureAccounts, startAzureVirtualMachine, stopAzureVirtualMachine } from '@/lib/api/azure';
 import { getNcpAccounts } from '@/lib/api/ncp';
 import { CreateEc2InstanceDialog } from './CreateEc2InstanceDialog';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
+import { AzureVmMetricsDialog } from './AzureVmMetricsDialog';
 import {
   Server,
   Play,
@@ -82,6 +83,7 @@ export function ResourceManagementSection() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showMetricsDialog, setShowMetricsDialog] = useState(false);
   const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
+  const [showAzureMetricsDialog, setShowAzureMetricsDialog] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<{
     instance: AwsEc2Instance;
     accountId: number;
@@ -92,7 +94,15 @@ export function ResourceManagementSection() {
     instanceName: string;
     region?: string;
   } | null>(null);
+  const [selectedAzureVm, setSelectedAzureVm] = useState<{
+    accountId: number;
+    vmName: string;
+    resourceGroup: string;
+    region?: string;
+    displayName: string;
+  } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
+  const [operatingAzureVmId, setOperatingAzureVmId] = useState<string | null>(null);
 
   const { data: awsAccounts } = useQuery({
     queryKey: ['awsAccounts'],
@@ -177,17 +187,16 @@ export function ResourceManagementSection() {
 
     return resources.map((resource) => {
       const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
-      let accountId: number | null = null;
+      let awsAccountId: number | null = null;
       if (ec2Instance && activeAccounts.length > 0) {
-        // 활성 계정만 사용
-        const activeAccount = activeAccounts[0]; // 첫 번째 활성 계정 사용
-        accountId = activeAccount.id;
+        const activeAccount = activeAccounts[0];
+        awsAccountId = activeAccount.id;
       }
 
       return {
         resource,
         ec2Instance,
-        accountId,
+        awsAccountId,
       };
     });
   }, [resources, ec2Data, activeAccounts]);
@@ -242,6 +251,75 @@ export function ResourceManagementSection() {
     } finally {
       setOperatingInstanceId(null);
     }
+  };
+
+  const handleAzureStart = async (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
+    }
+    setOperatingAzureVmId(resource.id);
+    try {
+      await startAzureVirtualMachine(resource.accountId, resource.name, resource.details.resourceGroup);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+    } catch (error: any) {
+      console.error('Azure VM 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'Azure VM 시작 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingAzureVmId(null);
+    }
+  };
+
+  const handleAzureStop = async (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
+    }
+    if (!confirm(`${resource.name} VM을 정지하시겠습니까?`)) {
+      return;
+    }
+    setOperatingAzureVmId(resource.id);
+    try {
+      await stopAzureVirtualMachine(resource.accountId, resource.name, resource.details.resourceGroup);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+    } catch (error: any) {
+      console.error('Azure VM 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'Azure VM 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingAzureVmId(null);
+    }
+  };
+
+  const handleShowAzureMetrics = (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
+    }
+    setSelectedAzureVm({
+      accountId: resource.accountId,
+      vmName: resource.name,
+      resourceGroup: resource.details.resourceGroup,
+      region: resource.region,
+      displayName: resource.name,
+    });
+    setShowAzureMetricsDialog(true);
   };
 
   const handleShowMetrics = (instance: AwsEc2Instance, accountId: number, region?: string) => {
@@ -372,12 +450,18 @@ export function ResourceManagementSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {resourcesWithDetails.map(({ resource, ec2Instance, accountId }) => {
+                  {resourcesWithDetails.map(({ resource, ec2Instance, awsAccountId, azureAccount }) => {
                     const ServiceIcon = getServiceIcon(resource.service);
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance';
                     const gcpResource = isGcpInstance ? gcpResourceMap.get(resource.id) : undefined;
                     const isOperating = operatingInstanceId === resource.id;
+                    const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
+                    const azureDetails =
+                      resource.provider === 'Azure' && resource.details?.provider === 'Azure'
+                        ? resource.details
+                        : undefined;
+                    const isAzureOperating = operatingAzureVmId === resource.id;
 
                     return (
                       <tr
@@ -417,13 +501,13 @@ export function ResourceManagementSection() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-end gap-2">
-                            {isEc2 && accountId ? (
+                            {isEc2 && awsAccountId ? (
                               <>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() =>
-                                    handleShowMetrics(ec2Instance, accountId, resource.region)
+                                    handleShowMetrics(ec2Instance, awsAccountId, resource.region)
                                   }
                                   className="h-8 px-2"
                                   title="메트릭 보기"
@@ -435,7 +519,7 @@ export function ResourceManagementSection() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() =>
-                                      handleStop(ec2Instance, accountId, resource.region)
+                                      handleStop(ec2Instance, awsAccountId, resource.region)
                                     }
                                     disabled={isOperating}
                                     className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
@@ -448,7 +532,7 @@ export function ResourceManagementSection() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() =>
-                                      handleStart(ec2Instance, accountId, resource.region)
+                                      handleStart(ec2Instance, awsAccountId, resource.region)
                                     }
                                     disabled={isOperating}
                                     className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
@@ -461,7 +545,7 @@ export function ResourceManagementSection() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() =>
-                                    handleTerminate(ec2Instance, accountId, resource.region)
+                                      handleTerminate(ec2Instance, awsAccountId, resource.region)
                                   }
                                   disabled={isOperating}
                                   className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -469,6 +553,41 @@ export function ResourceManagementSection() {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
+                              </>
+                            ) : isAzureVm && resource.accountId && azureDetails?.resourceGroup ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleShowAzureMetrics(resource)}
+                                  className="h-8 px-2"
+                                  title="메트릭 보기"
+                                >
+                                  <Activity className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                {resource.status === 'running' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAzureStop(resource)}
+                                    disabled={isAzureOperating}
+                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    title="정지"
+                                  >
+                                    <Square className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleAzureStart(resource)}
+                                    disabled={isAzureOperating}
+                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="시작"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </>
                             ) : isGcpInstance && gcpResource ? (
                               <Button
@@ -536,6 +655,17 @@ export function ResourceManagementSection() {
           resourceId={selectedGcpResource.resourceId}
           instanceName={selectedGcpResource.instanceName}
           region={selectedGcpResource.region}
+        />
+      )}
+      {selectedAzureVm && (
+        <AzureVmMetricsDialog
+          open={showAzureMetricsDialog}
+          onOpenChange={setShowAzureMetricsDialog}
+          accountId={selectedAzureVm.accountId}
+          vmName={selectedAzureVm.vmName}
+          resourceGroup={selectedAzureVm.resourceGroup}
+          displayName={selectedAzureVm.displayName}
+          region={selectedAzureVm.region}
         />
       )}
     </>
