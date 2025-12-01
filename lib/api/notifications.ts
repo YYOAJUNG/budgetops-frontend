@@ -129,6 +129,7 @@ function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
     isRead: false,
     importance: 'high',
     service: alert.provider ? `${alert.provider} Budget` : 'Budget',
+    provider: alert.provider ?? undefined,
   };
 }
 
