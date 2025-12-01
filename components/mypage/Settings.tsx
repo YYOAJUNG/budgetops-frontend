@@ -23,6 +23,7 @@ import {
   type BudgetMode,
   type CloudProvider,
 } from '@/lib/api/budget';
+import { getSlackSettings, updateSlackSettings } from '@/lib/api/notifications';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
@@ -72,6 +73,8 @@ export function Settings() {
   const [alertThreshold, setAlertThreshold] = useState<number>(DEFAULT_THRESHOLD);
   const [budgetMode, setBudgetMode] = useState<BudgetMode>('CONSOLIDATED');
   const [accountBudgetsState, setAccountBudgetsState] = useState<Record<string, AccountBudgetFormState>>({});
+  const [slackWebhookInput, setSlackWebhookInput] = useState('');
+  const [slackEnabled, setSlackEnabled] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { logout } = useAuthStore();
@@ -86,6 +89,11 @@ export function Settings() {
     queryFn: getBudgetUsage,
   });
 
+  const { data: slackSettings, isLoading: isSlackSettingsLoading } = useQuery({
+    queryKey: ['slackSettings'],
+    queryFn: getSlackSettings,
+  });
+
   useEffect(() => {
     if (!budgetSettings) {
       return;
@@ -98,6 +106,14 @@ export function Settings() {
     );
     setAlertThreshold(budgetSettings.alertThreshold ?? DEFAULT_THRESHOLD);
   }, [budgetSettings]);
+
+  useEffect(() => {
+    if (!slackSettings) {
+      return;
+    }
+    setSlackEnabled(Boolean(slackSettings.enabled));
+    setSlackWebhookInput(slackSettings.webhookUrl ?? '');
+  }, [slackSettings]);
 
   useEffect(() => {
     if (!budgetUsage && !(budgetSettings?.accountBudgets?.length)) {
@@ -182,6 +198,23 @@ export function Settings() {
     },
   });
 
+  const slackSettingsMutation = useMutation({
+    mutationFn: updateSlackSettings,
+    onSuccess: (data) => {
+      setSlackEnabled(Boolean(data.enabled));
+      setSlackWebhookInput(data.webhookUrl ?? '');
+      alert('Slack 설정이 저장되었습니다.');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Slack 설정 저장 중 오류가 발생했습니다.';
+      alert(message);
+    },
+  });
+
   const budgetAmount = useMemo(() => {
     if (!budgetAmountInput) return 0;
     const parsed = Number(budgetAmountInput);
@@ -228,6 +261,7 @@ export function Settings() {
 
   const hasAccounts = combinedAccountList.length > 0;
   const isBudgetSectionLoading = isBudgetLoading || isBudgetUsageLoading;
+  const isSlackSectionLoading = isSlackSettingsLoading || slackSettingsMutation.isPending;
   const consolidatedUsagePercentage = budgetUsage?.usagePercentage ?? 0;
   const globalThresholdReached = Boolean(budgetUsage?.thresholdReached);
   const totalMonthCost = budgetUsage?.currentMonthCost ?? 0;
@@ -340,6 +374,18 @@ export function Settings() {
           monthlyBudgetLimit: Math.round(account.monthlyBudgetLimit),
           alertThreshold: account.alertThreshold,
         })),
+    });
+  };
+
+  const handleSlackSave = () => {
+    if (slackEnabled && !slackWebhookInput.trim()) {
+      alert('Slack Webhook URL을 입력해주세요.');
+      return;
+    }
+
+    slackSettingsMutation.mutate({
+      enabled: slackEnabled,
+      webhookUrl: slackEnabled ? slackWebhookInput.trim() : null,
     });
   };
 
@@ -610,9 +656,44 @@ export function Settings() {
                 <p className="text-xs md:text-sm text-gray-600">리소스 상태 및 임계값 초과 시 Slack으로 알림 전송</p>
               </div>
               <Toggle
-                checked={settings.notifications.slackNotifications}
-                onChange={() => handleToggle('notifications', 'slackNotifications')}
+                checked={slackEnabled}
+                onChange={(checked) => setSlackEnabled(checked)}
+                disabled={isSlackSectionLoading}
               />
+            </div>
+            <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+              <label className="text-xs font-medium text-gray-700">Slack Webhook URL</label>
+              <Input
+                type="url"
+                placeholder="https://hooks.slack.com/services/..."
+                value={slackWebhookInput}
+                onChange={(e) => setSlackWebhookInput(e.target.value)}
+                disabled={!slackEnabled || isSlackSectionLoading}
+              />
+              <p className="text-xs text-gray-500">
+                Slack에서 발급한 Incoming Webhook URL을 입력하면 임계치 초과 시 채널로 바로 알림을 받아볼 수 있습니다.
+              </p>
+              <div className="flex flex-col gap-2 pt-2 text-xs text-gray-500 md:flex-row md:items-center md:justify-between">
+                <span>{slackEnabled ? '슬랙 알림이 활성화되어 있습니다.' : '슬랙 알림을 사용하려면 토글을 켜주세요.'}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSlackSave}
+                  disabled={
+                    isSlackSectionLoading || (slackEnabled && !slackWebhookInput.trim())
+                  }
+                  className="md:w-auto"
+                >
+                  {slackSettingsMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    'Slack 설정 저장'
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
