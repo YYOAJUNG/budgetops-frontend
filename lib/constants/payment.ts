@@ -2,9 +2,6 @@
  * 결제 관련 상수
  */
 
-// 임시 사용자 ID (인증 시스템 구현 시 제거)
-export const TEMP_USER_ID = 1;
-
 // 테스트 사용자 정보
 export const TEST_USER = {
   name: '테스트 사용자',

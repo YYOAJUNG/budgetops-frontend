@@ -580,7 +580,7 @@ export function CostsSummary() {
                     )}
 
                     {/* 범례 및 상세 정보 */}
-                    <div className="flex-1 space-y-4">
+                    <div className="flex-1 w-full space-y-4">
                       {sortedProviders.map((providerData, index) => {
                         const getProviderColor = (provider: string) => {
                           if (provider === 'AWS') return '#F97316'; // orange-500
@@ -599,7 +599,7 @@ export function CostsSummary() {
                         return (
                           <div
                       key={providerData.provider}
-                            className="p-4 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow"
+                            className="p-4 rounded-lg border border-gray-200 bg-white hover:shadow-md transition-shadow w-full"
                           >
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-3">

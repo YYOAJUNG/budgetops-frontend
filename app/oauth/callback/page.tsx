@@ -44,7 +44,7 @@ function OAuthCallbackContent() {
         // 인증 상태에 사용자 정보 저장
         // 백엔드 응답 형식에 맞게 매핑
         login({
-          id: userInfo.id,
+          id: userInfo.id !== undefined && userInfo.id !== null ? String(userInfo.id) : '',
           email: userInfo.email,
           name: userInfo.name,
           role: 'user', // 백엔드 응답에 role이 있으면 그걸 사용하도록 수정 가능

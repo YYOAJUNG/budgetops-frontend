@@ -191,13 +191,52 @@ export async function stopServerInstances(
 }
 
 /**
+ * NCP 서버 인스턴스 메트릭 인터페이스
+ */
+export interface NcpServerMetrics {
+  instanceNo: string;
+  instanceName: string;
+  region: string;
+  cpuUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkIn: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  networkOut: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskRead: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  diskWrite: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+  fileSystemUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
+}
+
+/**
  * 서버 인스턴스 메트릭 조회
  * @param accountId NCP 계정 ID
  * @param instanceNo 서버 인스턴스 번호
  * @param regionCode 리전 코드 (선택사항)
- * @param hours 조회 기간(시간 단위, 기본값: 1)
+ * @param hours 조회 기간 (시간, 기본값: 1)
  */
-export async function getNcpInstanceMetrics(
+export async function getServerInstanceMetrics(
   accountId: number,
   instanceNo: string,
   regionCode?: string,
@@ -205,12 +244,272 @@ export async function getNcpInstanceMetrics(
 ): Promise<NcpServerMetrics> {
   const params: any = { hours };
   if (regionCode) params.regionCode = regionCode;
-
+  
   const { data } = await api.get<NcpServerMetrics>(
     `/ncp/accounts/${accountId}/servers/instances/${instanceNo}/metrics`,
     { params }
   );
   return data;
+}
+
+/**
+ * 집계된 NCP 서버 메트릭 인터페이스
+ */
+export interface NcpAggregatedMetrics {
+  totalServers: number;
+  cpuUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+  networkIn: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+  networkOut: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+  diskRead: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+  diskWrite: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+  fileSystemUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  }>;
+}
+
+/**
+ * 여러 서버 인스턴스의 메트릭을 집계
+ * @param accountId NCP 계정 ID
+ * @param instanceNos 서버 인스턴스 번호 목록
+ * @param regionCode 리전 코드 (선택사항)
+ * @param hours 조회 기간 (시간, 기본값: 1)
+ */
+export async function getAggregatedServerMetrics(
+  accountId: number,
+  instanceNos: string[],
+  regionCode?: string,
+  hours: number = 1
+): Promise<NcpAggregatedMetrics> {
+  if (instanceNos.length === 0) {
+    return {
+      totalServers: 0,
+      cpuUtilization: [],
+      networkIn: [],
+      networkOut: [],
+      diskRead: [],
+      diskWrite: [],
+      fileSystemUtilization: [],
+    };
+  }
+
+  // 모든 서버의 메트릭을 병렬로 조회
+  const metricsPromises = instanceNos.map((instanceNo) =>
+    getServerInstanceMetrics(accountId, instanceNo, regionCode, hours).catch((error) => {
+      console.error(`Failed to fetch metrics for instance ${instanceNo}:`, error);
+      return null;
+    })
+  );
+
+  const metricsResults = await Promise.all(metricsPromises);
+  const validMetrics = metricsResults.filter((m): m is NcpServerMetrics => m !== null);
+
+  if (validMetrics.length === 0) {
+    return {
+      totalServers: 0,
+      cpuUtilization: [],
+      networkIn: [],
+      networkOut: [],
+      diskRead: [],
+      diskWrite: [],
+      fileSystemUtilization: [],
+    };
+  }
+
+  // 타임스탬프별로 메트릭 집계
+  const timestampMap = new Map<string, {
+    cpu: number[];
+    networkIn: number[];
+    networkOut: number[];
+    diskRead: number[];
+    diskWrite: number[];
+    fileSystem: number[];
+  }>();
+
+  validMetrics.forEach((metrics) => {
+    // CPU 집계
+    metrics.cpuUtilization.forEach((point) => {
+      if (!timestampMap.has(point.timestamp)) {
+        timestampMap.set(point.timestamp, {
+          cpu: [],
+          networkIn: [],
+          networkOut: [],
+          diskRead: [],
+          diskWrite: [],
+          fileSystem: [],
+        });
+      }
+      const entry = timestampMap.get(point.timestamp)!;
+      if (point.value !== null) {
+        entry.cpu.push(point.value);
+      }
+    });
+
+    // Network In 집계
+    metrics.networkIn.forEach((point) => {
+      const entry = timestampMap.get(point.timestamp);
+      if (entry && point.value !== null) {
+        entry.networkIn.push(point.value);
+      }
+    });
+
+    // Network Out 집계
+    metrics.networkOut.forEach((point) => {
+      const entry = timestampMap.get(point.timestamp);
+      if (entry && point.value !== null) {
+        entry.networkOut.push(point.value);
+      }
+    });
+
+    // Disk Read 집계
+    metrics.diskRead.forEach((point) => {
+      const entry = timestampMap.get(point.timestamp);
+      if (entry && point.value !== null) {
+        entry.diskRead.push(point.value);
+      }
+    });
+
+    // Disk Write 집계
+    metrics.diskWrite.forEach((point) => {
+      const entry = timestampMap.get(point.timestamp);
+      if (entry && point.value !== null) {
+        entry.diskWrite.push(point.value);
+      }
+    });
+
+    // File System 집계
+    metrics.fileSystemUtilization.forEach((point) => {
+      const entry = timestampMap.get(point.timestamp);
+      if (entry && point.value !== null) {
+        entry.fileSystem.push(point.value);
+      }
+    });
+  });
+
+  // 집계 결과 생성
+  const sortedTimestamps = Array.from(timestampMap.keys()).sort();
+
+  const aggregateMetric = (
+    values: number[]
+  ): { value: number | null; min: number | null; max: number | null; avg: number | null } => {
+    if (values.length === 0) {
+      return { value: null, min: null, max: null, avg: null };
+    }
+    const sum = values.reduce((a, b) => a + b, 0);
+    const avg = sum / values.length;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return { value: avg, min, max, avg };
+  };
+
+  const cpuUtilization = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].cpuUtilization.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'Percent',
+      ...aggregateMetric(entry.cpu),
+    };
+  });
+
+  const networkIn = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].networkIn.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'bits/sec',
+      ...aggregateMetric(entry.networkIn),
+    };
+  });
+
+  const networkOut = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].networkOut.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'bits/sec',
+      ...aggregateMetric(entry.networkOut),
+    };
+  });
+
+  const diskRead = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].diskRead.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'bytes/sec',
+      ...aggregateMetric(entry.diskRead),
+    };
+  });
+
+  const diskWrite = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].diskWrite.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'bytes/sec',
+      ...aggregateMetric(entry.diskWrite),
+    };
+  });
+
+  const fileSystemUtilization = sortedTimestamps.map((timestamp) => {
+    const entry = timestampMap.get(timestamp)!;
+    const firstMetric = validMetrics[0].fileSystemUtilization.find((p) => p.timestamp === timestamp);
+    return {
+      timestamp,
+      unit: firstMetric?.unit || 'Percent',
+      ...aggregateMetric(entry.fileSystem),
+    };
+  });
+
+  return {
+    totalServers: validMetrics.length,
+    cpuUtilization,
+    networkIn,
+    networkOut,
+    diskRead,
+    diskWrite,
+    fileSystemUtilization,
+  };
 }
 
 /**

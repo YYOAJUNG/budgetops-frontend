@@ -25,9 +25,10 @@ export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
         </div>
 
         <div className={cn(
-          'flex-1 flex flex-col overflow-hidden ml-16',
+          'flex-1 flex flex-col overflow-hidden',
+          'md:ml-16 ml-0',
           TRANSITION_CLASS,
-          aiChatOpen ? 'mr-[480px]' : 'mr-0'
+          aiChatOpen ? 'md:mr-[480px] mr-0' : 'mr-0'
         )}>
           {showTopbar && <Topbar />}
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">
