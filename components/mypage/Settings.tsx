@@ -497,7 +497,7 @@ export function Settings() {
     return (
       <div
         key={key}
-        className="grid grid-cols-1 gap-4 border-b border-gray-100 py-4 last:border-b-0 md:grid-cols-[180px_1fr_1fr_180px_180px]"
+        className="grid grid-cols-1 gap-4 border-b border-gray-100 px-4 py-4 last:border-b-0 md:grid-cols-[200px_1fr_1fr_200px_180px]"
       >
         <div className="space-y-1">
           <Badge variant="outline" className={cn('w-fit capitalize', PROVIDER_BADGE_COLORS[account.provider])}>
@@ -650,7 +650,7 @@ export function Settings() {
                 <Tabs value={budgetMode} onValueChange={(value) => setBudgetMode(value as BudgetMode)}>
                   <TabsList>
                     <TabsTrigger value="CONSOLIDATED">통합 예산</TabsTrigger>
-                    <TabsTrigger value="ACCOUNT_SPECIFIC">계정별 예산</TabsTrigger>
+                    <TabsTrigger value="ACCOUNT_SPECIFIC">계정별 예산 (실험)</TabsTrigger>
                   </TabsList>
                   <TabsContent
                     value="CONSOLIDATED"
@@ -659,9 +659,14 @@ export function Settings() {
                     통합 예산 모드에서는 모든 계정이 동일한 한도와 임계값을 공유합니다.
                   </TabsContent>
                   <TabsContent value="ACCOUNT_SPECIFIC" className="space-y-4">
-                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
-                      계정별 예산을 활성화하면 켜 둔 계정부터 별도의 예산과 임계값을 사용합니다. 설정하지 않은 계정은
-                      통합 예산을 따릅니다.
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
+                      <p>
+                        계정별 예산을 활성화하면 켜 둔 계정부터 별도의 예산과 임계값을 사용할 수 있습니다. 설정하지 않은
+                        계정은 통합 예산을 따릅니다.
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        현재는 통합 예산 한도만 실제로 저장되며, 계정별 예산은 UI 설계/백엔드 연동을 준비 중인 실험 기능입니다.
+                      </p>
                     </div>
                     {hasAccounts ? (
                       <div className="rounded-lg border border-gray-200">
