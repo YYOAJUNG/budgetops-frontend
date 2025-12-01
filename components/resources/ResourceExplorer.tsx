@@ -796,6 +796,24 @@ export function ResourceExplorer() {
                                     </Button>
                                   )}
                               </>
+                            ) : isNcpServer && ncpAccountId ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedNcpInstance({
+                                    instanceNo: resource.id,
+                                    instanceName: resource.name,
+                                    accountId: ncpAccountId,
+                                    region: resource.region,
+                                  });
+                                  setShowNcpMetricsDialog(true);
+                                }}
+                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="메트릭 보기"
+                              >
+                                <Activity className="h-4 w-4" />
+                              </Button>
                             ) : isGcpInstance && gcpResource ? (
                               <Button
                                 variant="ghost"
@@ -1137,7 +1155,7 @@ function ResourceCard({
             </div>
           </>
         )}
-        {!isEc2 && !isGcpInstance && (
+        {!isEc2 && !isGcpInstance && !isNcpServer && (
           <>
             {resource.cost > 0 && (
               <div className="flex items-center justify-between">
@@ -1206,6 +1224,31 @@ function ResourceCard({
           displayName={resource.name}
           region={region}
         />
+      )}
+      {isNcpServer && ncpAccountId && onNcpMetricsClick && (
+        <div className="px-4 pb-4 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={onNcpMetricsClick}
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              메트릭 보기
+            </Button>
+            {onNcpSelectChange && (
+              <Button
+                variant={isNcpSelected ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => onNcpSelectChange(!isNcpSelected)}
+              >
+                {isNcpSelected ? '집계 대상 해제' : '집계 대상 선택'}
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </Card>
   );
