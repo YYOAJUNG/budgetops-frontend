@@ -129,7 +129,13 @@ function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
     isRead: false,
     importance: 'high',
     service: alert.provider ? `${alert.provider} Budget` : 'Budget',
-    provider: alert.provider ?? undefined,
+    // CloudProvider('AWS' | 'AZURE' | 'GCP' | 'NCP') -> AppNotification.provider('AWS' | 'GCP' | 'Azure' | 'NCP')
+    provider:
+      alert.provider === 'AWS' || alert.provider === 'GCP' || alert.provider === 'NCP'
+        ? alert.provider
+        : alert.provider === 'AZURE'
+        ? 'Azure'
+        : undefined,
   };
 }
 
