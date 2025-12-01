@@ -639,7 +639,7 @@ export function ResourceExplorer() {
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
                     const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
                     const azureDetails =
-                      resource.provider === 'Azure' && resource.details && resource.details.provider === 'Azure'
+                      resource.provider === 'Azure' && resource.details?.provider === 'Azure'
                         ? resource.details
                         : undefined;
                     const isAzureOperating = operatingAzureVmId === resource.id;

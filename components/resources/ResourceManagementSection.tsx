@@ -450,7 +450,7 @@ export function ResourceManagementSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {resourcesWithDetails.map(({ resource, ec2Instance, awsAccountId, azureAccount }) => {
+                  {resourcesWithDetails.map(({ resource, ec2Instance, awsAccountId }) => {
                     const ServiceIcon = getServiceIcon(resource.service);
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance';
