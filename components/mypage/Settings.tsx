@@ -23,6 +23,11 @@ import {
   type BudgetMode,
   type CloudProvider,
 } from '@/lib/api/budget';
+// import { getSlackSettings, updateSlackSettings } from '@/lib/api/notifications';
+import { getAwsAccounts } from '@/lib/api/aws';
+import { getAzureAccounts } from '@/lib/api/azure';
+import { getGcpAccounts } from '@/lib/api/gcp';
+import { getNcpAccounts } from '@/lib/api/ncp';
 import { getSlackSettings, updateSlackSettings, testSlackNotification } from '@/lib/api/notifications';
 
 // 모바일 반응형 관련 상수
@@ -79,6 +84,24 @@ export function Settings() {
   const router = useRouter();
   const { logout } = useAuthStore();
 
+  // 연동된 클라우드 계정 조회 (예산 섹션에서 계정별 예산 표시 여부 결정에 사용)
+  const { data: awsAccounts } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+  });
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+  });
+  const { data: gcpAccounts } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+  });
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+  });
+
   const { data: budgetSettings, isLoading: isBudgetLoading } = useQuery({
     queryKey: ['budgetSettings'],
     queryFn: getBudgetSettings,
@@ -116,7 +139,15 @@ export function Settings() {
   }, [slackSettings]);
 
   useEffect(() => {
-    if (!budgetUsage && !(budgetSettings?.accountBudgets?.length)) {
+    // 예산 사용량, 예산 설정, 또는 클라우드 계정 정보 중 아무 것도 준비되지 않았으면 먼저 대기
+    if (
+      !budgetUsage &&
+      !(budgetSettings?.accountBudgets?.length) &&
+      !awsAccounts &&
+      !azureAccounts &&
+      !gcpAccounts &&
+      !ncpAccounts
+    ) {
       return;
     }
     setAccountBudgetsState((prev) => {
@@ -147,6 +178,7 @@ export function Settings() {
             };
       };
 
+      // 1) 예산 사용량 기반 계정 등록
       (budgetUsage?.accountUsages ?? []).forEach((usage) => {
         const matchedSetting = budgetSettings?.accountBudgets.find(
           (budget) => budget.provider === usage.provider && Number(budget.accountId) === usage.accountId
@@ -158,12 +190,15 @@ export function Settings() {
           accountName: usage.accountName,
           currentLimit:
             matchedSetting?.monthlyBudgetLimit ??
-            (usage.monthlyBudgetLimit !== undefined && usage.monthlyBudgetLimit !== null ? usage.monthlyBudgetLimit : 0),
+            (usage.monthlyBudgetLimit !== undefined && usage.monthlyBudgetLimit !== null
+              ? usage.monthlyBudgetLimit
+              : 0),
           currentThreshold: matchedSetting?.alertThreshold ?? (budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD),
           enabled: Boolean(matchedSetting) || Boolean(usage.hasBudget),
         });
       });
 
+      // 2) 저장된 계정별 예산 설정 기반 계정 등록
       (budgetSettings?.accountBudgets ?? []).forEach((setting) => {
         const key = buildAccountKey(setting.provider, setting.accountId);
         if (!next[key]) {
@@ -178,9 +213,42 @@ export function Settings() {
         }
       });
 
+      // 3) 예산/사용량에는 아직 없지만, 실제로 연동된 클라우드 계정도 목록에 포함
+      const registerLinkedAccount = (
+        provider: CloudProvider,
+        accountId: number,
+        accountName?: string | null,
+        active: boolean = true
+      ) => {
+        if (!active) return;
+        const key = buildAccountKey(provider, accountId);
+        if (next[key]) return;
+        next[key] = {
+          provider,
+          accountId,
+          accountName: accountName ?? `${provider} #${accountId}`,
+          enabled: false, // 기본값: 계정별 예산은 아직 비활성화
+          monthlyBudgetLimit: 0,
+          alertThreshold: budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD,
+        };
+      };
+
+      (awsAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('AWS', acc.id, acc.name, acc.active)
+      );
+      (azureAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('AZURE', acc.id, acc.name, acc.active)
+      );
+      (gcpAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('GCP', acc.id, acc.name ?? acc.serviceAccountName, true)
+      );
+      (ncpAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('NCP', acc.id, acc.name, acc.active)
+      );
+
       return next;
     });
-  }, [budgetUsage, budgetSettings]);
+  }, [budgetUsage, budgetSettings, awsAccounts, azureAccounts, gcpAccounts, ncpAccounts]);
 
   const budgetMutation = useMutation({
     mutationFn: updateBudgetSettings,
@@ -249,6 +317,14 @@ export function Settings() {
 
   const accountUsageList = budgetUsage?.accountUsages ?? [];
 
+  // 실제 연동된 클라우드 계정이 하나라도 있는지 여부
+  const hasLinkedCloudAccounts =
+    (awsAccounts?.length ?? 0) +
+      (azureAccounts?.length ?? 0) +
+      (gcpAccounts?.length ?? 0) +
+      (ncpAccounts?.length ?? 0) >
+    0;
+
   const combinedAccountList = useMemo(() => {
     const missingAccounts = Object.values(accountBudgetsState).filter(
       (state) => !accountUsageList.some((usage) => usage.provider === state.provider && usage.accountId === state.accountId)
@@ -277,7 +353,9 @@ export function Settings() {
     });
   }, [accountBudgetsState, accountUsageList]);
 
-  const hasAccounts = combinedAccountList.length > 0;
+  // 계정별 예산 탭에서 사용할 계정 존재 여부
+  // - 예산/사용량 정보가 없어도, 계정이 한 개라도 연동되어 있으면 "계정 있음"으로 간주
+  const hasAccounts = combinedAccountList.length > 0 || hasLinkedCloudAccounts;
   const isBudgetSectionLoading = isBudgetLoading || isBudgetUsageLoading;
   const isSlackSectionLoading = isSlackSettingsLoading || slackSettingsMutation.isPending;
   const consolidatedUsagePercentage = budgetUsage?.usagePercentage ?? 0;

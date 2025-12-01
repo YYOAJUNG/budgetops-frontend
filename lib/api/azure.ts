@@ -187,6 +187,18 @@ export async function stopAzureVirtualMachine(
   );
 }
 
+export async function deleteAzureVirtualMachine(
+  accountId: number,
+  vmName: string,
+  resourceGroup: string
+): Promise<void> {
+  const params = { resourceGroup: resourceGroup.trim() };
+  await api.delete(
+    `/azure/accounts/${accountId}/virtual-machines/${encodeURIComponent(vmName)}`,
+    { params }
+  );
+}
+
 /**
  * Azure 알림 인터페이스
  */
