@@ -368,10 +368,19 @@ export function ResourceExplorer() {
       alert('Azure VM 정보를 찾을 수 없습니다.');
       return;
     }
+    if (!resource.details.resourceGroup || resource.details.resourceGroup.trim() === '') {
+      alert('Azure VM의 리소스 그룹 정보가 없습니다. VM 정보를 새로고침해주세요.');
+      console.error('Azure VM resourceGroup is missing:', {
+        vmName: resource.name,
+        accountId: resource.accountId,
+        details: resource.details,
+      });
+      return;
+    }
     setSelectedAzureVm({
       accountId: resource.accountId,
       vmName: resource.name,
-      resourceGroup: resource.details.resourceGroup,
+      resourceGroup: resource.details.resourceGroup.trim(),
       region: resource.region,
       displayName: resource.name,
     });

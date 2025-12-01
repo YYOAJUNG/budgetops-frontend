@@ -142,7 +142,10 @@ export async function getAzureVmMetrics(
   resourceGroup: string,
   hours?: number
 ): Promise<AzureVmMetrics> {
-  const params: Record<string, string | number> = { resourceGroup };
+  if (!resourceGroup || resourceGroup.trim() === '') {
+    throw new Error('Resource group is required for Azure VM metrics');
+  }
+  const params: Record<string, string | number> = { resourceGroup: resourceGroup.trim() };
   if (hours) {
     params.hours = hours;
   }

@@ -251,6 +251,10 @@ async function fetchNcpInstanceCostMap(): Promise<Map<string, number>> {
     const ncpAccounts = await getNcpAccounts();
     const activeAccounts = ncpAccounts.filter(acc => acc.active);
 
+    if (activeAccounts.length === 0) {
+      return costMap;
+    }
+
     await Promise.all(
       activeAccounts.map(async (account) => {
         try {
