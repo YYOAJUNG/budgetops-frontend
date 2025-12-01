@@ -251,23 +251,48 @@ async function fetchNcpInstanceCostMap(): Promise<Map<string, number>> {
     const ncpAccounts = await getNcpAccounts();
     const activeAccounts = ncpAccounts.filter(acc => acc.active);
 
+    if (activeAccounts.length === 0) {
+      console.log('[NCP Costs] No active accounts found');
+      return costMap;
+    }
+
+    console.log(`[NCP Costs] Fetching costs for ${activeAccounts.length} active account(s)`);
+
     await Promise.all(
       activeAccounts.map(async (account) => {
         try {
           const costs = await getNcpAccountCosts(account.id);
+          console.log(`[NCP Costs] Account ${account.id} (${account.name}): Found ${costs.length} cost records`);
+          
+          let accountCostCount = 0;
           costs.forEach(cost => {
             if (cost.instanceName) {
               const currentCost = costMap.get(cost.instanceName) || 0;
-              costMap.set(cost.instanceName, currentCost + (cost.demandAmount || 0));
+              const newCost = currentCost + (cost.demandAmount || 0);
+              costMap.set(cost.instanceName, newCost);
+              accountCostCount++;
             }
           });
-        } catch (error) {
-          console.warn(`Failed to fetch costs for NCP account ${account.id}:`, error);
+          
+          if (accountCostCount > 0) {
+            console.log(`[NCP Costs] Account ${account.id}: Mapped ${accountCostCount} instance costs`);
+          } else {
+            console.warn(`[NCP Costs] Account ${account.id}: No instance costs found (${costs.length} total records)`);
+          }
+        } catch (error: any) {
+          console.error(`[NCP Costs] Failed to fetch costs for NCP account ${account.id} (${account.name}):`, error);
+          console.error(`[NCP Costs] Error details:`, error?.response?.data || error?.message);
         }
       })
     );
-  } catch (error) {
-    console.warn('Failed to fetch NCP costs:', error);
+
+    console.log(`[NCP Costs] Total cost map size: ${costMap.size}`);
+    if (costMap.size > 0) {
+      console.log(`[NCP Costs] Instance names in cost map:`, Array.from(costMap.keys()));
+    }
+  } catch (error: any) {
+    console.error('[NCP Costs] Failed to fetch NCP costs:', error);
+    console.error('[NCP Costs] Error details:', error?.response?.data || error?.message);
   }
 
   return costMap;
@@ -359,12 +384,23 @@ export async function getResources(): Promise<ResourceItem[]> {
         fetchNcpInstanceCostMap(),
       ]);
 
-      const ncpResources = ncpServerInstances.map(instance =>
-        convertNcpServerToResource(instance, ncpCostMap.get(instance.serverName) || 0)
-      );
+      console.log(`[NCP Resources] Found ${ncpServerInstances.length} server instances`);
+      console.log(`[NCP Resources] Cost map has ${ncpCostMap.size} entries`);
+
+      const ncpResources = ncpServerInstances.map(instance => {
+        const cost = ncpCostMap.get(instance.serverName) || 0;
+        if (cost === 0) {
+          console.warn(`[NCP Resources] No cost found for instance: ${instance.serverName} (${instance.serverInstanceNo})`);
+        }
+        return convertNcpServerToResource(instance, cost);
+      });
+      
+      const instancesWithCost = ncpResources.filter(r => r.cost > 0).length;
+      console.log(`[NCP Resources] ${instancesWithCost} out of ${ncpResources.length} instances have cost data`);
+      
       resources.push(...ncpResources);
     } catch (error) {
-      console.warn('Failed to fetch NCP server instances:', error);
+      console.error('[NCP Resources] Failed to fetch NCP server instances:', error);
     }
 
     return resources;
