@@ -4,6 +4,18 @@ import { checkGcpAlerts, GcpAlert } from './gcp';
 import { checkAzureAlerts, AzureAlert } from './azure';
 import { checkNcpAlerts, NcpAlert } from './ncp';
 import { checkBudgetAlerts, type BudgetAlert } from './budget';
+import { api } from './client';
+
+export interface SlackSettingsResponse {
+  enabled: boolean;
+  webhookUrl: string | null;
+  updatedAt?: string | null;
+}
+
+export interface SlackSettingsRequest {
+  enabled: boolean;
+  webhookUrl?: string | null;
+}
 
 /**
  * AWS 알림(EC2/RDS/S3 등)을 AppNotification 형태로 변환
@@ -118,6 +130,16 @@ function convertBudgetAlertToNotification(alert: BudgetAlert): AppNotification {
     importance: 'high',
     service: alert.provider ? `${alert.provider} Budget` : 'Budget',
   };
+}
+
+export async function getSlackSettings(): Promise<SlackSettingsResponse> {
+  const { data } = await api.get<SlackSettingsResponse>('/notifications/slack');
+  return data;
+}
+
+export async function updateSlackSettings(payload: SlackSettingsRequest): Promise<SlackSettingsResponse> {
+  const { data } = await api.put<SlackSettingsResponse>('/notifications/slack', payload);
+  return data;
 }
 
 /**
