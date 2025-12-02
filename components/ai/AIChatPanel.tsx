@@ -55,7 +55,7 @@ export function AIChatPanel() {
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | null>(null);
+  const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | 'azure' | null>(null);
   const [showServiceSelector, setShowServiceSelector] = useState(false);
 
   // 모든 CSP 계정 조회
