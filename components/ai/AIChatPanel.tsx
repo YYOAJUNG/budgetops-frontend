@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api/client';
 import { getAwsAccounts, getAllAwsAccountsCosts, AwsAccount } from '@/lib/api/aws';
 import { getAzureAccounts, getAllAzureAccountsCosts, AzureAccountCost } from '@/lib/api/azure';
+import { getGcpAccounts, GcpAccount } from '@/lib/api/gcp';
 import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
 import { useQuery } from '@tanstack/react-query';
 
@@ -69,6 +70,11 @@ export function AIChatPanel() {
     queryFn: getAzureAccounts,
   });
 
+  const { data: gcpAccounts } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+  });
+
   const { data: ncpAccounts } = useQuery({
     queryKey: ['ncpAccounts'],
     queryFn: getNcpAccounts,
@@ -82,11 +88,15 @@ export function AIChatPanel() {
     return (azureAccounts || []).filter((account) => account.active === true);
   }, [azureAccounts]);
 
+  const activeGcpAccounts = useMemo(() => {
+    return (gcpAccounts || []) as GcpAccount[];
+  }, [gcpAccounts]);
+
   const activeNcpAccounts = useMemo(() => {
     return (ncpAccounts || []).filter((account) => account.active === true);
   }, [ncpAccounts]);
 
-  const hasActiveAccounts = activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeNcpAccounts.length > 0;
+  const hasActiveAccounts = activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeGcpAccounts.length > 0 || activeNcpAccounts.length > 0;
 
   const endDate = useMemo(() => {
     const date = new Date();
@@ -148,7 +158,7 @@ export function AIChatPanel() {
   }, [awsAccountCosts, azureAccountCosts, ncpAccountCosts]);
 
   // 전체 활성 계정 수
-  const totalActiveAccounts = activeAwsAccounts.length + activeAzureAccounts.length + activeNcpAccounts.length;
+  const totalActiveAccounts = activeAwsAccounts.length + activeAzureAccounts.length + activeGcpAccounts.length + activeNcpAccounts.length;
 
   // 계정별 비용 목록 (프롬프트용)
   const allAccountCosts = useMemo(() => {
@@ -326,6 +336,32 @@ export function AIChatPanel() {
                   Azure VM 최적화
                 </button>
               )}
+              {activeGcpAccounts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService(null);
+                    setShowServiceSelector(false);
+                    const gcpMessage = `GCP Compute Engine 최적화 방안을 알려주세요.`;
+                    setInput(gcpMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  GCP Compute 최적화
+                </button>
+              )}
+              {activeNcpAccounts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService(null);
+                    setShowServiceSelector(false);
+                    const ncpMessage = `NCP Server 최적화 방안을 알려주세요.`;
+                    setInput(ncpMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  NCP Server 최적화
+                </button>
+              )}
               {allAccountCosts.length > 0 && (
                 <button
                   onClick={() => {
@@ -358,8 +394,9 @@ export function AIChatPanel() {
               <div>활성 계정: <span className="font-semibold">{totalActiveAccounts}개</span>
                 {activeAwsAccounts.length > 0 && <span className="ml-1">(AWS: {activeAwsAccounts.length}</span>}
                 {activeAzureAccounts.length > 0 && <span className="ml-1">Azure: {activeAzureAccounts.length}</span>}
+                {activeGcpAccounts.length > 0 && <span className="ml-1">GCP: {activeGcpAccounts.length}</span>}
                 {activeNcpAccounts.length > 0 && <span className="ml-1">NCP: {activeNcpAccounts.length}</span>}
-                {(activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeNcpAccounts.length > 0) && <span>)</span>}
+                {(activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeGcpAccounts.length > 0 || activeNcpAccounts.length > 0) && <span>)</span>}
               </div>
             </div>
           </div>
