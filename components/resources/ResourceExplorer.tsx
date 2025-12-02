@@ -809,37 +809,37 @@ export function ResourceExplorer() {
                             ) : isAzureVm && resource.accountId && azureDetails?.resourceGroup ? (
                               <>
                                 <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleShowAzureMetrics(resource)}
-                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  title="메트릭 보기"
-                                >
-                                  <Activity className="h-4 w-4" />
-                                </Button>
-                                {resource.status === 'running' ? (
-                                  <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleAzureStop(resource)}
-                                    disabled={isAzureOperating}
-                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                    title="정지"
+                                    onClick={() => handleShowAzureMetrics(resource)}
+                                    className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    title="메트릭 보기"
                                   >
-                                    <Square className="h-4 w-4" />
+                                    <Activity className="h-4 w-4" />
                                   </Button>
-                                ) : (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleAzureStart(resource)}
-                                    disabled={isAzureOperating}
-                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                    title="시작"
-                                  >
-                                    <Play className="h-4 w-4" />
-                                  </Button>
-                                )}
+                                  {resource.status === 'running' ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleAzureStop(resource)}
+                                      disabled={isAzureOperating}
+                                      className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                      title="정지"
+                                    >
+                                      <Square className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleAzureStart(resource)}
+                                      disabled={isAzureOperating}
+                                      className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      title="시작"
+                                    >
+                                      <Play className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1221,10 +1221,10 @@ function ResourceCard({
               </span>
             </div>
             {resource.provider !== 'Azure' && (
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">업데이트</span>
-                <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">업데이트</span>
+              <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
+            </div>
             )}
           </>
         )}

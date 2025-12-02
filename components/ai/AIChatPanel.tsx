@@ -311,17 +311,17 @@ export function AIChatPanel() {
                 전체 비용 분석
               </button>
               {activeAwsAccounts.length > 0 && (
-                <button
-                  onClick={() => {
-                    setSelectedService('ec2');
-                    setShowServiceSelector(false);
+              <button
+                onClick={() => {
+                  setSelectedService('ec2');
+                  setShowServiceSelector(false);
                     const ec2Message = `AWS EC2 인스턴스 최적화 방안을 알려주세요.`;
-                    setInput(ec2Message);
-                  }}
-                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  EC2 최적화
-                </button>
+                  setInput(ec2Message);
+                }}
+                className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                EC2 최적화
+              </button>
               )}
               {activeAzureAccounts.length > 0 && (
                 <button
