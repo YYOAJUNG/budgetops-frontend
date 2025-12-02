@@ -649,7 +649,7 @@ export function Settings() {
                 <Tabs value={budgetMode} onValueChange={(value) => setBudgetMode(value as BudgetMode)}>
                   <TabsList>
                     <TabsTrigger value="CONSOLIDATED">통합 예산</TabsTrigger>
-                    <TabsTrigger value="ACCOUNT_SPECIFIC">계정별 예산 (실험)</TabsTrigger>
+                    <TabsTrigger value="ACCOUNT_SPECIFIC">계정별 예산</TabsTrigger>
                   </TabsList>
                   <TabsContent
                     value="CONSOLIDATED"
