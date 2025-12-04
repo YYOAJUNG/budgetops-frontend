@@ -32,7 +32,7 @@ import {
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
 import { getAzureAccounts, startAzureVirtualMachine, stopAzureVirtualMachine, deleteAzureVirtualMachine } from '@/lib/api/azure';
-import { getNcpAccounts, getAllServerInstances, NcpServerInstance, stopServerInstances } from '@/lib/api/ncp';
+import { getNcpAccounts, getAllServerInstances, NcpServerInstance, stopServerInstances, startServerInstances, terminateServerInstances } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { NcpServerMetricsDialog } from './NcpServerMetricsDialog';
@@ -386,6 +386,22 @@ export function ResourceExplorer() {
     }
   };
 
+  const handleNcpStart = async (resource: ResourceItem, accountId: number | null) => {
+    if (!accountId) return;
+
+    setOperatingInstanceId(resource.id);
+    try {
+      await startServerInstances(accountId, [resource.id], resource.region);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['ncp-server-instances'] });
+    } catch (error: any) {
+      console.error('NCP 서버 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '서버 시작 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
   const handleNcpStop = async (resource: ResourceItem, accountId: number | null) => {
     if (!accountId) return;
 
@@ -393,6 +409,7 @@ export function ResourceExplorer() {
       return;
     }
 
+    setOperatingInstanceId(resource.id);
     try {
       await stopServerInstances(accountId, [resource.id], resource.region);
       queryClient.invalidateQueries({ queryKey: ['resources'] });
@@ -400,6 +417,29 @@ export function ResourceExplorer() {
     } catch (error: any) {
       console.error('NCP 서버 정지 오류:', error);
       alert(error?.response?.data?.message || error?.message || '서버 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
+    }
+  };
+
+  const handleNcpTerminate = async (resource: ResourceItem, accountId: number | null) => {
+    if (!accountId) return;
+
+    const instanceName = resource.name || resource.id;
+    if (!confirm(`${instanceName} 서버 인스턴스를 삭제하시겠습니까?\n\n삭제된 서버는 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    setOperatingInstanceId(resource.id);
+    try {
+      await terminateServerInstances(accountId, [resource.id], resource.region);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['ncp-server-instances'] });
+    } catch (error: any) {
+      console.error('NCP 서버 삭제 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '서버 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingInstanceId(null);
     }
   };
 
@@ -875,14 +915,38 @@ export function ResourceExplorer() {
                                 >
                                   <Activity className="h-4 w-4" />
                                 </Button>
+                                {resource.status === 'running' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleNcpStop(resource, ncpAccountId)}
+                                    disabled={operatingInstanceId === resource.id}
+                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    title="정지"
+                                  >
+                                    <Square className="h-4 w-4" />
+                                  </Button>
+                                ) : resource.status === 'stopped' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleNcpStart(resource, ncpAccountId)}
+                                    disabled={operatingInstanceId === resource.id}
+                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="시작"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleNcpStop(resource, ncpAccountId)}
-                                  className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                  title="정지"
+                                  onClick={() => handleNcpTerminate(resource, ncpAccountId)}
+                                  disabled={operatingInstanceId === resource.id}
+                                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="삭제"
                                 >
-                                  <Square className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
                             ) : isGcpInstance && gcpResource ? (
@@ -944,9 +1008,9 @@ export function ResourceExplorer() {
             const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
             
             return (
-              <ResourceCard 
-                key={resource.id} 
-                resource={resource} 
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
                 ec2Instance={ec2Instance}
                 gcpResource={gcpResource}
                 ncpInstance={ncpInstance}
@@ -976,6 +1040,9 @@ export function ResourceExplorer() {
                   });
                   setShowNcpMetricsDialog(true);
                 } : undefined}
+                onNcpStart={handleNcpStart}
+                onNcpStop={handleNcpStop}
+                onNcpTerminate={handleNcpTerminate}
               />
             );
           })}
@@ -1036,8 +1103,8 @@ export function ResourceExplorer() {
   );
 }
 
-function ResourceCard({ 
-  resource, 
+function ResourceCard({
+  resource,
   ec2Instance,
   gcpResource,
   ncpInstance,
@@ -1046,8 +1113,11 @@ function ResourceCard({
   ncpAccountId,
   isNcpSelected,
   onNcpSelectChange,
-  onNcpMetricsClick
-}: { 
+  onNcpMetricsClick,
+  onNcpStart,
+  onNcpStop,
+  onNcpTerminate,
+}: {
   resource: ResourceItem;
   ec2Instance?: AwsEc2Instance;
   gcpResource?: GcpResource;
@@ -1058,6 +1128,9 @@ function ResourceCard({
   isNcpSelected?: boolean;
   onNcpSelectChange?: (checked: boolean) => void;
   onNcpMetricsClick?: () => void;
+  onNcpStart?: (resource: ResourceItem, accountId: number | null) => void;
+  onNcpStop?: (resource: ResourceItem, accountId: number | null) => void;
+  onNcpTerminate?: (resource: ResourceItem, accountId: number | null) => void;
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
   const [showGcpMetrics, setShowGcpMetrics] = useState(false);
@@ -1211,7 +1284,53 @@ function ResourceCard({
             </div>
           </>
         )}
-        {!isEc2 && !isGcpInstance && !isNcpServer && (
+        {isNcpServer && ncpInstance && (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">서버 상품</span>
+              <span className="font-medium text-slate-900 text-xs">
+                {ncpInstance.serverProductCode || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">CPU / 메모리</span>
+              <span className="font-medium text-slate-900">
+                {ncpInstance.cpuCount}코어 / {(ncpInstance.memorySize / (1024 * 1024 * 1024)).toFixed(0)}GB
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">플랫폼</span>
+              <span className="font-medium text-slate-900">
+                {ncpInstance.platformType || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">퍼블릭 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {ncpInstance.publicIp || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">프라이빗 IP</span>
+              <span className="font-mono text-xs text-slate-700">
+                {ncpInstance.privateIp || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">가용 영역</span>
+              <span className="font-medium text-slate-700">
+                {ncpInstance.zoneCode || ncpInstance.regionCode || 'N/A'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">생성 시간</span>
+              <span className="font-medium text-slate-700">
+                {ncpInstance.createDate ? formatDate(ncpInstance.createDate) : 'N/A'}
+              </span>
+            </div>
+          </>
+        )}
+        {!isEc2 && !isGcpInstance && !isNcpServer && !azureDetails && (
           <>
             {resource.cost > 0 && (
               <div className="flex items-center justify-between">
@@ -1285,29 +1404,66 @@ function ResourceCard({
           region={region}
         />
       )}
-      {isNcpServer && ncpAccountId && onNcpMetricsClick && (
-        <div className="px-4 pb-4 pt-2">
-          <div className="flex items-center justify-between gap-2">
+      {isNcpServer && ncpAccountId && (
+        <div className="px-4 pb-4 pt-2 space-y-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={onNcpMetricsClick}
+          >
+            <Activity className="mr-2 h-4 w-4" />
+            메트릭 보기
+          </Button>
+          <div className="flex items-center gap-2">
+            {resource.status === 'running' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  if (!confirm(`${resource.name} 서버 인스턴스를 정지하시겠습니까?`)) return;
+                  if (ncpAccountId && onNcpStop) onNcpStop(resource, ncpAccountId);
+                }}
+              >
+                <Square className="mr-2 h-4 w-4" />
+                정지
+              </Button>
+            ) : resource.status === 'stopped' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  if (ncpAccountId && onNcpStart) onNcpStart(resource, ncpAccountId);
+                }}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                시작
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
               className="flex-1"
-              onClick={onNcpMetricsClick}
+              onClick={() => {
+                if (ncpAccountId && onNcpTerminate) onNcpTerminate(resource, ncpAccountId);
+              }}
             >
-              <Activity className="mr-2 h-4 w-4" />
-              메트릭 보기
+              <Trash2 className="mr-2 h-4 w-4" />
+              삭제
             </Button>
-            {onNcpSelectChange && (
-              <Button
-                variant={isNcpSelected ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1"
-                onClick={() => onNcpSelectChange(!isNcpSelected)}
-              >
-                {isNcpSelected ? '집계 대상 해제' : '집계 대상 선택'}
-              </Button>
-            )}
           </div>
+          {onNcpSelectChange && (
+            <Button
+              variant={isNcpSelected ? 'default' : 'outline'}
+              size="sm"
+              className="w-full"
+              onClick={() => onNcpSelectChange(!isNcpSelected)}
+            >
+              {isNcpSelected ? '집계 대상 해제' : '집계 대상 선택'}
+            </Button>
+          )}
         </div>
       )}
     </Card>

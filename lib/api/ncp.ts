@@ -191,6 +191,26 @@ export async function stopServerInstances(
 }
 
 /**
+ * 서버 인스턴스 삭제 (반납)
+ * @param accountId NCP 계정 ID
+ * @param serverInstanceNos 서버 인스턴스 번호 목록
+ * @param regionCode 리전 코드 (선택사항)
+ */
+export async function terminateServerInstances(
+  accountId: number,
+  serverInstanceNos: string[],
+  regionCode?: string
+): Promise<NcpServerInstance[]> {
+  const params = regionCode ? { regionCode } : {};
+  const { data } = await api.post<NcpServerInstance[]>(
+    `/ncp/accounts/${accountId}/servers/instances/terminate`,
+    serverInstanceNos,
+    { params }
+  );
+  return data;
+}
+
+/**
  * NCP 서버 인스턴스 메트릭 인터페이스
  */
 export interface NcpServerMetrics {
