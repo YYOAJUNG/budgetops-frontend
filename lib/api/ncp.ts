@@ -64,15 +64,6 @@ export interface MetricDataPoint {
   value: number | null;
 }
 
-export interface NcpServerMetrics {
-  instanceNo: string;
-  instanceName: string;
-  cpuUsage: MetricDataPoint[];
-  memoryUsage: MetricDataPoint[];
-  networkIn: MetricDataPoint[];
-  networkOut: MetricDataPoint[];
-}
-
 /**
  * NCP 계정 목록 조회
  */

@@ -21,7 +21,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { getNcpInstanceMetrics } from '@/lib/api/ncp';
+import { getServerInstanceMetrics } from '@/lib/api/ncp';
 import { RefreshCw, Cpu, MemoryStick, Network, AlertCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -76,18 +76,18 @@ export function NcpMetricsDialog({
 
   const { data: metrics, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['ncp-metrics', accountId, instanceNo, hours],
-    queryFn: () => getNcpInstanceMetrics(accountId, instanceNo, region, hours),
+    queryFn: () => getServerInstanceMetrics(accountId, instanceNo, region, hours),
     enabled: open && accountId > 0 && instanceNo.length > 0,
     staleTime: 30000, // 30초
   });
 
   // CPU 차트 데이터 준비
   const cpuChartData = useMemo(() =>
-    metrics?.cpuUsage.map((point) => ({
+    metrics?.cpuUtilization.map((point) => ({
       time: formatTimestamp(point.timestamp),
       timestamp: point.timestamp,
       value: point.value ?? 0,
-    })) ?? [], [metrics?.cpuUsage]
+    })) ?? [], [metrics?.cpuUtilization]
   );
 
   // Network 차트 데이터 준비
@@ -100,21 +100,14 @@ export function NcpMetricsDialog({
     })) ?? [], [metrics?.networkIn, metrics?.networkOut]
   );
 
-  // Memory 차트 데이터 준비
-  const memoryChartData = useMemo(() =>
-    metrics?.memoryUsage.map((point) => ({
-      time: formatTimestamp(point.timestamp),
-      timestamp: point.timestamp,
-      value: point.value ?? 0,
-    })) ?? [], [metrics?.memoryUsage]
-  );
-
-  const hasMemoryData = (metrics?.memoryUsage.length ?? 0) > 0;
+  // Memory 차트 데이터 준비 (NCP는 메모리 메트릭 없음)
+  const memoryChartData = useMemo(() => [], []);
+  const hasMemoryData = false;
 
   // 통계 계산
   const cpuStats = useMemo(() =>
-    calculateStats(metrics?.cpuUsage.map(p => p.value) ?? []),
-    [metrics?.cpuUsage]
+    calculateStats(metrics?.cpuUtilization.map(p => p.value) ?? []),
+    [metrics?.cpuUtilization]
   );
   const networkInStats = useMemo(() =>
     calculateStats(metrics?.networkIn.map(p => p.value) ?? []),
@@ -125,8 +118,8 @@ export function NcpMetricsDialog({
     [metrics?.networkOut]
   );
   const memoryStats = useMemo(() =>
-    calculateStats(metrics?.memoryUsage.map(p => p.value) ?? []),
-    [metrics?.memoryUsage]
+    ({ avg: 0, max: 0, min: 0, current: 0 }),
+    []
   );
 
   return (
