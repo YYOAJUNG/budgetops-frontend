@@ -100,9 +100,15 @@ export function NcpMetricsDialog({
     })) ?? [], [metrics?.networkIn, metrics?.networkOut]
   );
 
-  // Memory 차트 데이터 준비 (NCP는 메모리 메트릭 없음)
-  const memoryChartData = useMemo(() => [], []);
-  const hasMemoryData = false;
+  // Memory 차트 데이터 준비
+  const memoryChartData = useMemo(() =>
+    metrics?.memoryUtilization.map((point) => ({
+      time: formatTimestamp(point.timestamp),
+      timestamp: point.timestamp,
+      value: point.value ?? 0,
+    })) ?? [], [metrics?.memoryUtilization]
+  );
+  const hasMemoryData = (metrics?.memoryUtilization?.length ?? 0) > 0;
 
   // 통계 계산
   const cpuStats = useMemo(() =>
@@ -118,8 +124,8 @@ export function NcpMetricsDialog({
     [metrics?.networkOut]
   );
   const memoryStats = useMemo(() =>
-    ({ avg: 0, max: 0, min: 0, current: 0 }),
-    []
+    calculateStats(metrics?.memoryUtilization.map(p => p.value) ?? []),
+    [metrics?.memoryUtilization]
   );
 
   return (

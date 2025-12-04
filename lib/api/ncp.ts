@@ -213,6 +213,11 @@ export interface NcpServerMetrics {
     value: number | null;
     unit: string;
   }>;
+  memoryUtilization: Array<{
+    timestamp: string;
+    value: number | null;
+    unit: string;
+  }>;
   networkIn: Array<{
     timestamp: string;
     value: number | null;
