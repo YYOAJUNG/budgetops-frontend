@@ -31,12 +31,13 @@ import {
 } from '@/lib/api/aws';
 
 import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
-import { getAzureAccounts } from '@/lib/api/azure';
-import { getNcpAccounts, getAllServerInstances, NcpServerInstance } from '@/lib/api/ncp';
+import { getAzureAccounts, startAzureVirtualMachine, stopAzureVirtualMachine, deleteAzureVirtualMachine } from '@/lib/api/azure';
+import { getNcpAccounts, getAllServerInstances, NcpServerInstance, stopServerInstances } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
 import { GcpInstanceMetricsDialog } from './GcpInstanceMetricsDialog';
 import { NcpServerMetricsDialog } from './NcpServerMetricsDialog';
 import { NcpAggregatedMetricsDialog } from './NcpAggregatedMetricsDialog';
+import { AzureVmMetricsDialog } from './AzureVmMetricsDialog';
 import { ArrowUpDown, Filter, RefreshCw, Server, AlertCircle, Cloud, Activity, List, Grid, Play, Square, Trash2, BarChart3 } from 'lucide-react';
 
 const SORT_OPTIONS = [
@@ -175,6 +176,7 @@ export function ResourceExplorer() {
   const [showGcpMetricsDialog, setShowGcpMetricsDialog] = useState(false);
   const [showNcpMetricsDialog, setShowNcpMetricsDialog] = useState(false);
   const [showNcpAggregatedMetricsDialog, setShowNcpAggregatedMetricsDialog] = useState(false);
+  const [showAzureMetricsDialog, setShowAzureMetricsDialog] = useState(false);
   const [selectedNcpInstanceNos, setSelectedNcpInstanceNos] = useState<string[]>([]);
   const [selectedNcpAccountId, setSelectedNcpAccountId] = useState<number | null>(null);
   const [selectedNcpRegion, setSelectedNcpRegion] = useState<string | undefined>(undefined);
@@ -188,6 +190,13 @@ export function ResourceExplorer() {
     instanceName: string;
     region?: string;
   } | null>(null);
+  const [selectedAzureVm, setSelectedAzureVm] = useState<{
+    accountId: number;
+    vmName: string;
+    resourceGroup: string;
+    region?: string;
+    displayName: string;
+  } | null>(null);
   const [selectedNcpInstance, setSelectedNcpInstance] = useState<{
     instanceNo: string;
     instanceName: string;
@@ -195,6 +204,7 @@ export function ResourceExplorer() {
     region?: string;
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
+  const [operatingAzureVmId, setOperatingAzureVmId] = useState<string | null>(null);
 
   const providers = useMemo(() => {
     return Array.from(new Set((data ?? []).map((item) => item.provider))).sort();
@@ -299,36 +309,127 @@ export function ResourceExplorer() {
     }
   };
 
-  // NCP 서버 제어 함수들
-  const handleNcpStop = async (instanceNo: string, instanceName: string, accountId: number, region?: string) => {
-    if (!confirm(`${instanceName} 서버를 정지하시겠습니까?`)) {
+  const handleAzureStart = async (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
       return;
     }
-    setOperatingInstanceId(instanceNo);
+    setOperatingAzureVmId(resource.id);
     try {
-      await stopServerInstances(accountId, [instanceNo], region);
+      await startAzureVirtualMachine(resource.accountId, resource.name, resource.details.resourceGroup);
       queryClient.invalidateQueries({ queryKey: ['resources'] });
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
     } catch (error: any) {
-      console.error('서버 정지 오류:', error);
-      alert(error?.response?.data?.message || error?.message || '서버 정지 중 오류가 발생했습니다.');
+      console.error('Azure VM 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'Azure VM 시작 중 오류가 발생했습니다.');
     } finally {
-      setOperatingInstanceId(null);
+      setOperatingAzureVmId(null);
     }
   };
 
-  const handleNcpStart = async (instanceNo: string, accountId: number, region?: string) => {
-    setOperatingInstanceId(instanceNo);
-    try {
-      await startServerInstances(accountId, [instanceNo], region);
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
-      refetch();
-    } catch (error: any) {
-      console.error('서버 시작 오류:', error);
-      alert(error?.response?.data?.message || error?.message || '서버 시작 중 오류가 발생했습니다.');
-    } finally {
-      setOperatingInstanceId(null);
+  const handleAzureStop = async (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
     }
+    if (!confirm(`${resource.name} VM을 정지하시겠습니까?`)) {
+      return;
+    }
+    setOperatingAzureVmId(resource.id);
+    try {
+      await stopAzureVirtualMachine(resource.accountId, resource.name, resource.details.resourceGroup);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+    } catch (error: any) {
+      console.error('Azure VM 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'Azure VM 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingAzureVmId(null);
+    }
+  };
+
+  const handleAzureDelete = async (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!confirm(`${resource.name} VM을 삭제하시겠습니까?\n\n삭제된 VM은 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    setOperatingAzureVmId(resource.id);
+    try {
+      await deleteAzureVirtualMachine(resource.accountId, resource.name, resource.details.resourceGroup);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['azureAccounts'] });
+    } catch (error: any) {
+      console.error('Azure VM 삭제 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'Azure VM 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingAzureVmId(null);
+    }
+  };
+
+  const handleNcpStop = async (resource: ResourceItem, accountId: number | null) => {
+    if (!accountId) return;
+
+    if (!confirm(`${resource.name} 서버 인스턴스를 정지하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      await stopServerInstances(accountId, [resource.id], resource.region);
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      queryClient.invalidateQueries({ queryKey: ['ncp-server-instances'] });
+    } catch (error: any) {
+      console.error('NCP 서버 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || '서버 정지 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleShowAzureMetrics = (resource: ResourceItem) => {
+    if (
+      resource.provider !== 'Azure' ||
+      !resource.accountId ||
+      !resource.details ||
+      resource.details.provider !== 'Azure'
+    ) {
+      alert('Azure VM 정보를 찾을 수 없습니다.');
+      return;
+    }
+    if (!resource.details.resourceGroup || resource.details.resourceGroup.trim() === '') {
+      alert('Azure VM의 리소스 그룹 정보가 없습니다. VM 정보를 새로고침해주세요.');
+      console.error('Azure VM resourceGroup is missing:', {
+        vmName: resource.name,
+        accountId: resource.accountId,
+        details: resource.details,
+      });
+      return;
+    }
+    setSelectedAzureVm({
+      accountId: resource.accountId,
+      vmName: resource.name,
+      resourceGroup: resource.details.resourceGroup.trim(),
+      region: resource.region,
+      displayName: resource.name,
+    });
+    setShowAzureMetricsDialog(true);
   };
 
   return (
@@ -590,6 +691,12 @@ export function ResourceExplorer() {
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
+                    const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
+                    const azureDetails =
+                      resource.provider === 'Azure' && resource.details?.provider === 'Azure'
+                        ? resource.details
+                        : undefined;
+                    const isAzureOperating = operatingAzureVmId === resource.id;
                     // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
                     const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
                     const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
@@ -704,6 +811,80 @@ export function ResourceExplorer() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
+                            ) : isAzureVm && resource.accountId && azureDetails?.resourceGroup ? (
+                              <>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleShowAzureMetrics(resource)}
+                                    className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    title="메트릭 보기"
+                                  >
+                                    <Activity className="h-4 w-4" />
+                                  </Button>
+                                  {resource.status === 'running' ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleAzureStop(resource)}
+                                      disabled={isAzureOperating}
+                                      className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                      title="정지"
+                                    >
+                                      <Square className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleAzureStart(resource)}
+                                      disabled={isAzureOperating}
+                                      className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      title="시작"
+                                    >
+                                      <Play className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleAzureDelete(resource)}
+                                  disabled={isAzureOperating}
+                                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="삭제"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : isNcpServer && ncpAccountId ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedNcpInstance({
+                                      instanceNo: resource.id,
+                                      instanceName: resource.name,
+                                      accountId: ncpAccountId,
+                                      region: resource.region,
+                                    });
+                                    setShowNcpMetricsDialog(true);
+                                  }}
+                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="메트릭 보기"
+                                >
+                                  <Activity className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleNcpStop(resource, ncpAccountId)}
+                                  className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                  title="정지"
+                                >
+                                  <Square className="h-4 w-4" />
+                                </Button>
+                              </>
                             ) : isGcpInstance && gcpResource ? (
                               <Button
                                 variant="ghost"
@@ -721,49 +902,6 @@ export function ResourceExplorer() {
                               >
                                 <Activity className="h-4 w-4" />
                               </Button>
-                            ) : isNcpServer && ncpAccountId ? (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedNcpResource({
-                                      instanceNo: resource.id,
-                                      instanceName: resource.name,
-                                      accountId: ncpAccountId,
-                                      region: resource.region
-                                    });
-                                    setShowNcpMetricsDialog(true);
-                                  }}
-                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  title="메트릭 보기"
-                                >
-                                  <Activity className="h-4 w-4" />
-                                </Button>
-                                {resource.status === 'running' ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleNcpStop(resource.id, resource.name, ncpAccountId, resource.region)}
-                                    disabled={operatingInstanceId === resource.id}
-                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                    title="정지"
-                                  >
-                                    <Square className="h-4 w-4" />
-                                  </Button>
-                                ) : resource.status === 'stopped' ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleNcpStart(resource.id, ncpAccountId, resource.region)}
-                                    disabled={operatingInstanceId === resource.id}
-                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                    title="시작"
-                                  >
-                                    <Play className="h-4 w-4" />
-                                  </Button>
-                                ) : null}
-                              </>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
@@ -796,11 +934,14 @@ export function ResourceExplorer() {
             }
             // GCP 리소스인 경우 상세 정보 찾기
             const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
-            // NCP 서버의 경우 첫 번째 활성 계정 사용
-            const ncpAccountId = resource.provider === 'NCP' && resource.service === 'Server' && activeNcpAccounts.length > 0 
-              ? activeNcpAccounts[0].id 
-              : null;
-            const isNcpSelected = ncpAccountId ? selectedNcpInstanceNos.includes(resource.id) : false;
+            // NCP 서버 인스턴스 상세 정보 찾기
+            const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
+            const ncpInstance = isNcpServer
+              ? ncpServerInstances?.find((ncp) => ncp.serverInstanceNo === resource.id)
+              : undefined;
+            // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
+            const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
+            const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
             
             return (
               <ResourceCard 
@@ -808,6 +949,7 @@ export function ResourceExplorer() {
                 resource={resource} 
                 ec2Instance={ec2Instance}
                 gcpResource={gcpResource}
+                ncpInstance={ncpInstance}
                 accountId={accountId}
                 region={resource.region}
                 ncpAccountId={ncpAccountId}
@@ -860,6 +1002,17 @@ export function ResourceExplorer() {
           region={selectedGcpResource.region}
         />
       )}
+      {selectedAzureVm && (
+        <AzureVmMetricsDialog
+          open={showAzureMetricsDialog}
+          onOpenChange={setShowAzureMetricsDialog}
+          accountId={selectedAzureVm.accountId}
+          vmName={selectedAzureVm.vmName}
+          resourceGroup={selectedAzureVm.resourceGroup}
+          displayName={selectedAzureVm.displayName}
+          region={selectedAzureVm.region}
+        />
+      )}
       {selectedNcpInstance && (
         <NcpServerMetricsDialog
           open={showNcpMetricsDialog}
@@ -887,6 +1040,7 @@ function ResourceCard({
   resource, 
   ec2Instance,
   gcpResource,
+  ncpInstance,
   accountId,
   region,
   ncpAccountId,
@@ -897,6 +1051,7 @@ function ResourceCard({
   resource: ResourceItem;
   ec2Instance?: AwsEc2Instance;
   gcpResource?: GcpResource;
+  ncpInstance?: NcpServerInstance;
   accountId?: number | null;
   region?: string;
   ncpAccountId?: number | null;
@@ -906,6 +1061,7 @@ function ResourceCard({
 }) {
   const [showMetrics, setShowMetrics] = useState(false);
   const [showGcpMetrics, setShowGcpMetrics] = useState(false);
+  const [showAzureMetrics, setShowAzureMetrics] = useState(false);
   const isEc2 = resource.service === 'EC2' && ec2Instance;
   const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
   const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server' && ncpAccountId;
@@ -913,6 +1069,7 @@ function ResourceCard({
     resource.provider === 'Azure' && resource.details && resource.details.provider === 'Azure'
       ? resource.details
       : undefined;
+  const canShowAzureMetrics = resource.provider === 'Azure' && !!azureDetails && !!resource.accountId;
 
   return (
     <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -999,20 +1156,8 @@ function ResourceCard({
         {azureDetails && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">리소스 그룹</span>
-              <span className="font-medium text-slate-900">{azureDetails.resourceGroup || 'N/A'}</span>
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-slate-500">인스턴스 타입</span>
               <span className="font-medium text-slate-900">{azureDetails.vmSize || 'N/A'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">운영체제</span>
-              <span className="font-medium text-slate-900">{azureDetails.osType || 'N/A'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">호스트 이름</span>
-              <span className="font-medium text-slate-900">{azureDetails.computerName || 'N/A'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-500">퍼블릭 IP</span>
@@ -1027,20 +1172,10 @@ function ResourceCard({
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500">가용 영역</span>
-              <span className="font-medium text-slate-700">
-                {azureDetails.availabilityZone || region || 'N/A'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-slate-500">시작 시간</span>
               <span className="font-medium text-slate-700">
                 {azureDetails.timeCreated ? formatDate(azureDetails.timeCreated) : 'N/A'}
               </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500">프로비저닝 상태</span>
-              <span className="font-medium text-slate-700">{azureDetails.provisioningState || 'N/A'}</span>
             </div>
           </>
         )}
@@ -1076,7 +1211,7 @@ function ResourceCard({
             </div>
           </>
         )}
-        {!isEc2 && !isGcpInstance && (
+        {!isEc2 && !isGcpInstance && !isNcpServer && (
           <>
             {resource.cost > 0 && (
               <div className="flex items-center justify-between">
@@ -1090,28 +1225,16 @@ function ResourceCard({
                 {resource.region}
               </span>
             </div>
+            {resource.provider !== 'Azure' && (
             <div className="flex items-center justify-between">
               <span className="text-slate-500">업데이트</span>
               <span className="font-medium text-slate-700">{formatDate(resource.updatedAt)}</span>
             </div>
+            )}
           </>
         )}
-        {((isEc2 && accountId) || isGcpInstance || isNcpServer) && (
-          <div className="pt-3 border-t border-slate-200 space-y-2">
-            {isNcpServer && onNcpSelectChange && (
-              <div className="flex items-center gap-2 pb-2">
-                <input
-                  type="checkbox"
-                  checked={isNcpSelected || false}
-                  onChange={(e) => onNcpSelectChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  title="집계 메트릭에 포함"
-                />
-                <label className="text-sm text-slate-600 cursor-pointer" onClick={() => onNcpSelectChange(!isNcpSelected)}>
-                  집계 메트릭에 포함
-                </label>
-              </div>
-            )}
+        {((isEc2 && accountId) || isGcpInstance || canShowAzureMetrics) && (
+          <div className="pt-3 border-t border-slate-200">
             <Button
               variant="outline"
               size="sm"
@@ -1121,8 +1244,8 @@ function ResourceCard({
                   setShowMetrics(true);
                 } else if (isGcpInstance) {
                   setShowGcpMetrics(true);
-                } else if (isNcpServer && onNcpMetricsClick) {
-                  onNcpMetricsClick();
+                } else if (canShowAzureMetrics) {
+                  setShowAzureMetrics(true);
                 }
               }}
             >
@@ -1150,6 +1273,42 @@ function ResourceCard({
           instanceName={gcpResource.resourceName || gcpResource.resourceId}
           region={region}
         />
+      )}
+      {canShowAzureMetrics && resource.accountId && azureDetails && (
+        <AzureVmMetricsDialog
+          open={showAzureMetrics}
+          onOpenChange={setShowAzureMetrics}
+          accountId={resource.accountId}
+          vmName={resource.name}
+          resourceGroup={azureDetails.resourceGroup}
+          displayName={resource.name}
+          region={region}
+        />
+      )}
+      {isNcpServer && ncpAccountId && onNcpMetricsClick && (
+        <div className="px-4 pb-4 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={onNcpMetricsClick}
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              메트릭 보기
+            </Button>
+            {onNcpSelectChange && (
+              <Button
+                variant={isNcpSelected ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => onNcpSelectChange(!isNcpSelected)}
+              >
+                {isNcpSelected ? '집계 대상 해제' : '집계 대상 선택'}
+              </Button>
+            )}
+          </div>
+        </div>
       )}
     </Card>
   );

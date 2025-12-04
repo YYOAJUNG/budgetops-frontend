@@ -23,6 +23,12 @@ import {
   type BudgetMode,
   type CloudProvider,
 } from '@/lib/api/budget';
+// import { getSlackSettings, updateSlackSettings } from '@/lib/api/notifications';
+import { getAwsAccounts } from '@/lib/api/aws';
+import { getAzureAccounts } from '@/lib/api/azure';
+import { getGcpAccounts } from '@/lib/api/gcp';
+import { getNcpAccounts } from '@/lib/api/ncp';
+import { getSlackSettings, updateSlackSettings, testSlackNotification } from '@/lib/api/notifications';
 
 // 모바일 반응형 관련 상수
 const MOBILE_RESPONSIVE_TEXT = 'text-sm md:text-base';
@@ -72,9 +78,29 @@ export function Settings() {
   const [alertThreshold, setAlertThreshold] = useState<number>(DEFAULT_THRESHOLD);
   const [budgetMode, setBudgetMode] = useState<BudgetMode>('CONSOLIDATED');
   const [accountBudgetsState, setAccountBudgetsState] = useState<Record<string, AccountBudgetFormState>>({});
+  const [slackWebhookInput, setSlackWebhookInput] = useState('');
+  const [slackEnabled, setSlackEnabled] = useState(false);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { logout } = useAuthStore();
+
+  // 연동된 클라우드 계정 조회 (예산 섹션에서 계정별 예산 표시 여부 결정에 사용)
+  const { data: awsAccounts } = useQuery({
+    queryKey: ['awsAccounts'],
+    queryFn: getAwsAccounts,
+  });
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+  });
+  const { data: gcpAccounts } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+  });
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+  });
 
   const { data: budgetSettings, isLoading: isBudgetLoading } = useQuery({
     queryKey: ['budgetSettings'],
@@ -84,6 +110,11 @@ export function Settings() {
   const { data: budgetUsage, isLoading: isBudgetUsageLoading } = useQuery({
     queryKey: ['budgetUsage'],
     queryFn: getBudgetUsage,
+  });
+
+  const { data: slackSettings, isLoading: isSlackSettingsLoading } = useQuery({
+    queryKey: ['slackSettings'],
+    queryFn: getSlackSettings,
   });
 
   useEffect(() => {
@@ -100,7 +131,23 @@ export function Settings() {
   }, [budgetSettings]);
 
   useEffect(() => {
-    if (!budgetUsage && !(budgetSettings?.accountBudgets?.length)) {
+    if (!slackSettings) {
+      return;
+    }
+    setSlackEnabled(Boolean(slackSettings.enabled));
+    setSlackWebhookInput(slackSettings.webhookUrl ?? '');
+  }, [slackSettings]);
+
+  useEffect(() => {
+    // 예산 사용량, 예산 설정, 또는 클라우드 계정 정보 중 아무 것도 준비되지 않았으면 먼저 대기
+    if (
+      !budgetUsage &&
+      !(budgetSettings?.accountBudgets?.length) &&
+      !awsAccounts &&
+      !azureAccounts &&
+      !gcpAccounts &&
+      !ncpAccounts
+    ) {
       return;
     }
     setAccountBudgetsState((prev) => {
@@ -131,6 +178,7 @@ export function Settings() {
             };
       };
 
+      // 1) 예산 사용량 기반 계정 등록
       (budgetUsage?.accountUsages ?? []).forEach((usage) => {
         const matchedSetting = budgetSettings?.accountBudgets.find(
           (budget) => budget.provider === usage.provider && Number(budget.accountId) === usage.accountId
@@ -142,12 +190,15 @@ export function Settings() {
           accountName: usage.accountName,
           currentLimit:
             matchedSetting?.monthlyBudgetLimit ??
-            (usage.monthlyBudgetLimit !== undefined && usage.monthlyBudgetLimit !== null ? usage.monthlyBudgetLimit : 0),
+            (usage.monthlyBudgetLimit !== undefined && usage.monthlyBudgetLimit !== null
+              ? usage.monthlyBudgetLimit
+              : 0),
           currentThreshold: matchedSetting?.alertThreshold ?? (budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD),
           enabled: Boolean(matchedSetting) || Boolean(usage.hasBudget),
         });
       });
 
+      // 2) 저장된 계정별 예산 설정 기반 계정 등록
       (budgetSettings?.accountBudgets ?? []).forEach((setting) => {
         const key = buildAccountKey(setting.provider, setting.accountId);
         if (!next[key]) {
@@ -162,9 +213,42 @@ export function Settings() {
         }
       });
 
+      // 3) 예산/사용량에는 아직 없지만, 실제로 연동된 클라우드 계정도 목록에 포함
+      const registerLinkedAccount = (
+        provider: CloudProvider,
+        accountId: number,
+        accountName?: string | null,
+        active: boolean = true
+      ) => {
+        if (!active) return;
+        const key = buildAccountKey(provider, accountId);
+        if (next[key]) return;
+        next[key] = {
+          provider,
+          accountId,
+          accountName: accountName ?? `${provider} #${accountId}`,
+          enabled: false, // 기본값: 계정별 예산은 아직 비활성화
+          monthlyBudgetLimit: 0,
+          alertThreshold: budgetSettings?.alertThreshold ?? DEFAULT_THRESHOLD,
+        };
+      };
+
+      (awsAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('AWS', acc.id, acc.name, acc.active)
+      );
+      (azureAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('AZURE', acc.id, acc.name, acc.active)
+      );
+      (gcpAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('GCP', acc.id, acc.name ?? acc.serviceAccountName, true)
+      );
+      (ncpAccounts ?? []).forEach((acc) =>
+        registerLinkedAccount('NCP', acc.id, acc.name, acc.active)
+      );
+
       return next;
     });
-  }, [budgetUsage, budgetSettings]);
+  }, [budgetUsage, budgetSettings, awsAccounts, azureAccounts, gcpAccounts, ncpAccounts]);
 
   const budgetMutation = useMutation({
     mutationFn: updateBudgetSettings,
@@ -178,6 +262,41 @@ export function Settings() {
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         '예산 설정 저장 중 오류가 발생했습니다.';
+      alert(message);
+    },
+  });
+
+  const slackSettingsMutation = useMutation({
+    mutationFn: updateSlackSettings,
+    onSuccess: (data) => {
+      setSlackEnabled(Boolean(data.enabled));
+      setSlackWebhookInput(data.webhookUrl ?? '');
+      alert('Slack 설정이 저장되었습니다.');
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Slack 설정 저장 중 오류가 발생했습니다.';
+      alert(message);
+    },
+  });
+
+  const slackTestMutation = useMutation({
+    mutationFn: testSlackNotification,
+    onSuccess: (data) => {
+      if (data.error) {
+        alert(`테스트 실패: ${data.error}`);
+      } else {
+        alert(data.message || '테스트 메시지가 성공적으로 전송되었습니다. Slack을 확인해주세요.');
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        '테스트 메시지 전송 중 오류가 발생했습니다.';
       alert(message);
     },
   });
@@ -197,6 +316,14 @@ export function Settings() {
   );
 
   const accountUsageList = budgetUsage?.accountUsages ?? [];
+
+  // 실제 연동된 클라우드 계정이 하나라도 있는지 여부
+  const hasLinkedCloudAccounts =
+    (awsAccounts?.length ?? 0) +
+      (azureAccounts?.length ?? 0) +
+      (gcpAccounts?.length ?? 0) +
+      (ncpAccounts?.length ?? 0) >
+    0;
 
   const combinedAccountList = useMemo(() => {
     const missingAccounts = Object.values(accountBudgetsState).filter(
@@ -226,8 +353,11 @@ export function Settings() {
     });
   }, [accountBudgetsState, accountUsageList]);
 
-  const hasAccounts = combinedAccountList.length > 0;
+  // 계정별 예산 탭에서 사용할 계정 존재 여부
+  // - 예산/사용량 정보가 없어도, 계정이 한 개라도 연동되어 있으면 "계정 있음"으로 간주
+  const hasAccounts = combinedAccountList.length > 0 || hasLinkedCloudAccounts;
   const isBudgetSectionLoading = isBudgetLoading || isBudgetUsageLoading;
+  const isSlackSectionLoading = isSlackSettingsLoading || slackSettingsMutation.isPending;
   const consolidatedUsagePercentage = budgetUsage?.usagePercentage ?? 0;
   const globalThresholdReached = Boolean(budgetUsage?.thresholdReached);
   const totalMonthCost = budgetUsage?.currentMonthCost ?? 0;
@@ -343,6 +473,18 @@ export function Settings() {
     });
   };
 
+  const handleSlackSave = () => {
+    if (slackEnabled && !slackWebhookInput.trim()) {
+      alert('Slack Webhook URL을 입력해주세요.');
+      return;
+    }
+
+    slackSettingsMutation.mutate({
+      enabled: slackEnabled,
+      webhookUrl: slackEnabled ? slackWebhookInput.trim() : null,
+    });
+  };
+
   const renderAccountRow = (account: AccountBudgetUsage) => {
     const key = buildAccountKey(account.provider, account.accountId);
     const state = accountBudgetsState[key];
@@ -355,14 +497,13 @@ export function Settings() {
     return (
       <div
         key={key}
-        className="grid grid-cols-1 gap-4 border-b border-gray-100 py-4 last:border-b-0 md:grid-cols-[180px_1fr_1fr_180px_180px]"
+        className="grid grid-cols-1 gap-4 border-b border-gray-100 px-6 py-4 last:border-b-0 md:grid-cols-[220px_1fr_1fr_200px_180px]"
       >
-        <div className="space-y-1">
+        <div className="space-y-1 pl-1 md:pl-2">
           <Badge variant="outline" className={cn('w-fit capitalize', PROVIDER_BADGE_COLORS[account.provider])}>
             {account.provider}
           </Badge>
           <p className="text-sm font-semibold text-gray-900">{accountName}</p>
-          <p className="text-xs text-gray-500">ID: {account.accountId}</p>
         </div>
 
         <div className="space-y-2">
@@ -517,9 +658,14 @@ export function Settings() {
                     통합 예산 모드에서는 모든 계정이 동일한 한도와 임계값을 공유합니다.
                   </TabsContent>
                   <TabsContent value="ACCOUNT_SPECIFIC" className="space-y-4">
-                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
-                      계정별 예산을 활성화하면 켜 둔 계정부터 별도의 예산과 임계값을 사용합니다. 설정하지 않은 계정은
-                      통합 예산을 따릅니다.
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
+                      <p>
+                        계정별 예산을 활성화하면 켜 둔 계정부터 별도의 예산과 임계값을 사용할 수 있습니다. 설정하지 않은
+                        계정은 통합 예산을 따릅니다.
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        현재는 통합 예산 한도만 실제로 저장되며, 계정별 예산은 UI 설계/백엔드 연동을 준비 중인 실험 기능입니다.
+                      </p>
                     </div>
                     {hasAccounts ? (
                       <div className="rounded-lg border border-gray-200">
@@ -610,9 +756,67 @@ export function Settings() {
                 <p className="text-xs md:text-sm text-gray-600">리소스 상태 및 임계값 초과 시 Slack으로 알림 전송</p>
               </div>
               <Toggle
-                checked={settings.notifications.slackNotifications}
-                onChange={() => handleToggle('notifications', 'slackNotifications')}
+                checked={slackEnabled}
+                onChange={(checked) => setSlackEnabled(checked)}
+                disabled={isSlackSectionLoading}
               />
+            </div>
+            <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+              <label className="text-xs font-medium text-gray-700">Slack Webhook URL</label>
+              <Input
+                type="url"
+                placeholder="https://hooks.slack.com/services/..."
+                value={slackWebhookInput}
+                onChange={(e) => setSlackWebhookInput(e.target.value)}
+                disabled={!slackEnabled || isSlackSectionLoading}
+              />
+              <p className="text-xs text-gray-500">
+                Slack에서 발급한 Incoming Webhook URL을 입력하면 임계치 초과 시 채널로 바로 알림을 받아볼 수 있습니다.
+              </p>
+              <div className="flex flex-col gap-2 pt-2 text-xs text-gray-500 md:flex-row md:items-center md:justify-between">
+                <span>{slackEnabled ? '슬랙 알림이 활성화되어 있습니다.' : '슬랙 알림을 사용하려면 토글을 켜주세요.'}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => slackTestMutation.mutate()}
+                    disabled={
+                      !slackEnabled || 
+                      !slackWebhookInput.trim() || 
+                      slackTestMutation.isPending ||
+                      isSlackSectionLoading
+                    }
+                    className="md:w-auto"
+                  >
+                    {slackTestMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        전송 중...
+                      </>
+                    ) : (
+                      '테스트'
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSlackSave}
+                    disabled={
+                      isSlackSectionLoading || (slackEnabled && !slackWebhookInput.trim())
+                    }
+                    className="md:w-auto"
+                  >
+                    {slackSettingsMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      'Slack 설정 저장'
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

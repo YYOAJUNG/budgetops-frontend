@@ -31,6 +31,7 @@ export type ResourceItem = {
   updatedAt: string;
   status: 'running' | 'stopped' | 'idle';
   details?: ResourceDetails;
+  accountId?: number;
 };
 
 const MOCK_RESOURCES: ResourceItem[] = [
@@ -250,6 +251,10 @@ async function fetchNcpInstanceCostMap(): Promise<Map<string, number>> {
     const ncpAccounts = await getNcpAccounts();
     const activeAccounts = ncpAccounts.filter(acc => acc.active);
 
+    if (activeAccounts.length === 0) {
+      return costMap;
+    }
+
     await Promise.all(
       activeAccounts.map(async (account) => {
         try {
@@ -325,7 +330,10 @@ export async function getResources(): Promise<ResourceItem[]> {
           console.log(`[Azure] Fetching VMs for account ${account.id} (${account.name})`);
           const vms = await getAzureVirtualMachines(account.id);
           console.log(`[Azure] Found ${vms.length} VMs for account ${account.id}`);
-          const vmResources = vms.map(convertAzureVmToResource);
+          const vmResources = vms.map((vm) => ({
+            ...convertAzureVmToResource(vm),
+            accountId: account.id,
+          }));
           resources.push(...vmResources);
         } catch (error) {
           console.error(`[Azure] Failed to fetch VMs for account ${account.id}:`, error);

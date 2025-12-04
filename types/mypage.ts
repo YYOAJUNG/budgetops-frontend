@@ -53,6 +53,7 @@ export interface NotificationSettings {
   budgetAlerts: boolean;
   anomalyDetection: boolean;
   slackNotifications: boolean;
+  slackWebhookUrl?: string;
 }
 
 export interface EmailSettings {
