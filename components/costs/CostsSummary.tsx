@@ -10,7 +10,7 @@ import { formatCurrency, formatCurrencyCompact, formatPercent, convertCurrency }
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Gift } from 'lucide-react';
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
 import { getGcpAccounts } from '@/lib/api/gcp';
-import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
+import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost, getAzureAccountFreeTierUsage } from '@/lib/api/azure';
 import { getNcpAccounts, getNcpAccountCosts } from '@/lib/api/ncp';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -34,11 +34,20 @@ type AwsFreeTierSummary = {
   percentage: number;
 };
 
+type AzureFreeTierSummary = {
+  totalUsageHours: number;
+  totalLimitHours: number;
+  remainingHours: number;
+  percentage: number;
+  eligibleVmCount: number;
+};
+
 type CostsResponse = {
   total: number;
   providers: ProviderCost[];
   byService: Array<{ service: string; amount: number }>;
   awsFreeTier?: AwsFreeTierSummary;
+  azureFreeTier?: AzureFreeTierSummary;
   previousPeriod?: {
     total: number;
     providers: ProviderCost[];
@@ -124,6 +133,23 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     azureAccountTotals = await getAllAzureAccountsCosts(from, to).catch(() => []);
   }
 
+  // Azure 프리티어 (VM B1s 기준) 사용량/한도 집계
+  let azureFreeTierTotalUsageHours = 0;
+  let azureFreeTierTotalLimitHours = 0;
+  let azureFreeTierEligibleVmCount = 0;
+  if (activeAzureAccounts.length > 0) {
+    for (const account of activeAzureAccounts) {
+      try {
+        const usage = await getAzureAccountFreeTierUsage(account.id, from, to);
+        azureFreeTierTotalUsageHours += usage.totalUsageHours;
+        azureFreeTierTotalLimitHours += usage.freeTierLimitHours;
+        azureFreeTierEligibleVmCount += usage.eligibleVmCount;
+      } catch (error) {
+        console.error(`Failed to fetch Azure free tier usage for account ${account.id}:`, error);
+      }
+    }
+  }
+
   // GCP 비용 (미구현)
   const gcpAccounts = await getGcpAccounts().catch(() => []);
   const gcpTotalCost = 0;
@@ -177,6 +203,17 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
           totalLimit: awsFreeTierTotalLimit,
           remaining: Math.max(0, awsFreeTierTotalLimit - awsFreeTierTotalUsage),
           percentage: Math.min(100, (awsFreeTierTotalUsage / awsFreeTierTotalLimit) * 100),
+        }
+      : undefined;
+
+  const azureFreeTier: AzureFreeTierSummary | undefined =
+    azureFreeTierTotalLimitHours > 0
+      ? {
+          totalUsageHours: azureFreeTierTotalUsageHours,
+          totalLimitHours: azureFreeTierTotalLimitHours,
+          remainingHours: Math.max(0, azureFreeTierTotalLimitHours - azureFreeTierTotalUsageHours),
+          percentage: Math.min(100, (azureFreeTierTotalUsageHours / azureFreeTierTotalLimitHours) * 100),
+          eligibleVmCount: azureFreeTierEligibleVmCount,
         }
       : undefined;
 
@@ -239,6 +276,7 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     providers,
     byService,
     awsFreeTier,
+    azureFreeTier,
     previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency > 0
       ? {
           total: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency,
@@ -390,6 +428,7 @@ export function CostsSummary() {
   const previousProviders = useMemo(() => data?.previousPeriod?.providers ?? [], [data]);
   const previousServices = useMemo(() => data?.previousPeriod?.byService ?? [], [data]);
   const awsFreeTier = useMemo(() => data?.awsFreeTier, [data]);
+  const azureFreeTier = useMemo(() => data?.azureFreeTier, [data]);
 
   const sortedProviders = useMemo(() => {
     return providers
@@ -430,11 +469,21 @@ export function CostsSummary() {
   }, [sortedProviders]);
 
   const serviceCaption = useMemo(() => {
-    if (!awsFreeTier) return '';
-    if (awsFreeTier.totalLimit === 0) return '';
-    const remainingPercent = 100 - awsFreeTier.percentage;
-    return `AWS 프리티어 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`;
-  }, [awsFreeTier]);
+    const captions: string[] = [];
+    if (awsFreeTier && awsFreeTier.totalLimit > 0) {
+      const remainingPercent = 100 - awsFreeTier.percentage;
+      captions.push(
+        `AWS 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`
+      );
+    }
+    if (azureFreeTier && azureFreeTier.totalLimitHours > 0) {
+      const remainingPercent = 100 - azureFreeTier.percentage;
+      captions.push(
+        `Azure 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingHours.toFixed(0)}/${azureFreeTier.totalLimitHours.toFixed(0)})`
+      );
+    }
+    return captions.join(' · ');
+  }, [awsFreeTier, azureFreeTier]);
 
   return (
     <div className="space-y-6">
@@ -717,15 +766,15 @@ export function CostsSummary() {
             </CardContent>
           </Card>
 
-          {/* 서비스별 비용 Top 대신 AWS 프리티어 잔여량 */}
+          {/* 서비스별 비용 Top 대신 CSP 프리티어 잔여량 (AWS + Azure) */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold text-gray-900">
-                  AWS 프리티어 잔여량
+                  CSP 프리티어 잔여량
                 </CardTitle>
                 <div className="text-xs text-gray-500">
-                  현재 연결된 AWS 계정의 EC2 프리티어 사용량 기준
+                  AWS EC2, Azure VM(B1s) 프리티어 기준
                 </div>
               </div>
               {serviceCaption && (
@@ -733,63 +782,125 @@ export function CostsSummary() {
               )}
             </CardHeader>
             <CardContent>
-              {!awsFreeTier || awsFreeTier.totalLimit === 0 ? (
+              {!awsFreeTier && !azureFreeTier ? (
                 <div className="text-sm text-gray-600">
-                  프리티어 대상 AWS 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 인스턴스를 사용하면
-                  프리티어 사용 현황이 표시됩니다.
+                  프리티어 대상 AWS/Azure 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 또는 Azure B1s VM을
+                  사용하면 프리티어 사용 현황이 표시됩니다.
                 </div>
               ) : (
-                <div className="space-y-4 max-w-xl">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">총 프리티어 한도</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {awsFreeTier.totalLimit.toFixed(0)} 시간
-                      </p>
+                <div className="grid gap-6 md:grid-cols-2 max-w-4xl">
+                  {awsFreeTier && awsFreeTier.totalLimit > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">AWS EC2 프리티어</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 프리티어 한도</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {awsFreeTier.totalLimit.toFixed(0)} 시간
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용량</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {awsFreeTier.totalUsage.toFixed(0)} 시간
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {awsFreeTier.remaining.toFixed(0)} 시간
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">프리티어 사용률</span>
+                          <span
+                            className={`font-semibold ${
+                              awsFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : awsFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {awsFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              awsFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : awsFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, awsFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          AWS EC2 프리티어(t2.micro / t3.micro / t4g.micro) 기준 월{' '}
+                          {awsFreeTier.totalLimit.toFixed(0)}시간 중 {awsFreeTier.totalUsage.toFixed(0)}시간을
+                          사용했습니다.
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">사용량</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {awsFreeTier.totalUsage.toFixed(0)} 시간
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        잔여 {awsFreeTier.remaining.toFixed(0)} 시간
-                      </p>
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">프리티어 사용률</span>
-                      <span
-                        className={`font-semibold ${
-                          awsFreeTier.percentage >= 90
-                            ? 'text-red-600'
-                            : awsFreeTier.percentage >= 70
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
-                        }`}
-                      >
-                        {awsFreeTier.percentage.toFixed(1)}%
-                      </span>
+                  {azureFreeTier && azureFreeTier.totalLimitHours > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Azure VM 프리티어</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 프리티어 한도</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {azureFreeTier.totalLimitHours.toFixed(0)} 시간
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용량</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {azureFreeTier.totalUsageHours.toFixed(0)} 시간
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {azureFreeTier.remainingHours.toFixed(0)} 시간
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">
+                            프리티어 사용률 (대상 VM {azureFreeTier.eligibleVmCount}대 기준)
+                          </span>
+                          <span
+                            className={`font-semibold ${
+                              azureFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : azureFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {azureFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              azureFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : azureFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, azureFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          Azure VM 프리티어(Standard_B1s, 월 750시간 기준)를 대상으로, 선택한 기간 동안의 사용량을
+                          근사 계산한 값입니다.
+                        </p>
+                      </div>
                     </div>
-                    <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className={`absolute inset-y-0 left-0 rounded-full ${
-                          awsFreeTier.percentage >= 90
-                            ? 'bg-red-500'
-                            : awsFreeTier.percentage >= 70
-                            ? 'bg-yellow-400'
-                            : 'bg-green-500'
-                        }`}
-                        style={{ width: `${Math.min(100, awsFreeTier.percentage)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      AWS EC2 프리티어(t2.micro / t3.micro / t4g.micro) 기준 월 {awsFreeTier.totalLimit.toFixed(0)}시간
-                      중 {awsFreeTier.totalUsage.toFixed(0)}시간을 사용했습니다.
-                    </p>
-                  </div>
+                  )}
                 </div>
               )}
             </CardContent>

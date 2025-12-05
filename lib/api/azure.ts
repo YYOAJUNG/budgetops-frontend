@@ -69,6 +69,14 @@ export interface AzureAccountCost {
   currency: string;
 }
 
+export interface AzureFreeTierUsage {
+  totalUsageHours: number;
+  freeTierLimitHours: number;
+  remainingHours: number;
+  percentage: number;
+  eligibleVmCount: number;
+}
+
 export async function getAzureAccounts(): Promise<AzureAccount[]> {
   const { data } = await api.get<AzureAccount[]>('/azure/accounts');
   return data;
@@ -105,6 +113,21 @@ export async function getAzureAccountCosts(
   if (endDate) params.endDate = endDate;
   const { data } = await api.get<AzureDailyCost[]>(
     `/azure/accounts/${accountId}/costs`,
+    { params }
+  );
+  return data;
+}
+
+export async function getAzureAccountFreeTierUsage(
+  accountId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<AzureFreeTierUsage> {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  const { data } = await api.get<AzureFreeTierUsage>(
+    `/azure/accounts/${accountId}/freetier/usage`,
     { params }
   );
   return data;
