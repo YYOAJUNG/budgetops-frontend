@@ -27,14 +27,23 @@ type ProviderCost = {
   previousAmount?: number;
 };
 
+type AwsFreeTierSummary = {
+  totalUsage: number;
+  totalLimit: number;
+  remaining: number;
+  percentage: number;
+};
+
 type CostsResponse = {
   total: number;
   providers: ProviderCost[];
   byService: Array<{ service: string; amount: number }>;
+  awsFreeTier?: AwsFreeTierSummary;
   previousPeriod?: {
     total: number;
     providers: ProviderCost[];
     byService: Array<{ service: string; amount: number }>;
+    awsFreeTier?: AwsFreeTierSummary;
   };
 };
 
@@ -59,6 +68,10 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let awsTotalCost = 0;
   let previousAwsTotalCost = 0;
 
+  // AWS 프리티어 잔여량 요약
+  let awsFreeTierTotalUsage = 0;
+  let awsFreeTierTotalLimit = 0;
+
   // 프리티어 정보 수집
   const freeTierInfoMap: Record<number, { hasFreeTier: boolean; services: string[] }> = {};
   
@@ -75,6 +88,12 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
         day.services.forEach((service) => {
           const costInCurrency = convertCurrency(service.cost, 'USD', currency);
           awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInCurrency;
+
+          // AWS 프리티어 사용량/한도 합산
+          if (service.freeTierInfo && service.freeTierInfo.freeTierLimit > 0) {
+            awsFreeTierTotalUsage += service.freeTierInfo.usage;
+            awsFreeTierTotalLimit += service.freeTierInfo.freeTierLimit;
+          }
           
           // 프리티어 사용 중인 서비스 확인
           if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive && service.cost === 0) {
@@ -151,6 +170,16 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     .map(([service, amount]) => ({ service, amount }))
     .sort((a, b) => b.amount - a.amount);
 
+  const awsFreeTier: AwsFreeTierSummary | undefined =
+    awsFreeTierTotalLimit > 0
+      ? {
+          totalUsage: awsFreeTierTotalUsage,
+          totalLimit: awsFreeTierTotalLimit,
+          remaining: Math.max(0, awsFreeTierTotalLimit - awsFreeTierTotalUsage),
+          percentage: Math.min(100, (awsFreeTierTotalUsage / awsFreeTierTotalLimit) * 100),
+        }
+      : undefined;
+
   const previousByService: Array<{ service: string; amount: number }> = [];
 
   const providers: ProviderCost[] = [];
@@ -209,6 +238,7 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     total,
     providers,
     byService,
+    awsFreeTier,
     previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency > 0
       ? {
           total: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency,
@@ -218,6 +248,7 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
             accounts: provider.accounts.map((account) => ({ ...account, amount: 0 })),
           })),
           byService: previousByService,
+          awsFreeTier,
         }
       : undefined,
   };
@@ -358,6 +389,7 @@ export function CostsSummary() {
   const services = useMemo(() => data?.byService ?? [], [data]);
   const previousProviders = useMemo(() => data?.previousPeriod?.providers ?? [], [data]);
   const previousServices = useMemo(() => data?.previousPeriod?.byService ?? [], [data]);
+  const awsFreeTier = useMemo(() => data?.awsFreeTier, [data]);
 
   const sortedProviders = useMemo(() => {
     return providers
@@ -398,10 +430,11 @@ export function CostsSummary() {
   }, [sortedProviders]);
 
   const serviceCaption = useMemo(() => {
-    if (sortedServices.length === 0) return '';
-    const top = sortedServices[0];
-    return `${top.service} ${top.percentage.toFixed(1)}%`;
-  }, [sortedServices]);
+    if (!awsFreeTier) return '';
+    if (awsFreeTier.totalLimit === 0) return '';
+    const remainingPercent = 100 - awsFreeTier.percentage;
+    return `AWS 프리티어 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`;
+  }, [awsFreeTier]);
 
   return (
     <div className="space-y-6">
@@ -684,34 +717,79 @@ export function CostsSummary() {
             </CardContent>
           </Card>
 
-          {/* 서비스별 비용 Top */}
+          {/* 서비스별 비용 Top 대신 AWS 프리티어 잔여량 */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold text-gray-900">서비스별 비용 Top</CardTitle>
-                <div className="text-xs text-gray-500">표시 단위: 백만(₩M)</div>
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  AWS 프리티어 잔여량
+                </CardTitle>
+                <div className="text-xs text-gray-500">
+                  현재 연결된 AWS 계정의 EC2 프리티어 사용량 기준
+                </div>
               </div>
               {serviceCaption && (
                 <p className="text-xs text-gray-500 mt-2 italic">{serviceCaption}</p>
               )}
             </CardHeader>
             <CardContent>
-              {services.length === 0 ? (
-                <div className="text-sm text-gray-600">데이터가 없습니다.</div>
+              {!awsFreeTier || awsFreeTier.totalLimit === 0 ? (
+                <div className="text-sm text-gray-600">
+                  프리티어 대상 AWS 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 인스턴스를 사용하면
+                  프리티어 사용 현황이 표시됩니다.
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {sortedServices.map((serviceData) => (
-                    <ServiceCostBar
-                      key={serviceData.service}
-                      service={serviceData.service}
-                      amount={serviceData.amount}
-                      totalAmount={totalAmount}
-                      cumulativePercent={serviceData.cumulativePercent}
-                      previousAmount={serviceData.previousAmount}
-                      averageAmount={averageServiceAmount}
-                      rank={serviceData.rank}
-                    />
-                  ))}
+                <div className="space-y-4 max-w-xl">
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">총 프리티어 한도</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {awsFreeTier.totalLimit.toFixed(0)} 시간
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">사용량</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {awsFreeTier.totalUsage.toFixed(0)} 시간
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        잔여 {awsFreeTier.remaining.toFixed(0)} 시간
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">프리티어 사용률</span>
+                      <span
+                        className={`font-semibold ${
+                          awsFreeTier.percentage >= 90
+                            ? 'text-red-600'
+                            : awsFreeTier.percentage >= 70
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                        }`}
+                      >
+                        {awsFreeTier.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={`absolute inset-y-0 left-0 rounded-full ${
+                          awsFreeTier.percentage >= 90
+                            ? 'bg-red-500'
+                            : awsFreeTier.percentage >= 70
+                            ? 'bg-yellow-400'
+                            : 'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min(100, awsFreeTier.percentage)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      AWS EC2 프리티어(t2.micro / t3.micro / t4g.micro) 기준 월 {awsFreeTier.totalLimit.toFixed(0)}시간
+                      중 {awsFreeTier.totalUsage.toFixed(0)}시간을 사용했습니다.
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
