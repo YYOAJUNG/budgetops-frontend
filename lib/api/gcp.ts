@@ -52,6 +52,14 @@ export interface SaveIntegrationResponse {
   message: string;
 }
 
+export interface GcpFreeTierUsage {
+  usedAmount: number;
+  freeTierLimitAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  currency: string;
+}
+
 /**
  * GCP 계정 목록 조회
  */
@@ -94,6 +102,24 @@ export async function saveGcpIntegration(
  */
 export async function deleteGcpAccount(id: number): Promise<void> {
   await api.delete(`/gcp/accounts/${id}`);
+}
+
+/**
+ * 특정 GCP 계정의 프리티어/크레딧 사용량 조회
+ */
+export async function getGcpAccountFreeTierUsage(
+  accountId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<GcpFreeTierUsage> {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  const { data } = await api.get<GcpFreeTierUsage>(
+    `/gcp/accounts/${accountId}/freetier/usage`,
+    { params }
+  );
+  return data;
 }
 
 /**

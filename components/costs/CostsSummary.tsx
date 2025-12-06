@@ -9,9 +9,9 @@ import { useContextStore } from '@/store/context';
 import { formatCurrency, formatCurrencyCompact, formatPercent, convertCurrency } from '@/lib/utils';
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Gift } from 'lucide-react';
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
-import { getGcpAccounts } from '@/lib/api/gcp';
-import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
-import { getNcpAccounts, getNcpAccountCosts } from '@/lib/api/ncp';
+import { getGcpAccounts, getGcpAccountFreeTierUsage } from '@/lib/api/gcp';
+import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost, getAzureAccountFreeTierUsage } from '@/lib/api/azure';
+import { getNcpAccounts, getNcpAccountCosts, getNcpAccountFreeTierUsage } from '@/lib/api/ncp';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 type ProviderAccount = {
@@ -27,14 +27,50 @@ type ProviderCost = {
   previousAmount?: number;
 };
 
+type AwsFreeTierSummary = {
+  totalUsage: number;
+  totalLimit: number;
+  remaining: number;
+  percentage: number;
+};
+
+type AzureFreeTierSummary = {
+  totalUsageHours: number;
+  totalLimitHours: number;
+  remainingHours: number;
+  percentage: number;
+  eligibleVmCount: number;
+};
+
+type GcpFreeTierSummary = {
+  usedAmount: number;
+  freeTierLimitAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  currency: string;
+};
+
+type NcpFreeTierSummary = {
+  usedAmount: number;
+  freeTierLimitAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  currency: string;
+};
+
 type CostsResponse = {
   total: number;
   providers: ProviderCost[];
   byService: Array<{ service: string; amount: number }>;
+  awsFreeTier?: AwsFreeTierSummary;
+  azureFreeTier?: AzureFreeTierSummary;
+  gcpFreeTier?: GcpFreeTierSummary;
+  ncpFreeTier?: NcpFreeTierSummary;
   previousPeriod?: {
     total: number;
     providers: ProviderCost[];
     byService: Array<{ service: string; amount: number }>;
+    awsFreeTier?: AwsFreeTierSummary;
   };
 };
 
@@ -59,6 +95,10 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let awsTotalCost = 0;
   let previousAwsTotalCost = 0;
 
+  // AWS 프리티어 잔여량 요약
+  let awsFreeTierTotalUsage = 0;
+  let awsFreeTierTotalLimit = 0;
+
   // 프리티어 정보 수집
   const freeTierInfoMap: Record<number, { hasFreeTier: boolean; services: string[] }> = {};
   
@@ -75,6 +115,12 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
         day.services.forEach((service) => {
           const costInCurrency = convertCurrency(service.cost, 'USD', currency);
           awsServiceCosts[service.service] = (awsServiceCosts[service.service] || 0) + costInCurrency;
+
+          // AWS 프리티어 사용량/한도 합산
+          if (service.freeTierInfo && service.freeTierInfo.freeTierLimit > 0) {
+            awsFreeTierTotalUsage += service.freeTierInfo.usage;
+            awsFreeTierTotalLimit += service.freeTierInfo.freeTierLimit;
+          }
           
           // 프리티어 사용 중인 서비스 확인
           if (service.freeTierInfo && service.freeTierInfo.isFreeTierActive && service.cost === 0) {
@@ -105,10 +151,44 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     azureAccountTotals = await getAllAzureAccountsCosts(from, to).catch(() => []);
   }
 
+  // Azure 프리티어 (VM B1s 기준) 사용량/한도 집계
+  let azureFreeTierTotalUsageHours = 0;
+  let azureFreeTierTotalLimitHours = 0;
+  let azureFreeTierEligibleVmCount = 0;
+  if (activeAzureAccounts.length > 0) {
+    for (const account of activeAzureAccounts) {
+      try {
+        const usage = await getAzureAccountFreeTierUsage(account.id, from, to);
+        azureFreeTierTotalUsageHours += usage.totalUsageHours;
+        azureFreeTierTotalLimitHours += usage.freeTierLimitHours;
+        azureFreeTierEligibleVmCount += usage.eligibleVmCount;
+      } catch (error) {
+        console.error(`Failed to fetch Azure free tier usage for account ${account.id}:`, error);
+      }
+    }
+  }
+
   // GCP 비용 (미구현)
   const gcpAccounts = await getGcpAccounts().catch(() => []);
   const gcpTotalCost = 0;
   const previousGcpTotalCost = 0;
+
+  // GCP 프리티어/크레딧 사용량 집계 (300달러 한도 기준 근사치)
+  let gcpFreeTierUsedAmount = 0;
+  let gcpFreeTierLimitAmount = 0;
+  let gcpFreeTierCurrency = 'USD';
+  if (gcpAccounts.length > 0) {
+    for (const account of gcpAccounts) {
+      try {
+        const usage = await getGcpAccountFreeTierUsage(account.id, from, to);
+        gcpFreeTierUsedAmount += usage.usedAmount;
+        gcpFreeTierLimitAmount += usage.freeTierLimitAmount;
+        gcpFreeTierCurrency = usage.currency || gcpFreeTierCurrency;
+      } catch (error) {
+        console.error(`Failed to fetch GCP free tier usage for account ${account.id}:`, error);
+      }
+    }
+  }
 
   // NCP 비용
   const ncpAccounts = await getNcpAccounts().catch(() => []);
@@ -116,6 +196,11 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   const ncpAccountTotals: Record<number, number> = {};
   let ncpTotalCost = 0;
   let previousNcpTotalCost = 0;
+
+  // NCP 프리티어/할인액 사용량 집계 (10만원 한도 기준 근사치)
+  let ncpFreeTierUsedAmount = 0;
+  let ncpFreeTierLimitAmount = 0;
+  let ncpFreeTierCurrency = 'KRW';
 
   // 날짜를 YYYYMM 형식으로 변환
   const startMonth = from.substring(0, 7).replace('-', ''); // "2025-11-01" -> "202511"
@@ -150,6 +235,64 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   const byService = Object.entries(awsServiceCosts)
     .map(([service, amount]) => ({ service, amount }))
     .sort((a, b) => b.amount - a.amount);
+
+  const awsFreeTier: AwsFreeTierSummary | undefined =
+    awsFreeTierTotalLimit > 0
+      ? {
+          totalUsage: awsFreeTierTotalUsage,
+          totalLimit: awsFreeTierTotalLimit,
+          remaining: Math.max(0, awsFreeTierTotalLimit - awsFreeTierTotalUsage),
+          percentage: Math.min(100, (awsFreeTierTotalUsage / awsFreeTierTotalLimit) * 100),
+        }
+      : undefined;
+
+  const azureFreeTier: AzureFreeTierSummary | undefined =
+    azureFreeTierTotalLimitHours > 0
+      ? {
+          totalUsageHours: azureFreeTierTotalUsageHours,
+          totalLimitHours: azureFreeTierTotalLimitHours,
+          remainingHours: Math.max(0, azureFreeTierTotalLimitHours - azureFreeTierTotalUsageHours),
+          percentage: Math.min(100, (azureFreeTierTotalUsageHours / azureFreeTierTotalLimitHours) * 100),
+          eligibleVmCount: azureFreeTierEligibleVmCount,
+        }
+      : undefined;
+
+  const gcpFreeTier: GcpFreeTierSummary | undefined =
+    gcpFreeTierLimitAmount > 0
+      ? {
+          usedAmount: gcpFreeTierUsedAmount,
+          freeTierLimitAmount: gcpFreeTierLimitAmount,
+          remainingAmount: Math.max(0, gcpFreeTierLimitAmount - gcpFreeTierUsedAmount),
+          percentage: Math.min(100, (gcpFreeTierUsedAmount / gcpFreeTierLimitAmount) * 100),
+          currency: gcpFreeTierCurrency,
+        }
+      : undefined;
+
+  if (activeNcpAccounts.length > 0) {
+    for (const account of activeNcpAccounts) {
+      try {
+        // YYYY-MM → YYYYMM 변환 (예: 2025-12-05 → 202512)
+        const month = from.substring(0, 7).replace('-', '');
+        const usage = await getNcpAccountFreeTierUsage(account.id, month);
+        ncpFreeTierUsedAmount += usage.usedAmount;
+        ncpFreeTierLimitAmount += usage.freeTierLimitAmount;
+        ncpFreeTierCurrency = usage.currency || ncpFreeTierCurrency;
+      } catch (error) {
+        console.error(`Failed to fetch NCP free tier usage for account ${account.id}:`, error);
+      }
+    }
+  }
+
+  const ncpFreeTier: NcpFreeTierSummary | undefined =
+    ncpFreeTierLimitAmount > 0
+      ? {
+          usedAmount: ncpFreeTierUsedAmount,
+          freeTierLimitAmount: ncpFreeTierLimitAmount,
+          remainingAmount: Math.max(0, ncpFreeTierLimitAmount - ncpFreeTierUsedAmount),
+          percentage: Math.min(100, (ncpFreeTierUsedAmount / ncpFreeTierLimitAmount) * 100),
+          currency: ncpFreeTierCurrency,
+        }
+      : undefined;
 
   const previousByService: Array<{ service: string; amount: number }> = [];
 
@@ -209,6 +352,10 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     total,
     providers,
     byService,
+    awsFreeTier,
+    azureFreeTier,
+    gcpFreeTier,
+    ncpFreeTier,
     previousPeriod: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency > 0
       ? {
           total: previousAwsTotalInCurrency + previousGcpTotalCost + previousNcpTotalInCurrency,
@@ -218,6 +365,7 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
             accounts: provider.accounts.map((account) => ({ ...account, amount: 0 })),
           })),
           byService: previousByService,
+          awsFreeTier,
         }
       : undefined,
   };
@@ -358,6 +506,10 @@ export function CostsSummary() {
   const services = useMemo(() => data?.byService ?? [], [data]);
   const previousProviders = useMemo(() => data?.previousPeriod?.providers ?? [], [data]);
   const previousServices = useMemo(() => data?.previousPeriod?.byService ?? [], [data]);
+  const awsFreeTier = useMemo(() => data?.awsFreeTier, [data]);
+  const azureFreeTier = useMemo(() => data?.azureFreeTier, [data]);
+  const gcpFreeTier = useMemo(() => data?.gcpFreeTier, [data]);
+  const ncpFreeTier = useMemo(() => data?.ncpFreeTier, [data]);
 
   const sortedProviders = useMemo(() => {
     return providers
@@ -398,10 +550,33 @@ export function CostsSummary() {
   }, [sortedProviders]);
 
   const serviceCaption = useMemo(() => {
-    if (sortedServices.length === 0) return '';
-    const top = sortedServices[0];
-    return `${top.service} ${top.percentage.toFixed(1)}%`;
-  }, [sortedServices]);
+    const captions: string[] = [];
+    if (awsFreeTier && awsFreeTier.totalLimit > 0) {
+      const remainingPercent = 100 - awsFreeTier.percentage;
+      captions.push(
+        `AWS 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`
+      );
+    }
+    if (azureFreeTier && azureFreeTier.totalLimitHours > 0) {
+      const remainingPercent = 100 - azureFreeTier.percentage;
+      captions.push(
+        `Azure 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingHours.toFixed(0)}/${azureFreeTier.totalLimitHours.toFixed(0)})`
+      );
+    }
+    if (gcpFreeTier && gcpFreeTier.freeTierLimitAmount > 0) {
+      const remainingPercent = 100 - gcpFreeTier.percentage;
+      captions.push(
+        `GCP 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${gcpFreeTier.remainingAmount.toFixed(1)}/${gcpFreeTier.freeTierLimitAmount.toFixed(1)} ${gcpFreeTier.currency})`
+      );
+    }
+    if (ncpFreeTier && ncpFreeTier.freeTierLimitAmount > 0) {
+      const remainingPercent = 100 - ncpFreeTier.percentage;
+      captions.push(
+        `NCP 할인 잔여 ${remainingPercent.toFixed(1)}% (${ncpFreeTier.remainingAmount.toFixed(0)}/${ncpFreeTier.freeTierLimitAmount.toFixed(0)} ${ncpFreeTier.currency})`
+      );
+    }
+    return captions.join(' · ');
+  }, [awsFreeTier, azureFreeTier]);
 
   return (
     <div className="space-y-6">
@@ -684,34 +859,251 @@ export function CostsSummary() {
             </CardContent>
           </Card>
 
-          {/* 서비스별 비용 Top */}
+          {/* 서비스별 비용 Top 대신 CSP 프리티어 잔여량 (AWS + Azure) */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold text-gray-900">서비스별 비용 Top</CardTitle>
-                <div className="text-xs text-gray-500">표시 단위: 백만(₩M)</div>
+                <CardTitle className="text-base font-semibold text-gray-900">
+                  CSP 프리티어 잔여량
+                </CardTitle>
+                <div className="text-xs text-gray-500">
+                  AWS EC2, Azure VM(B1s), GCP 크레딧/프리티어, NCP 할인 기준 (근사치)
+                </div>
               </div>
               {serviceCaption && (
                 <p className="text-xs text-gray-500 mt-2 italic">{serviceCaption}</p>
               )}
             </CardHeader>
             <CardContent>
-              {services.length === 0 ? (
-                <div className="text-sm text-gray-600">데이터가 없습니다.</div>
+              {!awsFreeTier && !azureFreeTier ? (
+                <div className="text-sm text-gray-600">
+                  프리티어 대상 AWS/Azure 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 또는 Azure B1s VM을
+                  사용하면 프리티어 사용 현황이 표시됩니다.
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {sortedServices.map((serviceData) => (
-                    <ServiceCostBar
-                      key={serviceData.service}
-                      service={serviceData.service}
-                      amount={serviceData.amount}
-                      totalAmount={totalAmount}
-                      cumulativePercent={serviceData.cumulativePercent}
-                      previousAmount={serviceData.previousAmount}
-                      averageAmount={averageServiceAmount}
-                      rank={serviceData.rank}
-                    />
-                  ))}
+                <div className="grid gap-6 md:grid-cols-4 max-w-6xl">
+                  {awsFreeTier && awsFreeTier.totalLimit > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">AWS EC2 프리티어</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 프리티어 한도</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {awsFreeTier.totalLimit.toFixed(0)} 시간
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용량</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {awsFreeTier.totalUsage.toFixed(0)} 시간
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {awsFreeTier.remaining.toFixed(0)} 시간
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">프리티어 사용률</span>
+                          <span
+                            className={`font-semibold ${
+                              awsFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : awsFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {awsFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              awsFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : awsFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, awsFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          AWS EC2 프리티어(t2.micro / t3.micro / t4g.micro) 기준 월{' '}
+                          {awsFreeTier.totalLimit.toFixed(0)}시간 중 {awsFreeTier.totalUsage.toFixed(0)}시간을
+                          사용했습니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {azureFreeTier && azureFreeTier.totalLimitHours > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Azure VM 프리티어</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 프리티어 한도</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {azureFreeTier.totalLimitHours.toFixed(0)} 시간
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용량</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {azureFreeTier.totalUsageHours.toFixed(0)} 시간
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {azureFreeTier.remainingHours.toFixed(0)} 시간
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">
+                            프리티어 사용률 (대상 VM {azureFreeTier.eligibleVmCount}대 기준)
+                          </span>
+                          <span
+                            className={`font-semibold ${
+                              azureFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : azureFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {azureFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              azureFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : azureFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, azureFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          Azure VM 프리티어(Standard_B1s, 월 750시간 기준)를 대상으로, 선택한 기간 동안의 사용량을
+                          근사 계산한 값입니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {gcpFreeTier && gcpFreeTier.freeTierLimitAmount > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">GCP 크레딧/프리티어</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {gcpFreeTier.freeTierLimitAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">크레딧/프리티어 사용률 (300 {gcpFreeTier.currency} 기준)</span>
+                          <span
+                            className={`font-semibold ${
+                              gcpFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : gcpFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {gcpFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              gcpFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : gcpFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, gcpFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          GCP Billing Export 기준, 크레딧/프리티어로 상쇄된 금액(credits)을 합산하여 300 {gcpFreeTier.currency}{' '}
+                          한도 대비 사용률을 근사 계산한 값입니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {ncpFreeTier && ncpFreeTier.freeTierLimitAmount > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">NCP 할인/프로모션</h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 할인 한도 (기준값)</p>
+                          <p className="text-xl font-bold text-gray-900">
+                            {ncpFreeTier.freeTierLimitAmount.toFixed(0)} {ncpFreeTier.currency}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용된 할인/프로모션</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {ncpFreeTier.usedAmount.toFixed(0)} {ncpFreeTier.currency}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {ncpFreeTier.remainingAmount.toFixed(0)} {ncpFreeTier.currency}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">할인/프로모션 사용률 (10만 {ncpFreeTier.currency} 기준)</span>
+                          <span
+                            className={`font-semibold ${
+                              ncpFreeTier.percentage >= 90
+                                ? 'text-red-600'
+                                : ncpFreeTier.percentage >= 70
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                            }`}
+                          >
+                            {ncpFreeTier.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="relative h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className={`absolute inset-y-0 left-0 rounded-full ${
+                              ncpFreeTier.percentage >= 90
+                                ? 'bg-red-500'
+                                : ncpFreeTier.percentage >= 70
+                                ? 'bg-yellow-400'
+                                : 'bg-green-500'
+                            }`}
+                            style={{ width: `${Math.min(100, ncpFreeTier.percentage)}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          NCP Billing API 기준, 월별 프로모션/기타 할인액을 합산하여 10만 {ncpFreeTier.currency} 한도 대비 사용률을
+                          근사 계산한 값입니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

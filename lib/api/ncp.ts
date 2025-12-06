@@ -64,6 +64,14 @@ export interface MetricDataPoint {
   value: number | null;
 }
 
+export interface NcpFreeTierUsage {
+  usedAmount: number;
+  freeTierLimitAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  currency: string;
+}
+
 /**
  * NCP 계정 목록 조회
  */
@@ -586,6 +594,25 @@ export async function getNcpAccountCostSummary(
 
   const { data } = await api.get<NcpCostSummary>(
     `/ncp/accounts/${accountId}/costs/summary`,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * 특정 NCP 계정의 프리티어/할인액 사용량 조회
+ * @param accountId NCP 계정 ID
+ * @param month 조회 월 (YYYYMM 형식, 선택사항 - 미지정 시 현재 월)
+ */
+export async function getNcpAccountFreeTierUsage(
+  accountId: number,
+  month?: string
+): Promise<NcpFreeTierUsage> {
+  const params: any = {};
+  if (month) params.month = month;
+
+  const { data } = await api.get<NcpFreeTierUsage>(
+    `/ncp/accounts/${accountId}/freetier/usage`,
     { params }
   );
   return data;
