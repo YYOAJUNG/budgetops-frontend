@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/api/notifications';
-import { Users, CreditCard, ArrowLeft } from 'lucide-react';
+import { Users, CreditCard, ArrowLeft, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TOPBAR_BASE = 'flex h-16 items-center justify-between border-b border-slate-700 bg-slate-900 text-white px-4 md:px-6 shadow-lg';
@@ -60,6 +60,7 @@ export function AdminTopbar() {
   const navItems = [
     { href: '/admin/users', label: '사용자 관리', icon: Users },
     { href: '/admin/payments', label: '결제 내역', icon: CreditCard },
+    { href: '/admin/feedback', label: '피드백', icon: MessageSquare },
   ];
 
   return (
