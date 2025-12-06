@@ -6,6 +6,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  role?: 'ADMIN' | 'USER';
   company?: string;
   phone?: string;
   department?: string;
@@ -20,6 +21,7 @@ export const mockUser: User = {
   id: 1,
   name: '조예진',
   email: 'whdpwls@ajou.ac.kr',
+  role: 'USER',
   company: 'BudgetOps',
   phone: '010-1234-5678',
   department: '개발팀',

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store/ui';
+import { useAuthStore } from '@/store/auth';
 import { NAVIGATION_ITEMS, FEEDBACK_LINK } from '@/constants/navigation';
 import { ChevronDown, ChevronRight, X } from 'lucide-react';
 import { InboxArchive } from '@mynaui/icons-react';
@@ -19,8 +20,19 @@ const DESKTOP_SIDEBAR_BASE = 'hidden md:flex md:relative md:translate-x-0';
 export function Sidebar() {
   const pathname = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
-  const { sidebarCollapsed, setSidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const { sidebarCollapsed, setSidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen, adminMode } = useUIStore();
+  const { user } = useAuthStore();
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 관리자 모드일 때는 사이드바를 표시하지 않음
+  if (adminMode) {
+    return null;
+  }
+
+  // 일반 모드에서만 관리자 메뉴 필터링 (일반 사용자는 관리자 메뉴 안 보임)
+  const filteredNavigationItems = NAVIGATION_ITEMS.filter(
+    (item) => !item.adminOnly
+  );
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
@@ -100,7 +112,7 @@ export function Sidebar() {
         </button>
       </div>
       <nav className="flex-1 space-y-1 p-4">
-        {NAVIGATION_ITEMS.map((item) => (
+        {filteredNavigationItems.map((item) => (
           <div key={item.name}>
             {item.children ? (
               <div className="space-y-1">
@@ -111,7 +123,7 @@ export function Sidebar() {
                     className={cn(
                       'flex-1 flex items-center px-3 py-2.5 text-sm rounded-lg overflow-hidden',
                       'transition-[background-color,color] duration-200 group relative',
-                      pathname?.startsWith('/mypage')
+                      (pathname?.startsWith('/mypage') || pathname?.startsWith('/admin'))
                         ? 'bg-blue-50 text-blue-700'
                         : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
                       sidebarCollapsed && 'md:justify-center'
@@ -149,7 +161,12 @@ export function Sidebar() {
                       <Link
                         key={child.name}
                         href={child.href}
-                        className="block px-3 py-2 text-sm rounded-lg whitespace-nowrap overflow-hidden transition-[background-color,color] duration-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        className={cn(
+                          "block px-3 py-2 text-sm rounded-lg whitespace-nowrap overflow-hidden transition-[background-color,color] duration-200",
+                          pathname === child.href
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        )}
                         onClick={(e) => {
                           // 같은 페이지 내 앵커로 스크롤
                           if (pathname === '/mypage' && child.href.includes('#')) {

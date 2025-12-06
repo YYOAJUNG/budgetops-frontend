@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
                 id: 'mock-user-1',
                 email: 'test@example.com',
                 name: '테스트 사용자',
-                role: 'user',
+                role: 'admin',
               },
               isAuthenticated: true,
               isLoading: false,
@@ -82,12 +82,13 @@ export const useAuthStore = create<AuthState>()(
             ? String(userInfo.id)
             : '';
           // 백엔드에서 받은 사용자 정보를 상태에 저장
+          const userRole = userInfo.role === 'ADMIN' ? 'admin' : 'user';
           set({
             user: {
               id: normalizedId,
               email: userInfo.email,
               name: userInfo.name,
-              role: 'user', // 백엔드 응답에 role이 있으면 그걸 사용
+              role: userRole,
             },
             isAuthenticated: true,
             isLoading: false,

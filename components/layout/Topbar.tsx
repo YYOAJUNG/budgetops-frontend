@@ -1,10 +1,11 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { UserMenu } from './UserMenu';
 import { NotificationMenu, type Notification } from './NotificationMenu';
-import { Menu } from 'lucide-react';
+import { Menu, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useEffect } from 'react';
@@ -17,8 +18,9 @@ const TOPBAR_BASE = 'flex h-16 items-center justify-between border-b border-slat
 const AI_CHAT_BUTTON = 'p-2 rounded-lg transition-all hover:bg-indigo-50 hover:shadow-sm group relative';
 
 export function Topbar() {
+  const router = useRouter();
   const { user } = useAuthStore();
-  const { toggleAIChat, aiChatOpen, toggleMobileSidebar } = useUIStore();
+  const { toggleAIChat, aiChatOpen, toggleMobileSidebar, setAdminMode, adminMode } = useUIStore();
   const {
     notifications,
     setNotifications,
@@ -51,7 +53,14 @@ export function Topbar() {
     void markAllNotificationsRead();
   };
 
+  const handleEnterAdminMode = () => {
+    setAdminMode(true);
+    router.push('/admin/users');
+  };
+
   const unread = unreadCount();
+  const isAdmin = user?.role === 'admin';
+  const showAdminButton = isAdmin && !adminMode;
 
   return (
     <div className={TOPBAR_BASE}>
@@ -68,6 +77,17 @@ export function Topbar() {
       <div className="flex-1" />
 
       <div className="flex items-center space-x-2">
+        {showAdminButton && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEnterAdminMode}
+            className="text-gray-700 hover:text-gray-900"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            관리자 모드로
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
