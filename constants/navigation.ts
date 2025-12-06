@@ -6,6 +6,7 @@ export interface NavigationItem {
   href: string;
   icon: any;
   children?: Array<{ name: string; href: string }>;
+  adminOnly?: boolean;
 }
 
 export const NAVIGATION_ITEMS: NavigationItem[] = [
