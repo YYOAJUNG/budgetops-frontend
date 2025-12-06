@@ -59,14 +59,14 @@ function GrantTokensDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200">
           <DialogTitle>토큰 부여</DialogTitle>
           <DialogDescription>
             {user?.name}({user?.email})에게 토큰을 부여합니다.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           <div>
             <label htmlFor="tokens" className="block text-sm font-medium text-gray-700 mb-1">
               토큰 수량 <span className="text-red-500">*</span>
@@ -98,7 +98,7 @@ function GrantTokensDialog({
               {error}
             </div>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
