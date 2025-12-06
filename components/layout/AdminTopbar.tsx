@@ -108,14 +108,6 @@ export function AdminTopbar() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           일반 모드로
         </Button>
-        <NotificationMenu
-          notifications={notifications as Notification[]}
-          unreadCount={unread}
-          onMarkAllRead={handleMarkAllRead}
-          onNotificationClick={handleNotificationClick}
-          onViewAll={handleViewAll}
-          adminMode={true}
-        />
         <UserMenu user={user} adminMode={true} />
       </div>
     </div>
