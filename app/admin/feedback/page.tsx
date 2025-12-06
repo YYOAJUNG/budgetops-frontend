@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { getFeedbackData, calculateSatisfactionStats, type FeedbackResponse } from '@/lib/api/feedback';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Star, MessageSquare, AlertCircle, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Loader2, Star, MessageSquare, AlertCircle, ThumbsUp, ThumbsDown, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function SatisfactionStats({ data }: { data: FeedbackResponse[] }) {
@@ -299,9 +300,25 @@ export default function AdminFeedbackPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">피드백</h1>
-          <p className="text-gray-600 mt-1">사용자 피드백을 확인하고 분석할 수 있습니다.</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">피드백</h1>
+            <p className="text-gray-600 mt-1">사용자 피드백을 확인하고 분석할 수 있습니다.</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              window.open(
+                'https://docs.google.com/forms/d/1sTKjNOFSZzsyoxtL5G_XTVHqyZIGBrFsqxQvAtz8RMs/edit#responses',
+                '_blank',
+                'noopener,noreferrer'
+              );
+            }}
+            className="flex items-center gap-2 mt-4"
+          >
+            <ExternalLink className="h-4 w-4" />
+            구글폼 응답 보기
+          </Button>
         </div>
 
         {/* 통계 대시보드 */}
