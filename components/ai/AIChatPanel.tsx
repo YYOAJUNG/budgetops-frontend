@@ -20,6 +20,17 @@ interface Message {
   timestamp: Date;
 }
 
+interface ChatResponse {
+  response: string;
+  session_id?: string;
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  remainingTokens?: number;
+}
+
 const INITIAL_MESSAGE: Message = {
   id: '1',
   role: 'assistant',
@@ -58,6 +69,7 @@ export function AIChatPanel() {
   const [isSending, setIsSending] = useState(false);
   const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | 'azure' | null>(null);
   const [showServiceSelector, setShowServiceSelector] = useState(false);
+  const [remainingTokens, setRemainingTokens] = useState<number | null>(null);
 
   // 모든 CSP 계정 조회
   const { data: awsAccounts } = useQuery({
@@ -197,7 +209,7 @@ export function AIChatPanel() {
 
     try {
       setIsSending(true);
-      const res = await api.post('/ai/chat', {
+      const res = await api.post<ChatResponse>('/ai/chat', {
         message: userMessage.content,
         session_id: sessionId ?? undefined,
       });
@@ -208,6 +220,11 @@ export function AIChatPanel() {
         setSessionId(returnedSessionId);
       }
 
+      // 토큰 정보 업데이트
+      if (res.data?.remainingTokens !== undefined) {
+        setRemainingTokens(res.data.remainingTokens);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -216,6 +233,19 @@ export function AIChatPanel() {
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
+      // 토큰 부족 에러 처리
+      if (error?.response?.status === 402 || error?.response?.data?.detail?.includes('토큰')) {
+        const errorMessage = error?.response?.data?.detail || '토큰이 부족합니다. 마이페이지에서 토큰을 구매해주세요.';
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `⚠️ ${errorMessage}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        return;
+      }
+
       const errorText =
         error?.response?.data?.detail ||
         error?.message ||
@@ -251,7 +281,17 @@ export function AIChatPanel() {
       <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div>
           <h2 className="font-semibold text-gray-900">AI 어시스턴트</h2>
-          <p className="text-xs text-gray-500">비용 관리 도우미</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-gray-500">비용 관리 도우미</p>
+            {remainingTokens !== null && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <p className="text-xs font-medium text-amber-600">
+                  토큰: {remainingTokens.toLocaleString()}
+                </p>
+              </>
+            )}
+          </div>
         </div>
         <button
           onClick={() => setAIChatOpen(false)}
