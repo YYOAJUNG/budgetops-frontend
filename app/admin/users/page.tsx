@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 
 function GrantTokensDialog({
   open,
@@ -134,15 +134,34 @@ function GrantTokensDialog({
 
 function UsersTable() {
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showGrantDialog, setShowGrantDialog] = useState(false);
   const queryClient = useQueryClient();
   const pageSize = 20;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['adminUsers', page],
-    queryFn: () => getAdminUsers(page, pageSize),
+    queryKey: ['adminUsers', page, search],
+    queryFn: () => getAdminUsers(page, pageSize, search || undefined),
   });
+
+  const handleSearch = () => {
+    setSearch(searchInput);
+    setPage(0); // 검색 시 첫 페이지로 리셋
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(0);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const handleGrantSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
@@ -192,6 +211,43 @@ function UsersTable() {
 
   return (
     <>
+      {/* 검색 영역 */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="사용자 이름 또는 이메일로 검색"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="pl-10 pr-10"
+          />
+          {searchInput && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Button onClick={handleSearch} variant="outline">
+          검색
+        </Button>
+        {search && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>검색어: "{search}"</span>
+            <button
+              onClick={handleClearSearch}
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
+              초기화
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>

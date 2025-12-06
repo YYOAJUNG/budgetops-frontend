@@ -5,7 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { getAdminPayments, type PaymentHistory } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Filter } from 'lucide-react';
+import { Loader2, Filter, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 type PaymentTypeFilter = 'ALL' | 'MEMBERSHIP' | 'TOKEN_PURCHASE';
 type PaymentStatusFilter = 'ALL' | 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
@@ -13,10 +15,12 @@ type PaymentStatusFilter = 'ALL' | 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
 function PaymentsTable() {
   const [typeFilter, setTypeFilter] = useState<PaymentTypeFilter>('ALL');
   const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter>('ALL');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['adminPayments'],
-    queryFn: getAdminPayments,
+    queryKey: ['adminPayments', search],
+    queryFn: () => getAdminPayments(search || undefined),
   });
 
   const filteredData = useMemo(() => {
@@ -27,6 +31,21 @@ function PaymentsTable() {
       return true;
     });
   }, [data, typeFilter, statusFilter]);
+
+  const handleSearch = () => {
+    setSearch(searchInput);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ko-KR', {
@@ -76,42 +95,82 @@ function PaymentsTable() {
 
   return (
     <div className="space-y-4">
-      {/* 필터 */}
-      <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700">필터:</span>
+      {/* 검색 및 필터 */}
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-gray-200">
+        {/* 검색 영역 */}
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="사용자 이름 또는 이메일로 검색"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="pl-10 pr-10"
+            />
+            {searchInput && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Button onClick={handleSearch} variant="outline">
+            검색
+          </Button>
+          {search && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>검색어: "{search}"</span>
+              <button
+                onClick={handleClearSearch}
+                className="text-blue-600 hover:text-blue-700 underline"
+              >
+                초기화
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="type-filter" className="text-sm text-gray-600">결제 타입</label>
-          <select
-            id="type-filter"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as PaymentTypeFilter)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">전체</option>
-            <option value="MEMBERSHIP">멤버십</option>
-            <option value="TOKEN_PURCHASE">토큰 구매</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="status-filter" className="text-sm text-gray-600">상태</label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as PaymentStatusFilter)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">전체</option>
-            <option value="PAID">완료</option>
-            <option value="PENDING">대기</option>
-            <option value="FAILED">실패</option>
-            <option value="IDLE">대기중</option>
-          </select>
-        </div>
-        <div className="text-sm text-gray-600 ml-auto">
-          총 {filteredData.length}건
+
+        {/* 필터 - 우측 배치 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">필터:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="type-filter" className="text-sm text-gray-600">결제 타입</label>
+            <select
+              id="type-filter"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as PaymentTypeFilter)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">전체</option>
+              <option value="MEMBERSHIP">멤버십</option>
+              <option value="TOKEN_PURCHASE">토큰 구매</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="status-filter" className="text-sm text-gray-600">상태</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as PaymentStatusFilter)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">전체</option>
+              <option value="PAID">완료</option>
+              <option value="PENDING">대기</option>
+              <option value="FAILED">실패</option>
+              <option value="IDLE">대기중</option>
+            </select>
+          </div>
+          <div className="text-sm text-gray-600">
+            총 {filteredData.length}건
+          </div>
         </div>
       </div>
 
