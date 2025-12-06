@@ -237,3 +237,144 @@ export async function checkGcpAlertsByAccount(accountId: number): Promise<GcpAle
   const { data } = await api.post<GcpAlert[]>(`/gcp/alerts/check/${accountId}`);
   return data;
 }
+
+/**
+ * GCP 비용 관련 타입 정의
+ */
+
+/**
+ * 일별 비용 항목
+ */
+export interface GcpDailyCost {
+  date: string; // "YYYY-MM-DD" 형식
+  grossCost: number;
+  creditUsed: number;
+  netCost: number;
+  displayNetCost: number; // 표시용 netCost (음수면 0)
+}
+
+/**
+ * 특정 계정의 일별 비용 응답
+ */
+export interface GcpAccountCosts {
+  accountId: number;
+  accountName: string;
+  currency: string; // 예: "USD", "KRW"
+  totalGrossCost: number; // 프리티어/크레딧 공제 전 사용액
+  totalCreditUsed: number; // 사용된 크레딧액
+  totalNetCost: number; // 실제 청구된 금액 (크레딧/프리티어 공제 후)
+  totalDisplayNetCost: number; // 표시용 netCost (음수면 0)
+  dailyCosts: GcpDailyCost[];
+}
+
+/**
+ * 특정 계정의 월별 비용 응답
+ */
+export interface GcpMonthlyCosts {
+  accountId: number;
+  accountName: string;
+  year: number;
+  month: number;
+  totalGrossCost: number;
+  totalCreditUsed: number;
+  totalNetCost: number;
+  displayNetCost: number; // 표시용 netCost (음수면 0)
+  currency: string;
+}
+
+/**
+ * 모든 계정의 통합 비용 응답의 summary 부분
+ */
+export interface GcpCostsSummary {
+  currency: string;
+  totalGrossCost: number;
+  totalCreditUsed: number;
+  totalNetCost: number;
+  totalDisplayNetCost: number; // 표시용 netCost (음수면 0)
+}
+
+/**
+ * 모든 계정의 통합 비용 응답의 계정별 항목
+ */
+export interface GcpAccountCostSummary {
+  accountId: number;
+  accountName: string;
+  currency: string;
+  totalGrossCost: number;
+  totalCreditUsed: number;
+  totalNetCost: number;
+  totalDisplayNetCost: number; // 표시용 netCost (음수면 0)
+}
+
+/**
+ * 모든 계정의 통합 비용 응답
+ */
+export interface GcpAllAccountsCosts {
+  summary: GcpCostsSummary;
+  accounts: GcpAccountCostSummary[];
+}
+
+/**
+ * 특정 GCP 계정의 일별 비용 조회
+ * @param accountId GCP 계정 ID
+ * @param startDate 시작 날짜 (ISO 8601 형식: YYYY-MM-DD, 선택)
+ * @param endDate 종료 날짜 (ISO 8601 형식: YYYY-MM-DD, 선택, exclusive)
+ */
+export async function getGcpAccountCosts(
+  accountId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<GcpAccountCosts> {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  
+  const { data } = await api.get<GcpAccountCosts>(
+    `/gcp/accounts/${accountId}/costs`,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * 특정 GCP 계정의 월별 비용 조회
+ * @param accountId GCP 계정 ID
+ * @param year 연도 (예: 2024)
+ * @param month 월 (1-12)
+ */
+export async function getGcpAccountMonthlyCosts(
+  accountId: number,
+  year: number,
+  month: number
+): Promise<GcpMonthlyCosts> {
+  const params: Record<string, string> = {
+    year: year.toString(),
+    month: month.toString(),
+  };
+  
+  const { data } = await api.get<GcpMonthlyCosts>(
+    `/gcp/accounts/${accountId}/costs/monthly`,
+    { params }
+  );
+  return data;
+}
+
+/**
+ * 모든 GCP 계정의 비용 통합 조회
+ * @param startDate 시작 날짜 (ISO 8601 형식: YYYY-MM-DD, 선택)
+ * @param endDate 종료 날짜 (ISO 8601 형식: YYYY-MM-DD, 선택, exclusive)
+ */
+export async function getAllGcpAccountsCosts(
+  startDate?: string,
+  endDate?: string
+): Promise<GcpAllAccountsCosts> {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  
+  const { data } = await api.get<GcpAllAccountsCosts>(
+    '/gcp/costs',
+    { params }
+  );
+  return data;
+}
