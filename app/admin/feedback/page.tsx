@@ -84,9 +84,18 @@ function SatisfactionStats({ data }: { data: FeedbackResponse[] }) {
   );
 }
 
-function FeedbackList({ data }: { data: FeedbackResponse[] }) {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
+function FeedbackList({ 
+  data, 
+  displayType = 'all',
+  allData
+}: { 
+  data: FeedbackResponse[]; 
+  displayType?: 'all' | 'positive' | 'negative' | 'comments';
+  allData?: FeedbackResponse[];
+}) {
+  // 날짜 문자열을 Date 객체로 변환하는 헬퍼 함수
+  const parseDate = (dateString: string): Date => {
+    if (!dateString) return new Date(0);
     
     try {
       // 한국어 날짜 형식 파싱: "2025. 11. 6 오후 7:13:31"
@@ -101,92 +110,144 @@ function FeedbackList({ data }: { data: FeedbackResponse[] }) {
           hour24 = 0;
         }
         
-        const date = new Date(
+        return new Date(
           parseInt(year),
           parseInt(month) - 1,
           parseInt(day),
           hour24,
           parseInt(minute)
         );
-        
-        return date.toLocaleDateString('ko-KR', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
       }
       
       // ISO 형식 또는 다른 형식 시도
       const date = new Date(dateString);
       if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString('ko-KR', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        return date;
       }
       
-      // 파싱 실패 시 원본 반환
-      return dateString;
+      // 파싱 실패 시 최소 날짜 반환
+      return new Date(0);
     } catch {
-      return dateString;
+      return new Date(0);
     }
   };
 
+  // displayType에 따라 필터링 및 표시할 데이터 준비
+  const getDisplayData = () => {
+    const sourceData = allData || data;
+    
+    let result;
+    
+    if (displayType === 'positive') {
+      result = sourceData
+        .map((d, originalIndex) => ({ ...d, originalIndex: originalIndex + 1 }))
+        .filter(d => d.positivePoints?.trim())
+        .map(d => ({ ...d, displayText: d.positivePoints, displayLabel: '가장 마음에 드는 점' }));
+    } else if (displayType === 'negative') {
+      result = sourceData
+        .map((d, originalIndex) => ({ ...d, originalIndex: originalIndex + 1 }))
+        .filter(d => d.negativePoints?.trim())
+        .map(d => ({ ...d, displayText: d.negativePoints, displayLabel: '불편한 점' }));
+    } else if (displayType === 'comments') {
+      result = sourceData
+        .map((d, originalIndex) => ({ ...d, originalIndex: originalIndex + 1 }))
+        .filter(d => d.additionalComments?.trim())
+        .map(d => ({ ...d, displayText: d.additionalComments, displayLabel: '기타 의견' }));
+    } else {
+      // displayType === 'all'인 경우
+      result = sourceData.map((d, originalIndex) => ({ ...d, originalIndex: originalIndex + 1 }));
+    }
+    
+    // 최신순으로 정렬 (날짜 내림차순)
+    return result.sort((a, b) => {
+      const dateA = parseDate(a.timestamp);
+      const dateB = parseDate(b.timestamp);
+      return dateB.getTime() - dateA.getTime(); // 최신이 먼저
+    });
+  };
+
+  const displayData = getDisplayData();
+
   return (
     <div className="space-y-4">
-      {data.map((feedback, index) => (
+      {displayData.map((feedback, index) => (
         <Card key={index}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-medium">
-                응답 #{index + 1}
+                응답 #{(feedback as any).originalIndex || index + 1}
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                <span className="font-semibold">{feedback.satisfaction}</span>
-                <span className="text-sm text-gray-500">/ 5</span>
-              </div>
+              {displayType === 'all' && (
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                  <span className="font-semibold">{feedback.satisfaction}</span>
+                  <span className="text-sm text-gray-500">/ 5</span>
+                </div>
+              )}
               <span className="text-sm text-gray-500">
-                {formatDate(feedback.timestamp)}
+                {feedback.timestamp}
               </span>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {feedback.positivePoints && (
+            {displayType === 'all' ? (
+              // 전체 보기: 모든 필드 표시
+              <>
+                {feedback.positivePoints && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <ThumbsUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">가장 마음에 드는 점</span>
+                    </div>
+                    <p className="text-sm text-gray-700 bg-green-50 p-3 rounded-md">
+                      {feedback.positivePoints}
+                    </p>
+                  </div>
+                )}
+                {feedback.negativePoints && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-700">불편한 점</span>
+                    </div>
+                    <p className="text-sm text-gray-700 bg-red-50 p-3 rounded-md">
+                      {feedback.negativePoints}
+                    </p>
+                  </div>
+                )}
+                {feedback.additionalComments && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageSquare className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-700">기타 의견</span>
+                    </div>
+                    <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md">
+                      {feedback.additionalComments}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              // 단일 필드 보기: 해당 필드만 표시
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <ThumbsUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-700">가장 마음에 드는 점</span>
+                  {displayType === 'positive' && <ThumbsUp className="h-4 w-4 text-green-600" />}
+                  {displayType === 'negative' && <AlertCircle className="h-4 w-4 text-red-600" />}
+                  {displayType === 'comments' && <MessageSquare className="h-4 w-4 text-blue-600" />}
+                  <span className={`text-sm font-medium ${
+                    displayType === 'positive' ? 'text-green-700' : 
+                    displayType === 'negative' ? 'text-red-700' : 
+                    'text-blue-700'
+                  }`}>
+                    {(feedback as any).displayLabel || ''}
+                  </span>
                 </div>
-                <p className="text-sm text-gray-700 bg-green-50 p-3 rounded-md">
-                  {feedback.positivePoints}
-                </p>
-              </div>
-            )}
-            {feedback.negativePoints && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium text-red-700">불편한 점</span>
-                </div>
-                <p className="text-sm text-gray-700 bg-red-50 p-3 rounded-md">
-                  {feedback.negativePoints}
-                </p>
-              </div>
-            )}
-            {feedback.additionalComments && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-700">기타 의견</span>
-                </div>
-                <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md">
-                  {feedback.additionalComments}
+                <p className={`text-sm text-gray-700 p-3 rounded-md ${
+                  displayType === 'positive' ? 'bg-green-50' : 
+                  displayType === 'negative' ? 'bg-red-50' : 
+                  'bg-blue-50'
+                }`}>
+                  {(feedback as any).displayText || ''}
                 </p>
               </div>
             )}
@@ -257,15 +318,19 @@ export default function AdminFeedbackPage() {
                 <TabsTrigger value="all">전체</TabsTrigger>
                 <TabsTrigger value="positive">긍정 피드백</TabsTrigger>
                 <TabsTrigger value="negative">개선 요청</TabsTrigger>
+                <TabsTrigger value="comments">기타 의견</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="mt-4">
-                <FeedbackList data={data} />
+                <FeedbackList data={data} displayType="all" allData={data} />
               </TabsContent>
               <TabsContent value="positive" className="mt-4">
-                <FeedbackList data={data.filter(d => d.positivePoints?.trim())} />
+                <FeedbackList data={data} displayType="positive" allData={data} />
               </TabsContent>
               <TabsContent value="negative" className="mt-4">
-                <FeedbackList data={data.filter(d => d.negativePoints?.trim())} />
+                <FeedbackList data={data} displayType="negative" allData={data} />
+              </TabsContent>
+              <TabsContent value="comments" className="mt-4">
+                <FeedbackList data={data} displayType="comments" allData={data} />
               </TabsContent>
             </Tabs>
           </CardContent>
