@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 function GrantTokensDialog({
   open,
@@ -133,6 +134,7 @@ function GrantTokensDialog({
 }
 
 function UsersTable() {
+  const router = useRouter();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -285,16 +287,28 @@ function UsersTable() {
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{formatCloudAccounts(user)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setShowGrantDialog(true);
-                    }}
-                  >
-                    토큰 부여
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowGrantDialog(true);
+                      }}
+                    >
+                      토큰 부여
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        router.push(`/admin/payments?search=${encodeURIComponent(user.name)}`);
+                      }}
+                    >
+                      <CreditCard className="h-4 w-4 mr-1" />
+                      결제 내역 조회
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

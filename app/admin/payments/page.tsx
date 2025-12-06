@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { getAdminPayments, type PaymentHistory } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +13,21 @@ import { Button } from '@/components/ui/button';
 type PaymentTypeFilter = 'ALL' | 'MEMBERSHIP' | 'TOKEN_PURCHASE';
 type PaymentStatusFilter = 'ALL' | 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
 
-function PaymentsTable() {
+function PaymentsTableContent() {
+  const searchParams = useSearchParams();
   const [typeFilter, setTypeFilter] = useState<PaymentTypeFilter>('ALL');
   const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter>('ALL');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+
+  // URL 쿼리 파라미터에서 검색어 읽어오기
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchInput(searchParam);
+      setSearch(searchParam);
+    }
+  }, [searchParams]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['adminPayments', search],
@@ -229,6 +240,18 @@ function PaymentsTable() {
         </div>
       )}
     </div>
+  );
+}
+
+function PaymentsTable() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    }>
+      <PaymentsTableContent />
+    </Suspense>
   );
 }
 
