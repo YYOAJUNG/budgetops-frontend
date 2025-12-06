@@ -30,7 +30,7 @@ import {
   terminateEc2Instance,
 } from '@/lib/api/aws';
 
-import { getAllGcpResources, GcpResource } from '@/lib/api/gcp';
+import { getAllGcpResources, GcpResource, getGcpAccounts } from '@/lib/api/gcp';
 import { getAzureAccounts, startAzureVirtualMachine, stopAzureVirtualMachine, deleteAzureVirtualMachine } from '@/lib/api/azure';
 import { getNcpAccounts, getAllServerInstances, NcpServerInstance, stopServerInstances, startServerInstances, terminateServerInstances } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
@@ -91,6 +91,14 @@ export function ResourceExplorer() {
     gcTime: 0,
   });
 
+  // GCP 계정 목록 조회
+  const { data: gcpAccounts } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   // 활성 계정만 필터링
   const activeAwsAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account) => account.active === true);
@@ -104,10 +112,16 @@ export function ResourceExplorer() {
     return (ncpAccounts || []).filter((account) => account.active === true);
   }, [ncpAccounts]);
 
+  // GCP 계정은 active 필드가 없으므로 존재하면 활성화된 것으로 간주
+  const activeGcpAccounts = useMemo(() => {
+    return gcpAccounts || [];
+  }, [gcpAccounts]);
+
   const hasActiveAccounts =
     activeAwsAccounts.length > 0 ||
     activeAzureAccounts.length > 0 ||
-    activeNcpAccounts.length > 0;
+    activeNcpAccounts.length > 0 ||
+    activeGcpAccounts.length > 0;
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['resources'],
@@ -128,6 +142,7 @@ export function ResourceExplorer() {
   const { data: gcpAccountResources, refetch: refetchGcp } = useQuery({
     queryKey: ['gcp-resources'],
     queryFn: getAllGcpResources,
+    enabled: activeGcpAccounts.length > 0, // GCP 활성 계정이 있을 때만 조회
     retry: 1,
   });
 
