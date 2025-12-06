@@ -9,7 +9,7 @@ import { useContextStore } from '@/store/context';
 import { formatCurrency, formatCurrencyCompact, formatPercent, convertCurrency } from '@/lib/utils';
 import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Gift } from 'lucide-react';
 import { getAwsAccounts, getAwsAccountCosts } from '@/lib/api/aws';
-import { getGcpAccounts, getGcpAccountFreeTierUsage } from '@/lib/api/gcp';
+import { getGcpAccounts, getGcpAccountFreeTierUsage, getAllGcpAccountsCosts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost, getAzureAccountFreeTierUsage } from '@/lib/api/azure';
 import { getNcpAccounts, getNcpAccountCosts, getNcpAccountFreeTierUsage } from '@/lib/api/ncp';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -168,10 +168,50 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     }
   }
 
-  // GCP 비용 (미구현)
+  // GCP 계정 조회 및 비용 조회
   const gcpAccounts = await getGcpAccounts().catch(() => []);
-  const gcpTotalCost = 0;
-  const previousGcpTotalCost = 0;
+  let gcpTotalCost = 0;
+  let previousGcpTotalCost = 0;
+  const gcpAccountCostsMap: Record<number, number> = {}; // 계정별 비용 저장
+  
+  // GCP 비용 조회 (현재 기간)
+  try {
+    const gcpCostsData = await getAllGcpAccountsCosts(from, to).catch(() => null);
+    if (gcpCostsData?.summary) {
+      const responseCurrency = (gcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
+      // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
+      gcpTotalCost = responseCurrency === 'KRW'
+        ? gcpCostsData.summary.totalDisplayNetCost
+        : convertCurrency(gcpCostsData.summary.totalDisplayNetCost, 'USD', currency);
+      
+      // 계정별 비용 저장
+      if (gcpCostsData.accounts) {
+        for (const account of gcpCostsData.accounts) {
+          const accountCurrency = (account.currency || 'KRW') as 'KRW' | 'USD';
+          // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
+          gcpAccountCostsMap[account.accountId] = accountCurrency === 'KRW'
+            ? account.totalDisplayNetCost
+            : convertCurrency(account.totalDisplayNetCost, 'USD', currency);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch GCP costs:', error);
+  }
+  
+  // GCP 비용 조회 (전월 기간)
+  try {
+    const previousGcpCostsData = await getAllGcpAccountsCosts(previousFrom, previousTo).catch(() => null);
+    if (previousGcpCostsData?.summary) {
+      const responseCurrency = (previousGcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
+      // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
+      previousGcpTotalCost = responseCurrency === 'KRW'
+        ? previousGcpCostsData.summary.totalDisplayNetCost
+        : convertCurrency(previousGcpCostsData.summary.totalDisplayNetCost, 'USD', currency);
+    }
+  } catch (error) {
+    console.error('Failed to fetch previous GCP costs:', error);
+  }
 
   // GCP 프리티어/크레딧 사용량 집계 (300달러 한도 기준 근사치)
   let gcpFreeTierUsedAmount = 0;
@@ -327,7 +367,10 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     providers.push({
       provider: 'GCP',
       amount: gcpTotalCost,
-      accounts: gcpAccounts.map((account) => ({ name: account.name || account.projectId, amount: 0 })),
+      accounts: gcpAccounts.map((account) => ({
+        name: account.name || account.projectId || `GCP Account ${account.id}`,
+        amount: gcpAccountCostsMap[account.id] || 0,
+      })),
       previousAmount: previousGcpTotalCost,
     });
   }

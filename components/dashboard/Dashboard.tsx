@@ -102,7 +102,7 @@ import { formatCurrency, convertCurrency, cn } from '@/lib/utils';
 import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift, X, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
-import { getGcpAccounts } from '@/lib/api/gcp';
+import { getGcpAccounts, getAllGcpAccountsCosts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
 import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
 import { getBudgetUsage } from '@/lib/api/budget';
@@ -182,24 +182,33 @@ export function Dashboard() {
     return awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
   }, [awsAccountCosts]);
 
-  // GCP 계정별 비용 조회
-  // TODO: GCP 비용 API 구현 필요
-  // - lib/api/gcp.ts에 getAllGcpAccountsCosts 함수 추가 필요
-  // - API 엔드포인트: GET /gcp/accounts/costs?startDate={startDate}&endDate={endDate}
-  // - 반환 타입: Array<{ accountId: number; accountName: string; totalCost: number }>
-  // - 현재는 API가 없으므로 0으로 처리
-  const gcpAccountCosts: Array<{ accountId: number; accountName: string; totalCost: number }> = useMemo(() => {
-    if (!gcpAccounts || gcpAccounts.length === 0) return [];
-    return gcpAccounts.map(account => ({
-      accountId: account.id,
-      accountName: account.name || account.projectId || `GCP Account ${account.id}`,
-      totalCost: 0, // TODO: GCP 비용 API 구현 후 실제 비용 데이터로 교체
-    }));
-  }, [gcpAccounts]);
+  // GCP 계정별 비용 조회 (최근 30일)
+  const { data: gcpCostsData, isLoading: isLoadingGcpCosts } = useQuery({
+    queryKey: ['gcpAccountCosts', startDate, endDate],
+    queryFn: () => getAllGcpAccountsCosts(startDate, endDate),
+    enabled: (gcpAccounts?.length ?? 0) > 0,
+    retry: 1, // 실패 시 1번만 재시도
+  });
 
+  // GCP 계정별 비용 변환 (totalDisplayNetCost 사용)
+  const gcpAccountCosts: Array<{ accountId: number; accountName: string; totalCost: number; currency: string }> = useMemo(() => {
+    if (!gcpCostsData?.accounts) return [];
+    return gcpCostsData.accounts.map(account => ({
+      accountId: account.accountId,
+      accountName: account.accountName,
+      totalCost: account.totalDisplayNetCost,
+      currency: account.currency,
+    }));
+  }, [gcpCostsData]);
+
+  // GCP 총 비용 계산 (USD 기준으로 저장)
   const totalGcpCostUsd = useMemo(() => {
-    return gcpAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
-  }, [gcpAccountCosts]);
+    if (!gcpCostsData?.summary) return 0;
+    const responseCurrency = (gcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
+    const totalCost = gcpCostsData.summary.totalDisplayNetCost;
+    // KRW이면 USD로 변환, USD이면 그대로 사용
+    return responseCurrency === 'KRW' ? convertCurrency(totalCost, 'KRW', 'USD') : totalCost;
+  }, [gcpCostsData]);
 
   // NCP 계정별 비용 조회 (이번 달)
   const currentMonth = useMemo(() => {
@@ -774,7 +783,14 @@ export function Dashboard() {
                               {account.accountName}
                             </p>
                             <p className="text-lg font-bold text-gray-900">
-                              {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
+                              {(() => {
+                                const accountCurrency = (account.currency || 'KRW') as 'KRW' | 'USD';
+                                // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
+                                const displayCost = accountCurrency === 'KRW' 
+                                  ? account.totalCost 
+                                  : convertCurrency(account.totalCost, 'USD', currency);
+                                return formatCurrency(displayCost, currency);
+                              })()}
                             </p>
                           </div>
                         ))}
