@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 function GrantTokensDialog({
   open,
@@ -59,14 +60,14 @@ function GrantTokensDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200">
           <DialogTitle>토큰 부여</DialogTitle>
           <DialogDescription>
             {user?.name}({user?.email})에게 토큰을 부여합니다.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           <div>
             <label htmlFor="tokens" className="block text-sm font-medium text-gray-700 mb-1">
               토큰 수량 <span className="text-red-500">*</span>
@@ -98,7 +99,7 @@ function GrantTokensDialog({
               {error}
             </div>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
@@ -133,16 +134,36 @@ function GrantTokensDialog({
 }
 
 function UsersTable() {
+  const router = useRouter();
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showGrantDialog, setShowGrantDialog] = useState(false);
   const queryClient = useQueryClient();
   const pageSize = 20;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['adminUsers', page],
-    queryFn: () => getAdminUsers(page, pageSize),
+    queryKey: ['adminUsers', page, search],
+    queryFn: () => getAdminUsers(page, pageSize, search || undefined),
   });
+
+  const handleSearch = () => {
+    setSearch(searchInput);
+    setPage(0); // 검색 시 첫 페이지로 리셋
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(0);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const handleGrantSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
@@ -192,6 +213,43 @@ function UsersTable() {
 
   return (
     <>
+      {/* 검색 영역 */}
+      <div className="mb-4 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="사용자 이름 또는 이메일로 검색"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="pl-10 pr-10"
+          />
+          {searchInput && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Button onClick={handleSearch} variant="outline">
+          검색
+        </Button>
+        {search && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>검색어: "{search}"</span>
+            <button
+              onClick={handleClearSearch}
+              className="text-blue-600 hover:text-blue-700 underline"
+            >
+              초기화
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -229,16 +287,28 @@ function UsersTable() {
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{formatCloudAccounts(user)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setShowGrantDialog(true);
-                    }}
-                  >
-                    토큰 부여
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setShowGrantDialog(true);
+                      }}
+                    >
+                      토큰 부여
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        router.push(`/admin/payments?search=${encodeURIComponent(user.name)}`);
+                      }}
+                    >
+                      <CreditCard className="h-4 w-4 mr-1" />
+                      결제 내역 조회
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}

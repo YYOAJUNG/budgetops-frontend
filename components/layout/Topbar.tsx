@@ -85,7 +85,7 @@ export function Topbar() {
             className="text-gray-700 hover:text-gray-900"
           >
             <Shield className="h-4 w-4 mr-2" />
-            관리자 모드로
+            관리자 모드 전환
           </Button>
         )}
         <Button

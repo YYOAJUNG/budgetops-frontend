@@ -106,16 +106,8 @@ export function AdminTopbar() {
           className="bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700 hover:border-slate-600"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          일반 모드로
+          일반 모드 전환
         </Button>
-        <NotificationMenu
-          notifications={notifications as Notification[]}
-          unreadCount={unread}
-          onMarkAllRead={handleMarkAllRead}
-          onNotificationClick={handleNotificationClick}
-          onViewAll={handleViewAll}
-          adminMode={true}
-        />
         <UserMenu user={user} adminMode={true} />
       </div>
     </div>
