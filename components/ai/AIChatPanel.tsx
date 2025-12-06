@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUIStore } from '@/store/ui';
 import { X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,7 +9,9 @@ import { getAwsAccounts, getAllAwsAccountsCosts, AwsAccount } from '@/lib/api/aw
 import { getAzureAccounts, getAllAzureAccountsCosts, AzureAccountCost } from '@/lib/api/azure';
 import { getGcpAccounts, GcpAccount } from '@/lib/api/gcp';
 import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
+import { getCurrentSubscription } from '@/lib/api/subscription';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/store/auth';
 
 const TRANSITION_CLASS = 'transition-transform duration-300 ease-in-out';
 
@@ -63,6 +65,7 @@ const MessageBubble = ({ message }: { message: Message }) => {
 
 export function AIChatPanel() {
   const { aiChatOpen, setAIChatOpen } = useUIStore();
+  const { user } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -70,6 +73,21 @@ export function AIChatPanel() {
   const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | 'azure' | null>(null);
   const [showServiceSelector, setShowServiceSelector] = useState(false);
   const [remainingTokens, setRemainingTokens] = useState<number | null>(null);
+
+  // 사용자 구독 정보 조회 (토큰 정보 포함)
+  const { data: subscription } = useQuery({
+    queryKey: ['currentSubscription', user?.id],
+    queryFn: () => getCurrentSubscription(user!.id),
+    enabled: !!user?.id && aiChatOpen,
+    refetchInterval: 30000, // 30초마다 갱신
+  });
+
+  // 구독 정보에서 토큰 업데이트
+  useEffect(() => {
+    if (subscription?.currentTokens !== undefined) {
+      setRemainingTokens(subscription.currentTokens);
+    }
+  }, [subscription?.currentTokens]);
 
   // 모든 CSP 계정 조회
   const { data: awsAccounts } = useQuery({

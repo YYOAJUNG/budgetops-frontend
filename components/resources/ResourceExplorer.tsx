@@ -1353,7 +1353,7 @@ function ResourceCard({
           </>
         )}
         {((isEc2 && accountId) || isGcpInstance || canShowAzureMetrics || isNcpServer) && (
-          <div className="pt-3 border-t border-slate-200 space-y-2">
+          <div className="pt-3 border-t border-slate-200">
             <Button
               variant="outline"
               size="sm"
@@ -1373,59 +1373,6 @@ function ResourceCard({
               <Activity className="mr-2 h-4 w-4" />
               메트릭 보기
             </Button>
-            {isNcpServer && ncpAccountId && (
-              <>
-                <div className="flex items-center gap-2">
-                  {resource.status === 'running' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        if (!confirm(`${resource.name} 서버 인스턴스를 정지하시겠습니까?`)) return;
-                        if (ncpAccountId && onNcpStop) onNcpStop(resource, ncpAccountId);
-                      }}
-                    >
-                      <Square className="mr-2 h-4 w-4" />
-                      정지
-                    </Button>
-                  ) : resource.status === 'stopped' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        if (ncpAccountId && onNcpStart) onNcpStart(resource, ncpAccountId);
-                      }}
-                    >
-                      <Play className="mr-2 h-4 w-4" />
-                      시작
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => {
-                      if (ncpAccountId && onNcpTerminate) onNcpTerminate(resource, ncpAccountId);
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    삭제
-                  </Button>
-                </div>
-                {onNcpSelectChange && (
-                  <Button
-                    variant={isNcpSelected ? 'default' : 'outline'}
-                    size="sm"
-                    className="w-full"
-                    onClick={() => onNcpSelectChange(!isNcpSelected)}
-                  >
-                    {isNcpSelected ? '집계 대상 해제' : '집계 대상 선택'}
-                  </Button>
-                )}
-              </>
-            )}
           </div>
         )}
       </CardContent>
