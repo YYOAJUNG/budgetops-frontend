@@ -178,59 +178,15 @@ function UsersTable() {
     return allUsersData.content.filter((user) => user.billingPlan === 'PRO').length;
   }, [allUsersData]);
 
-  // 최근 접속일 기준 최신순으로 정렬 및 멤버십 필터 적용
-  const sortedData = useMemo(() => {
+  // 멤버십 필터만 적용 (정렬은 서버에서 처리)
+  const filteredData = useMemo(() => {
     if (!data) return undefined;
     let filtered = [...data.content];
     
-    // 멤버십 필터 적용
+    // 멤버십 필터만 적용 (서버에서 이미 정렬됨)
     if (billingPlanFilter !== 'ALL') {
       filtered = filtered.filter((user) => user.billingPlan === billingPlanFilter);
     }
-    
-    // 최근 접속일 기준 최신순 정렬
-    // 1. 최근 접속일이 있는 사용자가 무조건 최상단
-    // 2. 최근 접속일이 있는 사용자들은 최근 접속일 최신순
-    // 3. 최근 접속일이 없는 사용자들은 가입일 최신순
-    
-    // 유효한 날짜인지 확인하는 헬퍼 함수
-    const isValidDate = (dateString: string | null): boolean => {
-      if (!dateString || typeof dateString !== 'string' || dateString.trim() === '') {
-        return false;
-      }
-      const date = new Date(dateString);
-      return !isNaN(date.getTime());
-    };
-    
-    filtered.sort((a, b) => {
-      // 유효한 최근 접속일이 있는지 확인
-      const aHasValidLastLogin = isValidDate(a.lastLoginAt);
-      const bHasValidLastLogin = isValidDate(b.lastLoginAt);
-      
-      // 최근 접속일이 있는 사용자가 무조건 앞으로
-      if (aHasValidLastLogin && !bHasValidLastLogin) {
-        return -1; // a가 앞으로
-      }
-      if (!aHasValidLastLogin && bHasValidLastLogin) {
-        return 1; // b가 앞으로
-      }
-      
-      // 둘 다 최근 접속일이 있는 경우: 최근 접속일 기준 내림차순 (최신순)
-      if (aHasValidLastLogin && bHasValidLastLogin) {
-        const dateA = new Date(a.lastLoginAt!).getTime();
-        const dateB = new Date(b.lastLoginAt!).getTime();
-        return dateB - dateA; // 최신순 (내림차순)
-      }
-      
-      // 둘 다 최근 접속일이 없는 경우: 가입일 기준 내림차순 (최신순)
-      if (!aHasValidLastLogin && !bHasValidLastLogin) {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA; // 최신순 (내림차순)
-      }
-      
-      return 0;
-    });
     
     return {
       ...data,
@@ -287,7 +243,7 @@ function UsersTable() {
     );
   }
 
-  if (!sortedData || sortedData.content.length === 0) {
+  if (!filteredData || filteredData.content.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">사용자가 없습니다.</p>
@@ -403,7 +359,7 @@ function UsersTable() {
             </select>
           </div>
           <div className="text-sm text-gray-600">
-            총 {sortedData?.totalElements || 0}명
+            총 {filteredData?.totalElements || 0}명
           </div>
         </div>
       </div>
@@ -424,7 +380,7 @@ function UsersTable() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedData.content.map((user) => (
+            {filteredData.content.map((user) => (
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
@@ -477,10 +433,10 @@ function UsersTable() {
       </div>
 
       {/* 페이지네이션 */}
-      {sortedData.totalPages > 1 && (
+      {filteredData.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 px-4">
           <div className="text-sm text-gray-600">
-            전체 {sortedData.totalElements}명 중 {page * pageSize + 1}-{Math.min((page + 1) * pageSize, sortedData.totalElements)}명 표시
+            전체 {filteredData.totalElements}명 중 {page * pageSize + 1}-{Math.min((page + 1) * pageSize, filteredData.totalElements)}명 표시
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -492,13 +448,13 @@ function UsersTable() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm text-gray-600">
-              {page + 1} / {sortedData.totalPages}
+              {page + 1} / {filteredData.totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(sortedData.totalPages - 1, p + 1))}
-              disabled={page >= sortedData.totalPages - 1}
+              onClick={() => setPage((p) => Math.min(filteredData.totalPages - 1, p + 1))}
+              disabled={page >= filteredData.totalPages - 1}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
