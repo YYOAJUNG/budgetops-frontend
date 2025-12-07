@@ -146,6 +146,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   // Azure 비용
   const azureAccounts = await getAzureAccounts().catch(() => []);
   const activeAzureAccounts = azureAccounts.filter((acc) => acc.active);
+  // 크레딧 토글이 켜져 있는 Azure 계정만 프리티어 계산에 포함 (기본값: hasCredit가 명시적으로 false가 아니면 포함)
+  const azureCreditAccounts = activeAzureAccounts.filter((acc) => acc.hasCredit !== false);
   let azureAccountTotals: AzureAccountCost[] = [];
   if (activeAzureAccounts.length > 0) {
     azureAccountTotals = await getAllAzureAccountsCosts(from, to).catch(() => []);
@@ -155,8 +157,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let azureFreeTierUsedAmount = 0;
   let azureFreeTierLimitAmount = 0;
   let azureFreeTierCurrency = 'USD';
-  if (activeAzureAccounts.length > 0) {
-    for (const account of activeAzureAccounts) {
+  if (azureCreditAccounts.length > 0) {
+    for (const account of azureCreditAccounts) {
       try {
         const usage = await getAzureAccountFreeTierUsage(account.id, from, to);
         azureFreeTierUsedAmount += usage.usedAmount;

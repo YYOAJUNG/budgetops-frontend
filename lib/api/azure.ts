@@ -8,6 +8,11 @@ export interface AzureAccount {
   clientId: string;
   clientSecretLast4: string;
   active: boolean;
+  hasCredit?: boolean;
+  creditLimitAmount?: number;
+  creditCurrency?: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 export interface CreateAzureAccountRequest {
