@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
@@ -15,7 +17,21 @@ interface MainLayoutProps {
 const TRANSITION_CLASS = 'transition-all duration-500 ease-in-out';
 
 export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
-  const { aiChatOpen } = useUIStore();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { aiChatOpen, adminMode } = useUIStore();
+
+  // 관리자 모드일 때 관리자 페이지로 리다이렉트 (관리자 페이지가 아닌 경우)
+  useEffect(() => {
+    if (adminMode && !pathname?.startsWith('/admin')) {
+      router.replace('/admin/users');
+    }
+  }, [adminMode, pathname, router]);
+
+  // 관리자 모드일 때는 MainLayout을 렌더링하지 않음 (AdminLayout 사용)
+  if (adminMode) {
+    return null;
+  }
 
   return (
     <ProtectedRoute>
@@ -25,9 +41,10 @@ export function MainLayout({ children, showTopbar = true }: MainLayoutProps) {
         </div>
 
         <div className={cn(
-          'flex-1 flex flex-col overflow-hidden ml-16',
+          'flex-1 flex flex-col overflow-hidden',
+          'md:ml-16 ml-0',
           TRANSITION_CLASS,
-          aiChatOpen ? 'mr-96' : 'mr-0'
+          aiChatOpen ? 'md:mr-[480px] mr-0' : 'mr-0'
         )}>
           {showTopbar && <Topbar />}
           <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">

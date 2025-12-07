@@ -17,9 +17,10 @@ import type { User as UserType } from '@/store/auth';
 
 interface UserMenuProps {
   user: UserType | null;
+  adminMode?: boolean;
 }
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user, adminMode = false }: UserMenuProps) {
   const router = useRouter();
   const { logout } = useAuthStore();
   const [open, setOpen] = useState(false);
@@ -31,7 +32,15 @@ export function UserMenu({ user }: UserMenuProps) {
 
   if (!user) {
     return (
-      <Button variant="ghost" onClick={() => router.push('/')} className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+      <Button 
+        variant="ghost" 
+        onClick={() => router.push('/')} 
+        className={
+          adminMode
+            ? "text-slate-300 hover:text-white hover:bg-slate-800"
+            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+        }
+      >
         로그인
       </Button>
     );
@@ -46,11 +55,19 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="relative h-9 w-12 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            className={
+              adminMode
+                ? "relative h-9 w-12 rounded-lg hover:bg-slate-800 transition-colors duration-200"
+                : "relative h-9 w-12 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+            }
             aria-label="마이 페이지로 이동"
             onClick={() => router.push('/mypage')}
           >
-            <div className="flex h-9 w-12 items-center justify-center rounded-lg bg-[#eef2f9] text-slate-600 border border-slate-200 hover:bg-[#e2e8f0] transition-all duration-200">
+            <div className={
+              adminMode
+                ? "flex h-9 w-12 items-center justify-center rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition-all duration-200"
+                : "flex h-9 w-12 items-center justify-center rounded-lg bg-[#eef2f9] text-slate-600 border border-slate-200 hover:bg-[#e2e8f0] transition-all duration-200"
+            }>
               <User className="h-4 w-8" />
             </div>
           </Button>
@@ -62,39 +79,50 @@ export function UserMenu({ user }: UserMenuProps) {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-semibold leading-none text-gray-900">{user.name}</p>
                   <p className="text-xs leading-none text-gray-500 mt-1">{user.email}</p>
-                  <div className="mt-2 pt-2 border-t border-gray-100">
-                    <p className="text-xs text-gray-600">요금제</p>
-                    <p className="text-sm font-medium text-blue-600 mt-1">프리미엄 플랜</p>
-                  </div>
+                  {adminMode ? (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <p className="text-xs text-gray-600">권한</p>
+                      <p className="text-sm font-medium text-blue-600 mt-1">관리자 모드</p>
+                    </div>
+                  ) : (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <p className="text-xs text-gray-600">요금제</p>
+                      <p className="text-sm font-medium text-blue-600 mt-1">프리미엄 플랜</p>
+                    </div>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-gray-100" />
             </>
           )}
-          <DropdownMenuItem
-            onClick={() => router.push('/mypage')}
-            className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
-          >
-            <User className="mr-3 h-4 w-4 text-gray-500" />
-            <span>내 정보</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => router.push('/mypage?addCloudAccount=1#accounts')}
-            className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
-          >
-            <Cloud className="mr-3 h-4 w-4 text-gray-500" />
-            <span>클라우드 계정 연동</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              router.push('/mypage#subscription');
-              setOpen(false);
-            }}
-            className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
-          >
-            <CreditCard className="mr-3 h-4 w-4 text-gray-500" />
-            <span>구독 및 결제</span>
-          </DropdownMenuItem>
+          {!adminMode && (
+            <>
+              <DropdownMenuItem
+                onClick={() => router.push('/mypage')}
+                className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+              >
+                <User className="mr-3 h-4 w-4 text-gray-500" />
+                <span>내 정보</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push('/mypage?addCloudAccount=1#accounts')}
+                className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+              >
+                <Cloud className="mr-3 h-4 w-4 text-gray-500" />
+                <span>클라우드 계정 연동</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  router.push('/mypage#subscription');
+                  setOpen(false);
+                }}
+                className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+              >
+                <CreditCard className="mr-3 h-4 w-4 text-gray-500" />
+                <span>구독 및 결제</span>
+              </DropdownMenuItem>
+            </>
+          )}
           {/* <DropdownMenuItem
             onClick={() => router.push('/settings')}
             className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"

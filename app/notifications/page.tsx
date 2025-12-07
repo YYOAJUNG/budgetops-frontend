@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNotificationsStore } from '@/store/notifications';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/api/notifications';
-import { Bell, Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Bell } from 'lucide-react';
+
+type CloudProvider = 'AWS' | 'GCP' | 'Azure' | 'NCP';
 
 export default function NotificationsPage() {
   const {
@@ -18,12 +20,39 @@ export default function NotificationsPage() {
     unreadCount,
   } = useNotificationsStore();
 
+  const [selectedProvider, setSelectedProvider] = useState<CloudProvider | 'ALL'>('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   useEffect(() => {
-    // 페이지 로드 시 최신 알림 가져오기
-    fetchNotifications().then(items => {
+    // 페이지 로드 시 및 주기적으로 최신 알림 가져오기
+    const loadNotifications = async () => {
+      const items = await fetchNotifications();
       setNotifications(items);
-    });
+    };
+    
+    loadNotifications();
+    
+    // 30초마다 자동 새로고침
+    const interval = setInterval(loadNotifications, 30000);
+    
+    return () => clearInterval(interval);
   }, [setNotifications]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const items = await fetchNotifications();
+      setNotifications(items);
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleProviderClick = (provider: CloudProvider | 'ALL') => {
+    setSelectedProvider(provider);
+  };
 
   const handleMarkAllRead = async () => {
     markAllRead();
@@ -35,34 +64,108 @@ export default function NotificationsPage() {
     await markNotificationRead(id);
   };
 
+  // 필터링된 알림
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications;
+    
+    // CSP 필터
+    if (selectedProvider !== 'ALL') {
+      filtered = filtered.filter(n => n.provider === selectedProvider);
+    }
+    
+    return filtered;
+  }, [notifications, selectedProvider]);
+
   const unread = unreadCount();
+  const availableProviders: CloudProvider[] = ['AWS', 'GCP', 'Azure', 'NCP'];
 
   return (
     <MainLayout>
       <div className="space-y-6">
         {/* 헤더 */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">알림</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              AWS EC2 리소스 임계치 초과 알림을 확인하세요.
-            </p>
-          </div>
-          {unread > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleMarkAllRead}
-              className="gap-2"
-            >
-              <CheckCheck className="h-4 w-4" />
-              모두 읽음 표시
-            </Button>
-          )}
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">알림</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            클라우드 리소스 임계치 초과 알림을 확인하고 관리하세요.
+          </p>
         </div>
 
+        {/* CSP 필터 및 액션 바 */}
+        <Card className="border border-slate-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* CSP 버튼 그룹 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant={selectedProvider === 'ALL' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('ALL')}
+                  disabled={isRefreshing}
+                  className="font-medium"
+                >
+                  전체
+                </Button>
+                <Button
+                  variant={selectedProvider === 'AWS' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('AWS')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'AWS' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-300 text-orange-700 hover:bg-orange-50'}
+                >
+                  AWS
+                </Button>
+                <Button
+                  variant={selectedProvider === 'GCP' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('GCP')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'GCP' ? 'bg-blue-500 hover:bg-blue-600' : 'border-blue-300 text-blue-700 hover:bg-blue-50'}
+                >
+                  GCP
+                </Button>
+                <Button
+                  variant={selectedProvider === 'Azure' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('Azure')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'Azure' ? 'bg-sky-500 hover:bg-sky-600' : 'border-sky-300 text-sky-700 hover:bg-sky-50'}
+                >
+                  Azure
+                </Button>
+                <Button
+                  variant={selectedProvider === 'NCP' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleProviderClick('NCP')}
+                  disabled={isRefreshing}
+                  className={selectedProvider === 'NCP' ? 'bg-green-500 hover:bg-green-600' : 'border-green-300 text-green-700 hover:bg-green-50'}
+                >
+                  NCP
+                </Button>
+              </div>
+
+              {/* 우측 액션 */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-600">
+                  {filteredNotifications.length}개의 알림
+                </span>
+                {unread > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleMarkAllRead}
+                    className="gap-2"
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                    모두 읽음
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 알림 목록 */}
-        {notifications.length === 0 ? (
+        {filteredNotifications.length === 0 ? (
           <Card className="border-2 border-slate-200">
             <CardContent className="p-12 text-center">
               <div className="flex flex-col items-center gap-4">
@@ -71,10 +174,10 @@ export default function NotificationsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                    알림이 없습니다
+                    {selectedProvider === 'ALL' ? '알림이 없습니다' : `${selectedProvider} 알림이 없습니다`}
                   </h3>
                   <p className="text-sm text-slate-600">
-                    AWS EC2 리소스 임계치 초과 시 알림이 표시됩니다.
+                    클라우드 리소스 임계치 초과 시 알림이 표시됩니다.
                   </p>
                 </div>
               </div>
@@ -82,7 +185,7 @@ export default function NotificationsPage() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {notifications.map((notification) => {
+            {filteredNotifications.map((notification) => {
               const importanceColor = 
                 notification.importance === 'high' 
                   ? 'border-l-4 border-l-red-500 bg-red-50/50'
@@ -106,6 +209,8 @@ export default function NotificationsPage() {
                                   ? 'bg-orange-500 text-white'
                                   : notification.provider === 'GCP'
                                   ? 'bg-blue-500 text-white'
+                                  : notification.provider === 'NCP'
+                                  ? 'bg-green-500 text-white'
                                   : 'bg-sky-500 text-white'
                               }
                             >

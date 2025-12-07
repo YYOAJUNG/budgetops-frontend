@@ -102,9 +102,10 @@ import { formatCurrency, convertCurrency, cn } from '@/lib/utils';
 import { DollarSign, Target, Lightbulb, Cloud, Bot, AlertCircle, Gift, X, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getAwsAccounts, getAllAwsAccountsCosts, type AccountCost } from '@/lib/api/aws';
-import { getGcpAccounts } from '@/lib/api/gcp';
+import { getGcpAccounts, getAllGcpAccountsCosts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
-import { getNcpAccounts } from '@/lib/api/ncp';
+import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
+import { getBudgetUsage } from '@/lib/api/budget';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -123,6 +124,10 @@ export function Dashboard() {
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
   const { data: recommendationsRaw } = useRecommendations(tenantId);
+  const { data: budgetUsage } = useQuery({
+    queryKey: ['budgetUsage'],
+    queryFn: getBudgetUsage,
+  });
   
   // AWS 계정 목록 조회
   const { data: awsAccounts } = useQuery({
@@ -177,24 +182,57 @@ export function Dashboard() {
     return awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
   }, [awsAccountCosts]);
 
-  // GCP 계정별 비용 조회
-  // TODO: GCP 비용 API 구현 필요
-  // - lib/api/gcp.ts에 getAllGcpAccountsCosts 함수 추가 필요
-  // - API 엔드포인트: GET /gcp/accounts/costs?startDate={startDate}&endDate={endDate}
-  // - 반환 타입: Array<{ accountId: number; accountName: string; totalCost: number }>
-  // - 현재는 API가 없으므로 0으로 처리
-  const gcpAccountCosts: Array<{ accountId: number; accountName: string; totalCost: number }> = useMemo(() => {
-    if (!gcpAccounts || gcpAccounts.length === 0) return [];
-    return gcpAccounts.map(account => ({
-      accountId: account.id,
-      accountName: account.name || account.projectId || `GCP Account ${account.id}`,
-      totalCost: 0, // TODO: GCP 비용 API 구현 후 실제 비용 데이터로 교체
-    }));
-  }, [gcpAccounts]);
+  // GCP 계정별 비용 조회 (최근 30일)
+  const { data: gcpCostsData, isLoading: isLoadingGcpCosts } = useQuery({
+    queryKey: ['gcpAccountCosts', startDate, endDate],
+    queryFn: () => getAllGcpAccountsCosts(startDate, endDate),
+    enabled: (gcpAccounts?.length ?? 0) > 0,
+    retry: 1, // 실패 시 1번만 재시도
+  });
 
+  // GCP 계정별 비용 변환 (totalDisplayNetCost 사용)
+  const gcpAccountCosts: Array<{ accountId: number; accountName: string; totalCost: number; currency: string }> = useMemo(() => {
+    if (!gcpCostsData?.accounts) return [];
+    return gcpCostsData.accounts.map(account => ({
+      accountId: account.accountId,
+      accountName: account.accountName,
+      totalCost: account.totalDisplayNetCost,
+      currency: account.currency,
+    }));
+  }, [gcpCostsData]);
+
+  // GCP 총 비용 계산 (USD 기준으로 저장)
   const totalGcpCostUsd = useMemo(() => {
-    return gcpAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
-  }, [gcpAccountCosts]);
+    if (!gcpCostsData?.summary) return 0;
+    const responseCurrency = (gcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
+    const totalCost = gcpCostsData.summary.totalDisplayNetCost;
+    // KRW이면 USD로 변환, USD이면 그대로 사용
+    return responseCurrency === 'KRW' ? convertCurrency(totalCost, 'KRW', 'USD') : totalCost;
+  }, [gcpCostsData]);
+
+  // NCP 계정별 비용 조회 (이번 달)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}${month}`;
+  }, []);
+
+  const { data: ncpAccountCosts, isLoading: isLoadingNcpCosts, error: ncpCostsError } = useQuery({
+    queryKey: ['ncpAccountCosts', currentMonth],
+    queryFn: () => getAllNcpAccountsCostsSummary(currentMonth),
+    enabled: (ncpAccounts?.length ?? 0) > 0,
+    retry: 1,
+  });
+
+  // NCP 계정별 총 비용 계산 (KRW 기준)
+  const totalNcpCost = useMemo(() => {
+    if (!ncpAccountCosts) return { amount: 0, currency: 'KRW' };
+
+    const totalAmount = ncpAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
+    // NCP는 모든 계정이 KRW 통화를 사용
+    return { amount: totalAmount, currency: 'KRW' };
+  }, [ncpAccountCosts]);
 
   // Azure 계정별 비용 조회 (최근 30일)
   const { data: azureAccountCosts, isLoading: isLoadingAzureCosts, error: azureCostsError } = useQuery({
@@ -374,15 +412,21 @@ export function Dashboard() {
   const costChange =
     previousMonthCost > 0 ? ((currentMonthCost - previousMonthCost) / previousMonthCost) * 100 : 0;
 
-  // 이번 달 총 비용에 AWS, Azure 비용도 포함 (통화 변환 적용)
+  // 이번 달 총 비용에 AWS, Azure, NCP 비용도 포함 (통화 변환 적용)
   const totalCurrentMonthCost = useMemo(() => {
+    if (budgetUsage) {
+      const sourceCurrency = (budgetUsage.currency ?? 'KRW') as 'KRW' | 'USD';
+      return convertCurrency(budgetUsage.currentMonthCost ?? 0, sourceCurrency, currency);
+    }
     // AWS 비용은 USD로 반환되므로, 선택된 currency에 맞게 변환
     const convertedAwsCost = convertCurrency(totalAwsCostUsd, 'USD', currency);
     // Azure 비용은 원래 통화에서 선택된 currency로 변환
     const convertedAzureCost = convertCurrency(totalAzureCost.amount, totalAzureCost.currency as 'KRW' | 'USD', currency);
-    // costSeries의 비용과 변환된 AWS, Azure 비용을 합산
-    return currentMonthCost + convertedAwsCost + convertedAzureCost;
-  }, [currentMonthCost, totalAwsCostUsd, totalAzureCost, currency]);
+    // NCP 비용은 원래 통화에서 선택된 currency로 변환
+    const convertedNcpCost = convertCurrency(totalNcpCost.amount, totalNcpCost.currency as 'KRW' | 'USD', currency);
+    // costSeries의 비용과 변환된 AWS, Azure, NCP 비용을 합산
+    return currentMonthCost + convertedAwsCost + convertedAzureCost + convertedNcpCost;
+  }, [budgetUsage, currentMonthCost, totalAwsCostUsd, totalAzureCost, totalNcpCost, currency]);
 
   const totalBudget = budgets.reduce(
     (sum: number, b: Budget) => sum + (b.amount ?? 0),
@@ -394,12 +438,36 @@ export function Dashboard() {
     0
   );
 
-  const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const fallbackBudgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+  const budgetUtilization = budgetUsage?.usagePercentage ?? fallbackBudgetUtilization;
 
   const totalSavings = recommendations.reduce(
     (sum: number, r: Recommendation) => sum + (r.saving ?? 0),
     0
   );
+
+  const budgetAdditionalInfo = useMemo(() => {
+    if (!budgetUsage || (budgetUsage.monthlyBudgetLimit ?? 0) <= 0) {
+      return <p className="text-xs text-gray-500">예산을 설정해 주세요.</p>;
+    }
+    const sourceCurrency = (budgetUsage.currency ?? 'KRW') as 'KRW' | 'USD';
+    const currentCostDisplay = formatCurrency(
+      convertCurrency(budgetUsage.currentMonthCost ?? 0, sourceCurrency, currency),
+      currency
+    );
+    const budgetDisplay = formatCurrency(
+      convertCurrency(budgetUsage.monthlyBudgetLimit ?? 0, 'KRW', currency),
+      currency
+    );
+    return (
+      <>
+        <p className="text-xs text-gray-500">이번 달 비용 {currentCostDisplay}</p>
+        <p className="text-xs text-gray-500">
+          설정 예산 {budgetDisplay} · 임계값 {budgetUsage.alertThreshold ?? 0}%
+        </p>
+      </>
+    );
+  }, [budgetUsage, currency]);
 
   return (
     <div className="space-y-6">
@@ -423,6 +491,7 @@ export function Dashboard() {
           title="예산 소진률"
           value={`${budgetUtilization.toFixed(1)}%`}
           icon={<Target className="h-4 w-4" />}
+          additionalInfo={budgetAdditionalInfo}
         />
         <StatCard
           title="프리티어 사용률"
@@ -482,7 +551,7 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">※ 프리티어 소진은 별도로 표시되지 않습니다</p>
           </div>
           
-          {(isLoadingCosts || isLoadingAzureCosts) ? (
+          {(isLoadingCosts || isLoadingAzureCosts || isLoadingNcpCosts) ? (
             <Card className="shadow-lg border-0 bg-white">
               <CardContent className="py-8">
                 <div className="text-center text-gray-600">비용 데이터를 불러오는 중...</div>
@@ -714,7 +783,14 @@ export function Dashboard() {
                               {account.accountName}
                             </p>
                             <p className="text-lg font-bold text-gray-900">
-                              {formatCurrency(convertCurrency(account.totalCost, 'USD', currency), currency)}
+                              {(() => {
+                                const accountCurrency = (account.currency || 'KRW') as 'KRW' | 'USD';
+                                // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
+                                const displayCost = accountCurrency === 'KRW' 
+                                  ? account.totalCost 
+                                  : convertCurrency(account.totalCost, 'USD', currency);
+                                return formatCurrency(displayCost, currency);
+                              })()}
                             </p>
                           </div>
                         ))}
@@ -851,30 +927,109 @@ export function Dashboard() {
 
               {/* NCP 계정 비용 카드 */}
               {ncpAccounts && ncpAccounts.length > 0 && (
-                <Card className="shadow-lg border-0 bg-white border-l-4 border-l-green-500">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <Cloud className="h-6 w-6 text-green-600" />
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">NCP</h4>
-                          <p className="text-sm text-gray-600">{ncpAccounts.length}개 계정</p>
+                ncpCostsError ? (
+                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-red-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-red-900 mb-1">NCP 비용 데이터 조회 실패</h4>
+                          <p className="text-sm text-red-700">
+                            {ncpCostsError instanceof Error ? ncpCostsError.message : '비용 데이터를 불러오는 중 오류가 발생했습니다.'}
+                          </p>
+                          <p className="text-xs text-red-600 mt-2">
+                            NCP API 키 권한이 활성화되어 있는지 확인하세요.
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600 mb-1">총 비용</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          {formatCurrency(0, currency)}
+                    </CardContent>
+                  </Card>
+                ) : ncpAccountCosts && ncpAccountCosts.length > 0 ? (
+                  totalNcpCost.amount > 0 ? (
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-green-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-green-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-gray-900">NCP</h4>
+                              <p className="text-sm text-gray-600">{ncpAccountCosts.length}개 계정</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {formatCurrency(convertCurrency(totalNcpCost.amount, totalNcpCost.currency as 'KRW' | 'USD', currency), currency)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {ncpAccountCosts.map((account) => (
+                              <div
+                                key={account.accountId}
+                                className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                              >
+                                <p className="text-sm font-medium text-gray-700 mb-1">
+                                  {account.accountName}
+                                </p>
+                                <p className="text-lg font-bold text-gray-900">
+                                  {formatCurrency(convertCurrency(account.totalCost, (account.currency || 'KRW') as 'KRW' | 'USD', currency), currency)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="shadow-lg border-0 bg-white border-l-4 border-l-green-500">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <Cloud className="h-6 w-6 text-green-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-semibold text-gray-900">NCP</h4>
+                              <p className="text-sm text-gray-600">{ncpAccountCosts.length}개 계정</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 mb-1">총 비용</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {formatCurrency(0, currency)}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
+                          이번 달 비용이 발생하지 않았습니다.
                         </p>
+                      </CardContent>
+                    </Card>
+                  )
+                ) : (
+                  <Card className="shadow-lg border-0 bg-white border-l-4 border-l-yellow-500">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-yellow-900 mb-1">NCP 비용 데이터 없음</h4>
+                          <p className="text-sm text-yellow-700">
+                            이번 달 비용 데이터가 없습니다. 다음을 확인하세요:
+                          </p>
+                          <ul className="text-xs text-yellow-600 mt-2 list-disc list-inside space-y-1">
+                            <li>NCP 계정이 정상적으로 연결되어 있는지 확인</li>
+                            <li>API 키 권한이 올바르게 설정되어 있는지 확인</li>
+                            <li>비용이 발생한 리소스가 있는지 확인</li>
+                          </ul>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-3">
-                      최근 30일간 비용이 발생하지 않았습니다.
-                    </p>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )
               )}
 
               {/* 계정이 없는 경우 */}

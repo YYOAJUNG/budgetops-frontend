@@ -20,7 +20,7 @@ export interface Notification {
   isRead: boolean;
   importance?: 'low' | 'normal' | 'high';
   service?: string;
-  provider?: 'AWS' | 'GCP' | 'Azure';
+  provider?: 'AWS' | 'GCP' | 'Azure' | 'NCP';
 }
 
 interface NotificationMenuProps {
@@ -29,7 +29,10 @@ interface NotificationMenuProps {
   onMarkAllRead?: () => void;
   onNotificationClick?: (id: string) => void;
   onViewAll?: () => void;
+  adminMode?: boolean;
 }
+
+const MAX_PREVIEW_NOTIFICATIONS = 3;
 
 export function NotificationMenu({
   notifications,
@@ -37,11 +40,20 @@ export function NotificationMenu({
   onMarkAllRead,
   onNotificationClick,
   onViewAll,
+  adminMode = false,
 }: NotificationMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={
+            adminMode
+              ? "text-slate-300 hover:text-white hover:bg-slate-800 relative"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative"
+          }
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
@@ -69,7 +81,7 @@ export function NotificationMenu({
               알림이 없습니다
             </div>
           ) : (
-            notifications.map((notification, index) => (
+            notifications.slice(0, MAX_PREVIEW_NOTIFICATIONS).map((notification, index) => (
               <div key={notification.id}>
                 {index > 0 && <DropdownMenuSeparator className="bg-gray-50" />}
                 <DropdownMenuItem
@@ -86,6 +98,8 @@ export function NotificationMenu({
                                 ? 'bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5'
                                 : notification.provider === 'GCP'
                                 ? 'bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5'
+                                : notification.provider === 'NCP'
+                                ? 'bg-green-100 text-green-700 text-xs px-1.5 py-0.5'
                                 : 'bg-sky-100 text-sky-700 text-xs px-1.5 py-0.5'
                             }
                           >

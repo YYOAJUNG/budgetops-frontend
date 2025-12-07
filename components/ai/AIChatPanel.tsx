@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useUIStore } from '@/store/ui';
 import { X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api/client';
 import { getAwsAccounts, getAllAwsAccountsCosts, AwsAccount } from '@/lib/api/aws';
+import { getAzureAccounts, getAllAzureAccountsCosts, AzureAccountCost } from '@/lib/api/azure';
+import { getGcpAccounts, GcpAccount } from '@/lib/api/gcp';
+import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
+import { getCurrentSubscription } from '@/lib/api/subscription';
 import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/store/auth';
 
 const TRANSITION_CLASS = 'transition-transform duration-300 ease-in-out';
 
@@ -15,6 +20,17 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+}
+
+interface ChatResponse {
+  response: string;
+  session_id?: string;
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  remainingTokens?: number;
 }
 
 const INITIAL_MESSAGE: Message = {
@@ -49,22 +65,68 @@ const MessageBubble = ({ message }: { message: Message }) => {
 
 export function AIChatPanel() {
   const { aiChatOpen, setAIChatOpen } = useUIStore();
+  const { user } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | null>(null);
+  const [selectedService, setSelectedService] = useState<'all' | 'cost' | 'ec2' | 'azure' | null>(null);
   const [showServiceSelector, setShowServiceSelector] = useState(false);
+  const [remainingTokens, setRemainingTokens] = useState<number | null>(null);
 
-  // AWS 계정 및 비용 정보 조회
+  // 사용자 구독 정보 조회 (토큰 정보 포함)
+  const { data: subscription } = useQuery({
+    queryKey: ['currentSubscription', user?.id],
+    queryFn: () => getCurrentSubscription(user!.id),
+    enabled: !!user?.id && aiChatOpen,
+    refetchInterval: 30000, // 30초마다 갱신
+  });
+
+  // 구독 정보에서 토큰 업데이트
+  useEffect(() => {
+    if (subscription?.currentTokens !== undefined) {
+      setRemainingTokens(subscription.currentTokens);
+    }
+  }, [subscription?.currentTokens]);
+
+  // 모든 CSP 계정 조회
   const { data: awsAccounts } = useQuery({
     queryKey: ['awsAccounts'],
     queryFn: getAwsAccounts,
   });
 
-  const activeAccounts = useMemo(() => {
+  const { data: azureAccounts } = useQuery({
+    queryKey: ['azureAccounts'],
+    queryFn: getAzureAccounts,
+  });
+
+  const { data: gcpAccounts } = useQuery({
+    queryKey: ['gcpAccounts'],
+    queryFn: getGcpAccounts,
+  });
+
+  const { data: ncpAccounts } = useQuery({
+    queryKey: ['ncpAccounts'],
+    queryFn: getNcpAccounts,
+  });
+
+  const activeAwsAccounts = useMemo(() => {
     return (awsAccounts || []).filter((account: AwsAccount) => account.active === true);
   }, [awsAccounts]);
+
+  const activeAzureAccounts = useMemo(() => {
+    return (azureAccounts || []).filter((account) => account.active === true);
+  }, [azureAccounts]);
+
+  const activeGcpAccounts = useMemo(() => {
+    return (gcpAccounts || []) as GcpAccount[];
+  }, [gcpAccounts]);
+
+  const activeNcpAccounts = useMemo(() => {
+    return (ncpAccounts || []).filter((account) => account.active === true);
+  }, [ncpAccounts]);
+
+  const hasActiveAccounts = activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeGcpAccounts.length > 0 || activeNcpAccounts.length > 0;
 
   const endDate = useMemo(() => {
     const date = new Date();
@@ -78,17 +140,76 @@ export function AIChatPanel() {
     return date.toISOString().split('T')[0];
   }, []);
 
-  const { data: accountCosts } = useQuery({
+  // AWS 비용 조회
+  const { data: awsAccountCosts } = useQuery({
     queryKey: ['awsAccountCosts', startDate, endDate],
     queryFn: () => getAllAwsAccountsCosts(startDate, endDate),
-    enabled: activeAccounts.length > 0,
+    enabled: activeAwsAccounts.length > 0,
     retry: 1,
   });
 
+  // Azure 비용 조회
+  const { data: azureAccountCosts } = useQuery({
+    queryKey: ['azureAccountCosts', startDate, endDate],
+    queryFn: () => getAllAzureAccountsCosts(startDate, endDate),
+    enabled: activeAzureAccounts.length > 0,
+    retry: 1,
+  });
+
+  // NCP 비용 조회 (이번 달)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}${month}`;
+  }, []);
+
+  const { data: ncpAccountCosts } = useQuery({
+    queryKey: ['ncpAccountCosts', currentMonth],
+    queryFn: () => getAllNcpAccountsCostsSummary(currentMonth),
+    enabled: activeNcpAccounts.length > 0,
+    retry: 1,
+  });
+
+  // 전체 비용 계산 (USD 기준, NCP는 KRW이므로 대략적인 환율 적용)
   const totalCost = useMemo(() => {
-    if (!accountCosts) return 0;
-    return accountCosts.reduce((sum, account) => sum + account.totalCost, 0);
-  }, [accountCosts]);
+    let total = 0;
+    if (awsAccountCosts) {
+      total += awsAccountCosts.reduce((sum, account) => sum + account.totalCost, 0);
+    }
+    if (azureAccountCosts) {
+      total += azureAccountCosts.reduce((sum, account) => sum + (account.amount || 0), 0);
+    }
+    if (ncpAccountCosts) {
+      // NCP는 KRW이므로 대략적으로 1300원 = 1달러로 환산 (실제로는 환율 API 사용 권장)
+      total += ncpAccountCosts.reduce((sum, account) => sum + (account.totalCost / 1300), 0);
+    }
+    return total;
+  }, [awsAccountCosts, azureAccountCosts, ncpAccountCosts]);
+
+  // 전체 활성 계정 수
+  const totalActiveAccounts = activeAwsAccounts.length + activeAzureAccounts.length + activeGcpAccounts.length + activeNcpAccounts.length;
+
+  // 계정별 비용 목록 (프롬프트용)
+  const allAccountCosts = useMemo(() => {
+    const costs: Array<{ provider: string; accountName: string; cost: number; currency: string }> = [];
+    if (awsAccountCosts) {
+      awsAccountCosts.forEach(ac => {
+        costs.push({ provider: 'AWS', accountName: ac.accountName, cost: ac.totalCost, currency: 'USD' });
+      });
+    }
+    if (azureAccountCosts) {
+      azureAccountCosts.forEach(ac => {
+        costs.push({ provider: 'Azure', accountName: ac.accountName, cost: ac.amount || 0, currency: ac.currency || 'USD' });
+      });
+    }
+    if (ncpAccountCosts) {
+      ncpAccountCosts.forEach(ac => {
+        costs.push({ provider: 'NCP', accountName: ac.accountName, cost: ac.totalCost, currency: ac.currency || 'KRW' });
+      });
+    }
+    return costs;
+  }, [awsAccountCosts, azureAccountCosts, ncpAccountCosts]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim()) return;
@@ -106,7 +227,7 @@ export function AIChatPanel() {
 
     try {
       setIsSending(true);
-      const res = await api.post('/ai/chat', {
+      const res = await api.post<ChatResponse>('/ai/chat', {
         message: userMessage.content,
         session_id: sessionId ?? undefined,
       });
@@ -117,6 +238,11 @@ export function AIChatPanel() {
         setSessionId(returnedSessionId);
       }
 
+      // 토큰 정보 업데이트
+      if (res.data?.remainingTokens !== undefined) {
+        setRemainingTokens(res.data.remainingTokens);
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -125,6 +251,19 @@ export function AIChatPanel() {
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error: any) {
+      // 토큰 부족 에러 처리
+      if (error?.response?.status === 402 || error?.response?.data?.detail?.includes('토큰')) {
+        const errorMessage = error?.response?.data?.detail || '토큰이 부족합니다. 마이페이지에서 토큰을 구매해주세요.';
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: `⚠️ ${errorMessage}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        return;
+      }
+
       const errorText =
         error?.response?.data?.detail ||
         error?.message ||
@@ -150,7 +289,9 @@ export function AIChatPanel() {
   return (
     <div
       className={cn(
-        'fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col',
+        'fixed right-0 top-0 h-full bg-white shadow-2xl z-50 flex flex-col',
+        // Desktop: 480px 고정 너비
+        'w-full md:w-[480px]',
         TRANSITION_CLASS,
         aiChatOpen ? 'translate-x-0' : 'translate-x-full'
       )}
@@ -158,7 +299,17 @@ export function AIChatPanel() {
       <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <div>
           <h2 className="font-semibold text-gray-900">AI 어시스턴트</h2>
-          <p className="text-xs text-gray-500">비용 관리 도우미</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-gray-500">비용 관리 도우미</p>
+            {remainingTokens !== null && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <p className="text-xs font-medium text-amber-600">
+                  토큰: {remainingTokens.toLocaleString()}
+                </p>
+              </>
+            )}
+          </div>
         </div>
         <button
           onClick={() => setAIChatOpen(false)}
@@ -183,7 +334,7 @@ export function AIChatPanel() {
 
       <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
         {/* 프롬프트 추천 버튼 */}
-        {activeAccounts.length > 0 && (
+        {hasActiveAccounts && (
           <div className="space-y-2">
             <div className="text-sm font-semibold text-gray-700">프롬프트 추천</div>
             <div className="flex gap-2 flex-wrap">
@@ -191,7 +342,20 @@ export function AIChatPanel() {
                 onClick={() => {
                   setShowServiceSelector(!showServiceSelector);
                   if (!showServiceSelector) {
-                    const costMessage = `최근 30일 전체 AWS 비용이 $${totalCost.toFixed(2)} USD입니다. 비용 절감 방안을 알려주세요.`;
+                    const costBreakdown: string[] = [];
+                    if (awsAccountCosts && awsAccountCosts.length > 0) {
+                      const awsTotal = awsAccountCosts.reduce((sum, ac) => sum + ac.totalCost, 0);
+                      costBreakdown.push(`AWS: $${awsTotal.toFixed(2)} USD`);
+                    }
+                    if (azureAccountCosts && azureAccountCosts.length > 0) {
+                      const azureTotal = azureAccountCosts.reduce((sum, ac) => sum + (ac.amount || 0), 0);
+                      costBreakdown.push(`Azure: $${azureTotal.toFixed(2)} ${azureAccountCosts[0]?.currency || 'USD'}`);
+                    }
+                    if (ncpAccountCosts && ncpAccountCosts.length > 0) {
+                      const ncpTotal = ncpAccountCosts.reduce((sum, ac) => sum + ac.totalCost, 0);
+                      costBreakdown.push(`NCP: ${ncpTotal.toLocaleString()} ${ncpAccountCosts[0]?.currency || 'KRW'}`);
+                    }
+                    const costMessage = `최근 30일 전체 클라우드 비용이 ${costBreakdown.join(', ')}입니다. 비용 절감 방안을 알려주세요.`;
                     setInput(costMessage);
                   }
                 }}
@@ -204,23 +368,69 @@ export function AIChatPanel() {
               >
                 전체 비용 분석
               </button>
+              {activeAwsAccounts.length > 0 && (
               <button
                 onClick={() => {
                   setSelectedService('ec2');
                   setShowServiceSelector(false);
-                  const ec2Message = `EC2 인스턴스 최적화 방안을 알려주세요.`;
+                    const ec2Message = `AWS EC2 인스턴스 최적화 방안을 알려주세요.`;
                   setInput(ec2Message);
                 }}
                 className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 EC2 최적화
               </button>
-              {accountCosts && accountCosts.length > 0 && (
+              )}
+              {activeAzureAccounts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService('azure');
+                    setShowServiceSelector(false);
+                    const azureMessage = `Azure Virtual Machines 최적화 방안을 알려주세요.`;
+                    setInput(azureMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Azure VM 최적화
+                </button>
+              )}
+              {activeGcpAccounts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService(null);
+                    setShowServiceSelector(false);
+                    const gcpMessage = `GCP Compute Engine 최적화 방안을 알려주세요.`;
+                    setInput(gcpMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  GCP Compute 최적화
+                </button>
+              )}
+              {activeNcpAccounts.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedService(null);
+                    setShowServiceSelector(false);
+                    const ncpMessage = `NCP Server 최적화 방안을 알려주세요.`;
+                    setInput(ncpMessage);
+                  }}
+                  className="px-3 py-2 text-sm rounded-lg border bg-white border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  NCP Server 최적화
+                </button>
+              )}
+              {allAccountCosts.length > 0 && (
                 <button
                   onClick={() => {
                     setSelectedService('cost');
                     setShowServiceSelector(false);
-                    const accountList = accountCosts.map(ac => `${ac.accountName}: $${ac.totalCost.toFixed(2)}`).join(', ');
+                    const accountList = allAccountCosts.map(ac => {
+                      if (ac.currency === 'KRW') {
+                        return `${ac.provider} ${ac.accountName}: ${ac.cost.toLocaleString()} ${ac.currency}`;
+                      }
+                      return `${ac.provider} ${ac.accountName}: $${ac.cost.toFixed(2)} ${ac.currency}`;
+                    }).join(', ');
                     const costMessage = `계정별 비용을 분석해주세요. ${accountList}`;
                     setInput(costMessage);
                   }}
@@ -234,14 +444,18 @@ export function AIChatPanel() {
         )}
 
         {/* 유저 정보 */}
-        {activeAccounts.length > 0 && accountCosts && (
+        {hasActiveAccounts && (
           <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="font-semibold text-blue-900 mb-2 text-sm">유저 정보</div>
             <div className="text-blue-700 space-y-1 text-sm">
-              <div>전체 비용 (30일): <span className="font-semibold">${totalCost.toFixed(2)}</span></div>
-              {accountCosts.length > 0 && (
-                <div>활성 계정: <span className="font-semibold">{activeAccounts.length}개</span></div>
-              )}
+              <div>전체 비용 (30일): <span className="font-semibold">${totalCost.toFixed(2)} USD</span></div>
+              <div>활성 계정: <span className="font-semibold">{totalActiveAccounts}개</span>
+                {activeAwsAccounts.length > 0 && <span className="ml-1">(AWS: {activeAwsAccounts.length}</span>}
+                {activeAzureAccounts.length > 0 && <span className="ml-1">Azure: {activeAzureAccounts.length}</span>}
+                {activeGcpAccounts.length > 0 && <span className="ml-1">GCP: {activeGcpAccounts.length}</span>}
+                {activeNcpAccounts.length > 0 && <span className="ml-1">NCP: {activeNcpAccounts.length}</span>}
+                {(activeAwsAccounts.length > 0 || activeAzureAccounts.length > 0 || activeGcpAccounts.length > 0 || activeNcpAccounts.length > 0) && <span>)</span>}
+              </div>
             </div>
           </div>
         )}

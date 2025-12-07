@@ -52,8 +52,8 @@ export interface PaymentHistory {
 export interface NotificationSettings {
   budgetAlerts: boolean;
   anomalyDetection: boolean;
-  weeklyReport: boolean;
-  monthlyReport: boolean;
+  slackNotifications: boolean;
+  slackWebhookUrl?: string;
 }
 
 export interface EmailSettings {
@@ -77,7 +77,6 @@ export interface PrivacySettings {
 
 export interface SettingsState {
   notifications: NotificationSettings;
-  email: EmailSettings;
   preferences: PreferenceSettings;
   privacy: PrivacySettings;
 }

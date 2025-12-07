@@ -69,6 +69,14 @@ export interface AzureAccountCost {
   currency: string;
 }
 
+export interface AzureFreeTierUsage {
+  totalUsageHours: number;
+  freeTierLimitHours: number;
+  remainingHours: number;
+  percentage: number;
+  eligibleVmCount: number;
+}
+
 export async function getAzureAccounts(): Promise<AzureAccount[]> {
   const { data } = await api.get<AzureAccount[]>('/azure/accounts');
   return data;
@@ -110,6 +118,21 @@ export async function getAzureAccountCosts(
   return data;
 }
 
+export async function getAzureAccountFreeTierUsage(
+  accountId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<AzureFreeTierUsage> {
+  const params: Record<string, string> = {};
+  if (startDate) params.startDate = startDate;
+  if (endDate) params.endDate = endDate;
+  const { data } = await api.get<AzureFreeTierUsage>(
+    `/azure/accounts/${accountId}/freetier/usage`,
+    { params }
+  );
+  return data;
+}
+
 export async function getAzureAccountMonthlyCost(
   accountId: number,
   year: number,
@@ -142,7 +165,10 @@ export async function getAzureVmMetrics(
   resourceGroup: string,
   hours?: number
 ): Promise<AzureVmMetrics> {
-  const params: Record<string, string | number> = { resourceGroup };
+  if (!resourceGroup || resourceGroup.trim() === '') {
+    throw new Error('Resource group is required for Azure VM metrics');
+  }
+  const params: Record<string, string | number> = { resourceGroup: resourceGroup.trim() };
   if (hours) {
     params.hours = hours;
   }
@@ -180,6 +206,18 @@ export async function stopAzureVirtualMachine(
   await api.post(
     `/azure/accounts/${accountId}/virtual-machines/${encodeURIComponent(vmName)}/stop`,
     null,
+    { params }
+  );
+}
+
+export async function deleteAzureVirtualMachine(
+  accountId: number,
+  vmName: string,
+  resourceGroup: string
+): Promise<void> {
+  const params = { resourceGroup: resourceGroup.trim() };
+  await api.delete(
+    `/azure/accounts/${accountId}/virtual-machines/${encodeURIComponent(vmName)}`,
     { params }
   );
 }
