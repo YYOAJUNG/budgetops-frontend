@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { getAdminPayments, type PaymentHistory } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Filter, Search, X, DollarSign } from 'lucide-react';
+import { Loader2, Filter, Search, X, DollarSign, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatDateTimeKST } from '@/lib/utils';
@@ -65,6 +65,20 @@ function PaymentsTableContent() {
       .reduce((sum, payment) => sum + (payment.amount || 0), 0);
   }, [data]);
 
+  // 최근 7일간 비정상 결제건 계산
+  const recent7DaysFailedPayments = useMemo(() => {
+    if (!data) return 0;
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    return data.filter((payment) => {
+      // paidAt 또는 createdAt 기준으로 최근 7일 이내인지 확인
+      const paymentDate = payment.paidAt ? new Date(payment.paidAt) : new Date(payment.createdAt);
+      return paymentDate >= sevenDaysAgo && payment.status === 'FAILED';
+    }).length;
+  }, [data]);
+
   const handleSearch = () => {
     setSearch(searchInput);
   };
@@ -119,27 +133,52 @@ function PaymentsTableContent() {
 
   return (
     <div className="space-y-4">
-      {/* 최근 30일간 매출 위젯 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium">최근 30일간 매출</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-blue-600" />
+      {/* 최근 통계 위젯 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* 최근 30일간 매출 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">최근 30일간 매출</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <DollarSign className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {recent30DaysRevenue.toLocaleString()}원
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  결제 완료된 내역 기준
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-gray-900">
-                {recent30DaysRevenue.toLocaleString()}원
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                결제 완료된 내역 기준
-              </p>
+          </CardContent>
+        </Card>
+
+        {/* 최근 7일간 비정상 결제건 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">최근 7일간 비정상 결제</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {recent7DaysFailedPayments}건
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  결제 실패 상태 기준
+                </p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 검색 및 필터 */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-gray-200">
