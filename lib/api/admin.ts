@@ -8,6 +8,7 @@ export interface AdminUser {
   email: string;
   name: string;
   createdAt: string;
+  lastLoginAt: string | null;
   billingPlan: 'FREE' | 'PRO';
   currentTokens: number;
   cloudAccountCount: number;
@@ -62,6 +63,7 @@ export async function getAdminUsers(
         email: 'user1@example.com',
         name: '홍길동',
         createdAt: '2024-01-15T10:00:00',
+        lastLoginAt: '2024-12-15T09:30:00',
         billingPlan: 'PRO',
         currentTokens: 25000,
         cloudAccountCount: 3,
@@ -75,6 +77,7 @@ export async function getAdminUsers(
         email: 'user2@example.com',
         name: '김철수',
         createdAt: '2024-02-01T14:30:00',
+        lastLoginAt: '2024-12-14T15:20:00',
         billingPlan: 'FREE',
         currentTokens: 5000,
         cloudAccountCount: 1,
@@ -88,6 +91,7 @@ export async function getAdminUsers(
         email: 'user3@example.com',
         name: '이영희',
         createdAt: '2024-02-15T09:20:00',
+        lastLoginAt: '2024-12-15T10:15:00',
         billingPlan: 'PRO',
         currentTokens: 18000,
         cloudAccountCount: 4,
@@ -101,6 +105,7 @@ export async function getAdminUsers(
         email: 'user4@example.com',
         name: '박민수',
         createdAt: '2024-03-01T16:45:00',
+        lastLoginAt: null, // 로그인한 적이 없는 경우
         billingPlan: 'FREE',
         currentTokens: 3000,
         cloudAccountCount: 2,
@@ -114,6 +119,7 @@ export async function getAdminUsers(
         email: 'user5@example.com',
         name: '정수진',
         createdAt: '2024-03-10T11:15:00',
+        lastLoginAt: '2024-12-13T08:45:00',
         billingPlan: 'PRO',
         currentTokens: 32000,
         cloudAccountCount: 5,
@@ -127,6 +133,7 @@ export async function getAdminUsers(
         email: 'user6@example.com',
         name: '최도현',
         createdAt: '2024-03-20T13:30:00',
+        lastLoginAt: '2024-12-10T14:20:00',
         billingPlan: 'FREE',
         currentTokens: 8000,
         cloudAccountCount: 1,

@@ -177,6 +177,17 @@ function UsersTable() {
     });
   };
 
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const formatCloudAccounts = (user: AdminUser) => {
     const accounts: string[] = [];
     if (user.awsAccountCount > 0) accounts.push(`AWS: ${user.awsAccountCount}`);
@@ -261,6 +272,7 @@ function UsersTable() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">멤버십</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">토큰</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">클라우드 계정</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">최근 접속일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">액션</th>
             </tr>
           </thead>
@@ -286,6 +298,7 @@ function UsersTable() {
                   {user.currentTokens.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{formatCloudAccounts(user)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateTime(user.lastLoginAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <Button
