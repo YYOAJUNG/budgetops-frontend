@@ -302,7 +302,7 @@ function UsersTable() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        router.push(`/admin/payments?search=${encodeURIComponent(user.name)}`);
+                        router.push(`/admin/payments?search=${encodeURIComponent(user.email)}`);
                       }}
                     >
                       <CreditCard className="h-4 w-4 mr-1" />
