@@ -81,13 +81,41 @@ export function formatPercent(value: number): string {
  * @param dateString ISO 8601 형식의 날짜 문자열
  * @returns "YYYY.MM.DD" 형식의 문자열
  */
+/**
+ * 날짜를 KST(한국 표준시)로 변환하여 날짜만 표시
+ * @param dateString ISO 8601 형식의 날짜 문자열
+ * @returns "YYYY.MM.DD" 형식의 문자열
+ */
 export function formatDateKST(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
+  try {
+    // 타임존 정보가 없으면 'Z'를 추가해서 UTC로 명시
+    let utcString = dateString.trim();
+    // 'T' 이후 부분에서 타임존 정보 확인
+    const tIndex = utcString.indexOf('T');
+    if (tIndex > 0 && !utcString.endsWith('Z')) {
+      const afterT = utcString.substring(tIndex + 1);
+      // 'T' 이후에 '+' 또는 '-' (오프셋) 또는 'Z'가 없으면 'Z' 추가
+      if (!afterT.includes('+') && !afterT.includes('-') && !afterT.includes('Z')) {
+        utcString = utcString + 'Z';
+      }
+    }
+    
+    // UTC 시간으로 파싱
+    const date = new Date(utcString);
+    
+    // UTC 시간에 9시간을 더해서 KST로 변환 (KST = UTC + 9)
+    const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+    
+    // UTC 메서드를 사용해서 KST 날짜 추출 (이미 9시간을 더했으므로)
+    const year = kstDate.getUTCFullYear();
+    const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(kstDate.getUTCDate()).padStart(2, '0');
+    
+    return `${year}.${month}.${day}`;
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error);
+    return dateString;
+  }
 }
 
 /**
@@ -99,25 +127,30 @@ export function formatDateTimeKST(dateString: string | null): string {
   if (!dateString) return '-';
   
   try {
-    const date = new Date(dateString);
+    // 타임존 정보가 없으면 'Z'를 추가해서 UTC로 명시
+    let utcString = dateString.trim();
+    // 'T' 이후 부분에서 타임존 정보 확인
+    const tIndex = utcString.indexOf('T');
+    if (tIndex > 0 && !utcString.endsWith('Z')) {
+      const afterT = utcString.substring(tIndex + 1);
+      // 'T' 이후에 '+' 또는 '-' (오프셋) 또는 'Z'가 없으면 'Z' 추가
+      if (!afterT.includes('+') && !afterT.includes('-') && !afterT.includes('Z')) {
+        utcString = utcString + 'Z';
+      }
+    }
     
-    // Intl.DateTimeFormat을 사용하여 KST로 변환
-    const formatter = new Intl.DateTimeFormat('ko-KR', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false, // 24시간 형식
-    });
+    // UTC 시간으로 파싱
+    const date = new Date(utcString);
     
-    const parts = formatter.formatToParts(date);
-    const year = parts.find(p => p.type === 'year')?.value;
-    const month = parts.find(p => p.type === 'month')?.value;
-    const day = parts.find(p => p.type === 'day')?.value;
-    const hour = parts.find(p => p.type === 'hour')?.value;
-    const minute = parts.find(p => p.type === 'minute')?.value;
+    // UTC 시간에 9시간을 더해서 KST로 변환 (KST = UTC + 9)
+    const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+    
+    // UTC 메서드를 사용해서 KST 시간 추출 (이미 9시간을 더했으므로)
+    const year = kstDate.getUTCFullYear();
+    const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(kstDate.getUTCDate()).padStart(2, '0');
+    const hour = String(kstDate.getUTCHours()).padStart(2, '0');
+    const minute = String(kstDate.getUTCMinutes()).padStart(2, '0');
     
     return `${year}.${month}.${day} ${hour}:${minute}`;
   } catch (error) {
