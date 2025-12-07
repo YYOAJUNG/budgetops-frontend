@@ -231,7 +231,7 @@ function PaymentsTableContent() {
                     {payment.lastVerifiedAt ? formatDate(payment.lastVerifiedAt) : '-'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
-                    {payment.impUid}
+                    {payment.impUid || '-'}
                   </td>
                 </tr>
               ))}

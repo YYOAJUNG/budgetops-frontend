@@ -32,11 +32,11 @@ export interface PaymentHistory {
   userEmail: string;
   userName: string;
   paymentType: 'MEMBERSHIP' | 'TOKEN_PURCHASE';
-  impUid: string;
+  impUid: string | null;
   amount: number | null;
   status: 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
   createdAt: string;
-  lastVerifiedAt: string;
+  lastVerifiedAt: string | null;
 }
 
 // 토큰 부여 요청 타입
@@ -245,10 +245,22 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         userName: '박민수',
         paymentType: 'MEMBERSHIP',
         impUid: 'imp_4455667788',
-        amount: null,
+        amount: null, // MEMBERSHIP의 경우 amount는 null일 수 있음
         status: 'FAILED',
         createdAt: '2024-04-01T10:00:00',
         lastVerifiedAt: '2024-04-01T10:05:00',
+      },
+      {
+        id: 8,
+        userId: 6,
+        userEmail: 'user6@example.com',
+        userName: '최지영',
+        paymentType: 'MEMBERSHIP',
+        impUid: null, // impUid가 null일 수 있음
+        amount: null, // MEMBERSHIP의 경우 amount는 null
+        status: 'IDLE',
+        createdAt: '2024-04-10T12:00:00',
+        lastVerifiedAt: null,
       },
       {
         id: 7,
