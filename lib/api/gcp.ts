@@ -47,6 +47,8 @@ export interface SaveIntegrationRequest {
   serviceAccountId: string;
   serviceAccountKeyJson: string;
   billingAccountId?: string;
+  hasCredit?: boolean;
+  creditLimitAmount?: number;
 }
 
 export interface SaveIntegrationResponse {
