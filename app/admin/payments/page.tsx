@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Filter, Search, X, DollarSign } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { formatDateTimeKST } from '@/lib/utils';
 
 type PaymentTypeFilter = 'ALL' | 'MEMBERSHIP' | 'TOKEN_PURCHASE';
 type PaymentStatusFilter = 'ALL' | 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
@@ -79,15 +80,6 @@ function PaymentsTableContent() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getStatusBadge = (status: PaymentHistory['status']) => {
     const statusConfig = {
@@ -267,7 +259,7 @@ function PaymentsTableContent() {
                     {getStatusBadge(payment.status)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {payment.paidAt ? formatDate(payment.paidAt) : '-'}
+                    {payment.paidAt ? formatDateTimeKST(payment.paidAt) : '-'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                     {payment.impUid || '-'}

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { formatDateKST, formatDateTimeKST } from '@/lib/utils';
 
 function GrantTokensDialog({
   open,
@@ -169,24 +170,6 @@ function UsersTable() {
     queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  };
-
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatCloudAccounts = (user: AdminUser) => {
     const accounts: string[] = [];
@@ -282,7 +265,7 @@ function UsersTable() {
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDate(user.createdAt)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateKST(user.createdAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -298,7 +281,7 @@ function UsersTable() {
                   {user.currentTokens.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{formatCloudAccounts(user)}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateTime(user.lastLoginAt)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateTimeKST(user.lastLoginAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <Button
