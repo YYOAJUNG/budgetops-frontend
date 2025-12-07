@@ -3,11 +3,9 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CostsSummary } from '@/components/costs/CostsSummary';
 import { RecommendationCards } from '@/components/costs/RecommendationCards';
-import { FreeTierUsage } from '@/components/costs/FreeTierUsage';
 import { useQuery } from '@tanstack/react-query';
 import { getAllEc2Instances } from '@/lib/api/aws';
 import { getAllGcpResources } from '@/lib/api/gcp';
-import { getAllFreeTierUsage } from '@/lib/api/freetier';
 
 export default function CostsPage() {
   // EC2 인스턴스 조회 (리소스 ID 수집용)
@@ -20,12 +18,6 @@ export default function CostsPage() {
   const { data: gcpAccountResources } = useQuery({
     queryKey: ['gcp-resources'],
     queryFn: getAllGcpResources,
-  });
-
-  // 프리티어 사용현황 조회
-  const { data: freeTierData } = useQuery({
-    queryKey: ['free-tier-usage'],
-    queryFn: getAllFreeTierUsage,
   });
 
   // AWS EC2 + GCP 리소스 ID 통합
@@ -56,11 +48,6 @@ export default function CostsPage() {
           </div>
           <RecommendationCards resourceIds={resourceIds} />
         </div>
-
-        {/* 프리티어 사용현황 */}
-        {freeTierData && freeTierData.length > 0 && (
-          <FreeTierUsage freeTierData={freeTierData} />
-        )}
 
         {/* 비용 요약 */}
         <div className="space-y-4">
