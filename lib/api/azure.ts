@@ -21,6 +21,8 @@ export interface CreateAzureAccountRequest {
   tenantId: string;
   clientId: string;
   clientSecret: string;
+  hasCredit?: boolean;
+  creditLimitAmount?: number;
 }
 
 export interface AzureVirtualMachine {

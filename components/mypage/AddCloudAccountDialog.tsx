@@ -39,11 +39,15 @@ interface CredentialForm {
   jsonKeyFileName?: string;
   jsonKeyContent?: string; // JSON 파일 내용 (문자열)
   billingAccountId?: string;
+  hasGcpCredit?: boolean;
+  gcpCreditLimit?: string;
   // Azure
   subscriptionId?: string;
   tenantId?: string;
   clientId?: string;
   clientSecret?: string;
+  hasAzureCredit?: boolean;
+  azureCreditLimit?: string;
   // NCP
   accessKey?: string;
   secretKey?: string;
@@ -172,7 +176,16 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           tenantId: credentials.tenantId?.trim() || '',
           clientId: credentials.clientId?.trim() || '',
           clientSecret: credentials.clientSecret || '',
+          hasCredit: credentials.hasAzureCredit ?? true,
+          creditLimitAmount: undefined as number | undefined,
         };
+
+        if (credentials.azureCreditLimit) {
+          const parsedLimit = parseFloat(credentials.azureCreditLimit);
+          if (!Number.isNaN(parsedLimit) && parsedLimit > 0) {
+            payload.creditLimitAmount = parsedLimit;
+          }
+        }
 
         if (!payload.name || !payload.subscriptionId || !payload.tenantId || !payload.clientId || !payload.clientSecret) {
           setErrorMsg('필수 입력 항목을 모두 채워주세요.');
@@ -205,6 +218,11 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           serviceAccountId: credentials.serviceAccountId.trim(),
           serviceAccountKeyJson: credentials.jsonKeyContent,
           billingAccountId: credentials.billingAccountId.trim(),
+          hasCredit: credentials.hasGcpCredit ?? true,
+          creditLimitAmount:
+            credentials.gcpCreditLimit && !Number.isNaN(parseFloat(credentials.gcpCreditLimit))
+              ? parseFloat(credentials.gcpCreditLimit)
+              : undefined,
         });
 
         if (saveResult.ok) {
@@ -603,6 +621,49 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             </p>
           </div>
 
+          {/* Step 5 - Azure 크레딧 / 프리티어 설정 (선택) */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">5. 크레딧 / 프리티어 설정 (선택)</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Azure 가입 크레딧(프리티어)을 사용 중인 계정이라면 그대로 두셔도 됩니다. 테스트용 계정 등 크레딧을
+              사용하지 않는 경우에는 아래 옵션을 꺼두면 프리티어 계산에서 제외됩니다.
+            </p>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={credentials.hasAzureCredit ?? true}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      hasAzureCredit: e.target.checked,
+                    })
+                  }
+                />
+                <span>이 계정에서 Azure 크레딧/프리티어를 사용 중입니다.</span>
+              </label>
+              <div className="space-y-1">
+                <Label htmlFor="azureCreditLimit" className="text-xs text-gray-600">
+                  크레딧 한도 (선택, 미입력 시 기본 200 USD 가정)
+                </Label>
+                <Input
+                  id="azureCreditLimit"
+                  type="number"
+                  min="0"
+                  placeholder="예: 200"
+                  value={credentials.azureCreditLimit ?? ''}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      azureCreditLimit: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="pt-2 text-xs text-gray-500">
             자세한 단계별 가이드는{' '}
             <a
@@ -765,6 +826,49 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                   GCP 콘솔 &gt; 결제 계정 관리 탭 열기
                   <ExternalLink className="ml-1 h-4 w-4" />
                 </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 5: 크레딧 / 프리티어 설정 (선택) */}
+          <div className="pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">5. 크레딧 / 프리티어 설정 (선택)</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              GCP 가입 크레딧이나 프로모션 크레딧을 사용 중인 계정이라면 그대로 두셔도 됩니다. 테스트용 계정 등
+              크레딧을 사용하지 않는 경우에는 아래 옵션을 꺼두면 프리티어 계산에서 제외됩니다.
+            </p>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={credentials.hasGcpCredit ?? true}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      hasGcpCredit: e.target.checked,
+                    })
+                  }
+                />
+                <span>이 계정에서 GCP 크레딧/프리티어를 사용 중입니다.</span>
+              </label>
+              <div className="space-y-1">
+                <Label htmlFor="gcpCreditLimit" className="text-xs text-gray-600">
+                  크레딧 한도 (선택, 미입력 시 기본 한도 가정)
+                </Label>
+                <Input
+                  id="gcpCreditLimit"
+                  type="number"
+                  min="0"
+                  placeholder="예: 300"
+                  value={credentials.gcpCreditLimit ?? ''}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      gcpCreditLimit: e.target.value,
+                    })
+                  }
+                />
               </div>
             </div>
           </div>
