@@ -192,53 +192,41 @@ function UsersTable() {
     // 1. 최근 접속일이 있는 사용자가 무조건 최상단
     // 2. 최근 접속일이 있는 사용자들은 최근 접속일 최신순
     // 3. 최근 접속일이 없는 사용자들은 가입일 최신순
+    
+    // 유효한 날짜인지 확인하는 헬퍼 함수
+    const isValidDate = (dateString: string | null): boolean => {
+      if (!dateString || typeof dateString !== 'string' || dateString.trim() === '') {
+        return false;
+      }
+      const date = new Date(dateString);
+      return !isNaN(date.getTime());
+    };
+    
     filtered.sort((a, b) => {
-      // 빈 문자열도 없는 것으로 처리
-      const aHasLastLogin = a.lastLoginAt !== null && 
-                           a.lastLoginAt !== undefined && 
-                           typeof a.lastLoginAt === 'string' && 
-                           a.lastLoginAt.trim() !== '';
-      const bHasLastLogin = b.lastLoginAt !== null && 
-                           b.lastLoginAt !== undefined && 
-                           typeof b.lastLoginAt === 'string' && 
-                           b.lastLoginAt.trim() !== '';
+      // 유효한 최근 접속일이 있는지 확인
+      const aHasValidLastLogin = isValidDate(a.lastLoginAt);
+      const bHasValidLastLogin = isValidDate(b.lastLoginAt);
       
       // 최근 접속일이 있는 사용자가 무조건 앞으로
-      if (aHasLastLogin && !bHasLastLogin) {
+      if (aHasValidLastLogin && !bHasValidLastLogin) {
         return -1; // a가 앞으로
       }
-      if (!aHasLastLogin && bHasLastLogin) {
+      if (!aHasValidLastLogin && bHasValidLastLogin) {
         return 1; // b가 앞으로
       }
       
       // 둘 다 최근 접속일이 있는 경우: 최근 접속일 기준 내림차순 (최신순)
-      if (aHasLastLogin && bHasLastLogin) {
-        try {
-          const dateA = new Date(a.lastLoginAt!).getTime();
-          const dateB = new Date(b.lastLoginAt!).getTime();
-          // 유효하지 않은 날짜 체크
-          if (isNaN(dateA) || isNaN(dateB)) {
-            return 0;
-          }
-          return dateB - dateA;
-        } catch {
-          return 0;
-        }
+      if (aHasValidLastLogin && bHasValidLastLogin) {
+        const dateA = new Date(a.lastLoginAt!).getTime();
+        const dateB = new Date(b.lastLoginAt!).getTime();
+        return dateB - dateA; // 최신순 (내림차순)
       }
       
       // 둘 다 최근 접속일이 없는 경우: 가입일 기준 내림차순 (최신순)
-      if (!aHasLastLogin && !bHasLastLogin) {
-        try {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          // 유효하지 않은 날짜 체크
-          if (isNaN(dateA) || isNaN(dateB)) {
-            return 0;
-          }
-          return dateB - dateA;
-        } catch {
-          return 0;
-        }
+      if (!aHasValidLastLogin && !bHasValidLastLogin) {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // 최신순 (내림차순)
       }
       
       return 0;
