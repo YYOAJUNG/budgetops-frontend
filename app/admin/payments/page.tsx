@@ -37,10 +37,17 @@ function PaymentsTableContent() {
 
   const filteredData = useMemo(() => {
     if (!data) return [];
-    return data.filter((payment) => {
+    const filtered = data.filter((payment) => {
       if (typeFilter !== 'ALL' && payment.paymentType !== typeFilter) return false;
       if (statusFilter !== 'ALL' && payment.status !== statusFilter) return false;
       return true;
+    });
+    
+    // 결제일(paidAt) 기준 최신순 정렬
+    return filtered.sort((a, b) => {
+      const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return dateB - dateA; // 최신순 (내림차순)
     });
   }, [data, typeFilter, statusFilter]);
 

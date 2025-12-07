@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDateKST, formatDateTimeKST } from '@/lib/utils';
+import { useMemo } from 'react';
 
 function GrantTokensDialog({
   open,
@@ -149,6 +150,15 @@ function UsersTable() {
     queryFn: () => getAdminUsers(page, pageSize, search || undefined),
   });
 
+  // ID 오름차순으로 정렬된 데이터
+  const sortedData = useMemo(() => {
+    if (!data) return undefined;
+    return {
+      ...data,
+      content: [...data.content].sort((a, b) => a.id - b.id),
+    };
+  }, [data]);
+
   const handleSearch = () => {
     setSearch(searchInput);
     setPage(0); // 검색 시 첫 페이지로 리셋
@@ -197,7 +207,7 @@ function UsersTable() {
     );
   }
 
-  if (!data || data.content.length === 0) {
+  if (!sortedData || sortedData.content.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">사용자가 없습니다.</p>
@@ -260,7 +270,7 @@ function UsersTable() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.content.map((user) => (
+            {sortedData.content.map((user) => (
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
@@ -313,10 +323,10 @@ function UsersTable() {
       </div>
 
       {/* 페이지네이션 */}
-      {data.totalPages > 1 && (
+      {sortedData.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 px-4">
           <div className="text-sm text-gray-600">
-            전체 {data.totalElements}명 중 {page * pageSize + 1}-{Math.min((page + 1) * pageSize, data.totalElements)}명 표시
+            전체 {sortedData.totalElements}명 중 {page * pageSize + 1}-{Math.min((page + 1) * pageSize, sortedData.totalElements)}명 표시
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -328,13 +338,13 @@ function UsersTable() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm text-gray-600">
-              {page + 1} / {data.totalPages}
+              {page + 1} / {sortedData.totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(data.totalPages - 1, p + 1))}
-              disabled={page >= data.totalPages - 1}
+              onClick={() => setPage((p) => Math.min(sortedData.totalPages - 1, p + 1))}
+              disabled={page >= sortedData.totalPages - 1}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

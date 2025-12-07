@@ -155,6 +155,9 @@ export async function getAdminUsers(
       );
     }
 
+    // ID 오름차순으로 정렬
+    filteredUsers = filteredUsers.sort((a, b) => a.id - b.id);
+
     const startIndex = page * size;
     const endIndex = startIndex + size;
     const paginatedContent = filteredUsers.slice(startIndex, endIndex);
@@ -299,10 +302,20 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         (payment) =>
           payment.userName.toLowerCase().includes(searchLower) ||
           payment.userEmail.toLowerCase().includes(searchLower)
-      );
+      ).sort((a, b) => {
+        // 결제일(paidAt) 기준 최신순 정렬
+        const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (a.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return dateB - dateA; // 최신순 (내림차순)
+      });
     }
 
-    return mockPayments;
+    // 결제일(paidAt) 기준 최신순 정렬
+    return mockPayments.sort((a, b) => {
+      const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return dateB - dateA; // 최신순 (내림차순)
+    });
   }
 
   const params: { search?: string } = {};
