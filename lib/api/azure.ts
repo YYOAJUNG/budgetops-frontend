@@ -70,11 +70,13 @@ export interface AzureAccountCost {
 }
 
 export interface AzureFreeTierUsage {
-  totalUsageHours: number;
-  freeTierLimitHours: number;
-  remainingHours: number;
+  usedAmount: number;
+  creditLimitAmount: number;
+  remainingAmount: number;
   percentage: number;
-  eligibleVmCount: number;
+  currency: string;
+  creditStartDate: string;
+  creditEndDate: string;
 }
 
 export async function getAzureAccounts(): Promise<AzureAccount[]> {
