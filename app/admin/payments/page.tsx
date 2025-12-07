@@ -305,7 +305,11 @@ function PaymentsTableContent() {
                     {getStatusBadge(payment.status)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {payment.paidAt ? formatDateTimeKST(payment.paidAt) : '-'}
+                    {payment.paidAt 
+                      ? formatDateTimeKST(payment.paidAt) 
+                      : payment.lastVerifiedAt 
+                        ? formatDateTimeKST(payment.lastVerifiedAt) 
+                        : formatDateTimeKST(payment.createdAt)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                     {payment.impUid || '-'}

@@ -178,7 +178,7 @@ function UsersTable() {
     return allUsersData.content.filter((user) => user.billingPlan === 'PRO').length;
   }, [allUsersData]);
 
-  // ID 오름차순으로 정렬 및 멤버십 필터 적용
+  // 최근 접속일 기준 최신순으로 정렬 및 멤버십 필터 적용
   const sortedData = useMemo(() => {
     if (!data) return undefined;
     let filtered = [...data.content];
@@ -188,8 +188,31 @@ function UsersTable() {
       filtered = filtered.filter((user) => user.billingPlan === billingPlanFilter);
     }
     
-    // ID 오름차순 정렬
-    filtered.sort((a, b) => a.id - b.id);
+    // 최근 접속일 기준 최신순 정렬
+    // 1. 최근 접속일이 있는 사용자가 먼저
+    // 2. 최근 접속일이 있는 사용자들은 최근 접속일 최신순
+    // 3. 최근 접속일이 없는 사용자들은 가입일 최신순
+    filtered.sort((a, b) => {
+      const aHasLastLogin = a.lastLoginAt !== null && a.lastLoginAt !== undefined;
+      const bHasLastLogin = b.lastLoginAt !== null && b.lastLoginAt !== undefined;
+      
+      // 둘 다 최근 접속일이 있는 경우: 최근 접속일 기준 내림차순 (최신순)
+      if (aHasLastLogin && bHasLastLogin) {
+        const dateA = new Date(a.lastLoginAt!).getTime();
+        const dateB = new Date(b.lastLoginAt!).getTime();
+        return dateB - dateA;
+      }
+      
+      // 둘 다 최근 접속일이 없는 경우: 가입일 기준 내림차순 (최신순)
+      if (!aHasLastLogin && !bHasLastLogin) {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      }
+      
+      // 한쪽만 최근 접속일이 있는 경우: 있는 쪽이 앞으로
+      return aHasLastLogin ? -1 : 1;
+    });
     
     return {
       ...data,
