@@ -35,6 +35,7 @@ export interface PaymentHistory {
   impUid: string | null;
   amount: number | null;
   status: 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
+  paidAt: string | null;
   createdAt: string;
   lastVerifiedAt: string | null;
 }
@@ -187,6 +188,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_1234567890',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-01-15T10:31:00',
         createdAt: '2024-01-15T10:30:00',
         lastVerifiedAt: '2024-01-15T10:31:00',
       },
@@ -199,6 +201,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_0987654321',
         amount: 10000,
         status: 'PAID',
+        paidAt: '2024-02-15T14:21:00',
         createdAt: '2024-02-15T14:20:00',
         lastVerifiedAt: '2024-02-15T14:21:00',
       },
@@ -211,6 +214,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_1122334455',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-03-10T11:46:00',
         createdAt: '2024-03-10T11:45:00',
         lastVerifiedAt: '2024-03-10T11:46:00',
       },
@@ -223,6 +227,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_2233445566',
         amount: 5000,
         status: 'PENDING',
+        paidAt: null,
         createdAt: '2024-03-25T09:00:00',
         lastVerifiedAt: '2024-03-25T09:00:00',
       },
@@ -235,6 +240,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_3344556677',
         amount: 20000,
         status: 'PAID',
+        paidAt: '2024-03-28T16:31:00',
         createdAt: '2024-03-28T16:30:00',
         lastVerifiedAt: '2024-03-28T16:31:00',
       },
@@ -247,6 +253,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_4455667788',
         amount: null, // MEMBERSHIP의 경우 amount는 null일 수 있음
         status: 'FAILED',
+        paidAt: null,
         createdAt: '2024-04-01T10:00:00',
         lastVerifiedAt: '2024-04-01T10:05:00',
       },
@@ -259,6 +266,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: null, // impUid가 null일 수 있음
         amount: null, // MEMBERSHIP의 경우 amount는 null
         status: 'IDLE',
+        paidAt: null,
         createdAt: '2024-04-10T12:00:00',
         lastVerifiedAt: null,
       },
@@ -271,6 +279,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_5566778899',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-04-05T13:16:00',
         createdAt: '2024-04-05T13:15:00',
         lastVerifiedAt: '2024-04-05T13:16:00',
       },

@@ -201,7 +201,6 @@ function PaymentsTableContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">금액</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">상태</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">결제일</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">검증일</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">결제 UID</th>
               </tr>
             </thead>
@@ -225,10 +224,7 @@ function PaymentsTableContent() {
                     {getStatusBadge(payment.status)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {formatDate(payment.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {payment.lastVerifiedAt ? formatDate(payment.lastVerifiedAt) : '-'}
+                    {payment.paidAt ? formatDate(payment.paidAt) : '-'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                     {payment.impUid || '-'}
