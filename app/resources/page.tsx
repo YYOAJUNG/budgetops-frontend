@@ -6,10 +6,10 @@ import { ResourceExplorer } from '@/components/resources/ResourceExplorer';
 export default function ResourcesPage() {
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">리소스 관리</h1>
-          <p className="mt-1 text-xs text-slate-600 md:text-sm">
+      <div className="space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-gray-900">리소스 관리</h1>
+          <p className="text-gray-600 text-base">
             클라우드 사업자와 서비스 기준으로 필터하고, 원하는 기준으로 정렬하여 리소스를 탐색하세요.
           </p>
         </div>
