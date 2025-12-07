@@ -81,11 +81,11 @@ export default function NotificationsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-8 max-w-7xl mx-auto">
         {/* 헤더 */}
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">알림</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <h2 className="text-2xl font-bold text-gray-900">알림</h2>
+          <p className="text-gray-600 mt-2">
             클라우드 리소스 임계치 초과 알림을 확인하고 관리하세요.
           </p>
         </div>
