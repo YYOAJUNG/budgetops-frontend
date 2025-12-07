@@ -57,13 +57,33 @@ function PaymentsTableContent() {
     
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // KST 기준으로 30일 전 시작 시각으로 설정 (00:00:00)
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
     
     return data
       .filter((payment) => {
-        // paidAt이 있고, 최근 30일 이내인지 확인
-        if (!payment.paidAt) return false;
-        const paidDate = new Date(payment.paidAt);
-        return paidDate >= thirtyDaysAgo;
+        // paidAt이 있으면 paidAt 사용, 없으면 lastVerifiedAt 사용, 그것도 없으면 createdAt 사용
+        const paymentDateStr = payment.paidAt || payment.lastVerifiedAt || payment.createdAt;
+        if (!paymentDateStr) return false;
+        
+        // UTC 시간을 명시적으로 파싱
+        let utcString = paymentDateStr.trim();
+        const tIndex = utcString.indexOf('T');
+        if (tIndex > 0 && !utcString.endsWith('Z')) {
+          const afterT = utcString.substring(tIndex + 1);
+          if (!afterT.includes('+') && !afterT.includes('-') && !afterT.includes('Z')) {
+            utcString = utcString + 'Z';
+          }
+        }
+        
+        const paymentDate = new Date(utcString);
+        
+        // KST로 변환 (UTC + 9시간)
+        const kstPaymentDate = new Date(paymentDate.getTime() + (9 * 60 * 60 * 1000));
+        kstPaymentDate.setHours(0, 0, 0, 0);
+        
+        // 30일 전부터 오늘까지
+        return kstPaymentDate >= thirtyDaysAgo;
       })
       .filter((payment) => {
         // amount가 null이 아니고, PAID 상태만 포함
