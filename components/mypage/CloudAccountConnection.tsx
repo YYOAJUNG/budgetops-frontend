@@ -10,10 +10,10 @@ import { getCurrentUser } from '@/lib/api/user';
 import { CloudAccount } from '@/types/mypage';
 import { PROVIDER_COLORS, ACCOUNT_STATUS_CONFIG } from '@/constants/mypage';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { getAwsAccounts, deleteAwsAccount, type AwsAccount } from '@/lib/api/aws';
-import { getAzureAccounts, deleteAzureAccount, type AzureAccount } from '@/lib/api/azure';
-import { getGcpAccounts, deleteGcpAccount, type GcpAccount } from '@/lib/api/gcp';
-import { getNcpAccounts, deleteNcpAccount, type NcpAccount } from '@/lib/api/ncp';
+import { getAwsAccounts, deleteAwsAccount, type AwsAccount, getAwsAccountMonthlyCost } from '@/lib/api/aws';
+import { getAzureAccounts, deleteAzureAccount, type AzureAccount, getAzureAccountMonthlyCost } from '@/lib/api/azure';
+import { getGcpAccounts, deleteGcpAccount, type GcpAccount, getGcpAccountMonthlyCost } from '@/lib/api/gcp';
+import { getNcpAccounts, deleteNcpAccount, type NcpAccount, getNcpAccountCostSummary } from '@/lib/api/ncp';
 
 // 모바일 반응형 관련 상수
 const MOBILE_HEADER_LAYOUT = 'flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4';
@@ -25,6 +25,7 @@ const MOBILE_BUTTON_SIZE = 'w-full md:w-auto';
 export function CloudAccountConnection() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [accountCosts, setAccountCosts] = useState<Record<string, number>>({});
   const queryClient = useQueryClient();
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -63,7 +64,7 @@ export function CloudAccountConnection() {
         accountId: a.accessKeyId,
         status: a.active ? 'connected' : 'pending',
         lastSync: new Date().toISOString(),
-        monthlyCost: 0,
+        monthlyCost: accountCosts[String(a.id)] || 0,
       }));
     const gcpMapped: CloudAccount[] =
       (gcpAccounts || []).map((g: GcpAccount) => ({
@@ -73,7 +74,7 @@ export function CloudAccountConnection() {
         accountId: `${g.serviceAccountName}@${g.projectId}`, // serviceaccountname@projectid 형식
         status: 'connected' as const,
         lastSync: g.createdAt || new Date().toISOString(),
-        monthlyCost: 0,
+        monthlyCost: accountCosts[String(g.id)] || 0,
       }));
     const azureMapped: CloudAccount[] =
       (azureAccounts || []).map((a: AzureAccount) => ({
@@ -83,7 +84,7 @@ export function CloudAccountConnection() {
         accountId: a.subscriptionId,
         status: a.active ? 'connected' : 'pending',
         lastSync: new Date().toISOString(),
-        monthlyCost: 0,
+        monthlyCost: accountCosts[`azure-${a.id}`] || 0,
       }));
     const ncpMapped: CloudAccount[] =
       (ncpAccounts || []).map((n: NcpAccount) => ({
@@ -93,13 +94,94 @@ export function CloudAccountConnection() {
         accountId: n.accessKey,
         status: n.active ? 'connected' : 'pending',
         lastSync: new Date().toISOString(),
-        monthlyCost: 0,
+        monthlyCost: accountCosts[`ncp-${n.id}`] || 0,
       }));
     // AWS, GCP, Azure, NCP 계정을 합쳐서 반환
     return [...awsMapped, ...gcpMapped, ...azureMapped, ...ncpMapped];
-  }, [awsAccounts, gcpAccounts, azureAccounts, ncpAccounts]);
+  }, [awsAccounts, gcpAccounts, azureAccounts, ncpAccounts, accountCosts]);
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // 계정별 월별 비용 가져오기
+  useEffect(() => {
+    const fetchAccountCosts = async () => {
+      const costs: Record<string, number> = {};
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const ncpMonth = `${year}${String(month).padStart(2, '0')}`;
+
+      try {
+        // AWS 계정 비용 조회 (USD -> KRW 환산)
+        if (awsAccounts && awsAccounts.length > 0) {
+          await Promise.all(
+            awsAccounts.map(async (account: AwsAccount) => {
+              try {
+                const cost = await getAwsAccountMonthlyCost(account.id, year, month);
+                costs[String(account.id)] = (cost.totalCost || 0) * 1300;
+              } catch (error) {
+                console.error(`Failed to fetch AWS cost for account ${account.id}:`, error);
+                costs[String(account.id)] = 0;
+              }
+            })
+          );
+        }
+
+        // GCP 계정 비용 조회 (USD -> KRW 환산)
+        if (gcpAccounts && gcpAccounts.length > 0) {
+          await Promise.all(
+            gcpAccounts.map(async (account: GcpAccount) => {
+              try {
+                const cost = await getGcpAccountMonthlyCost(account.id, year, month);
+                costs[String(account.id)] = (cost.totalCost || 0) * 1300;
+              } catch (error) {
+                console.error(`Failed to fetch GCP cost for account ${account.id}:`, error);
+                costs[String(account.id)] = 0;
+              }
+            })
+          );
+        }
+
+        // Azure 계정 비용 조회 (USD -> KRW 환산)
+        if (azureAccounts && azureAccounts.length > 0) {
+          await Promise.all(
+            azureAccounts.map(async (account: AzureAccount) => {
+              try {
+                const cost = await getAzureAccountMonthlyCost(account.id, year, month);
+                costs[`azure-${account.id}`] = (cost.amount || 0) * 1300;
+              } catch (error) {
+                console.error(`Failed to fetch Azure cost for account ${account.id}:`, error);
+                costs[`azure-${account.id}`] = 0;
+              }
+            })
+          );
+        }
+
+        // NCP 계정 비용 조회
+        if (ncpAccounts && ncpAccounts.length > 0) {
+          await Promise.all(
+            ncpAccounts.map(async (account: NcpAccount) => {
+              try {
+                const summary = await getNcpAccountCostSummary(account.id, ncpMonth);
+                costs[`ncp-${account.id}`] = summary.totalCost || 0;
+              } catch (error) {
+                console.error(`Failed to fetch NCP cost for account ${account.id}:`, error);
+                costs[`ncp-${account.id}`] = 0;
+              }
+            })
+          );
+        }
+
+        setAccountCosts(costs);
+      } catch (error) {
+        console.error('Failed to fetch account costs:', error);
+      }
+    };
+
+    if (awsAccounts || gcpAccounts || azureAccounts || ncpAccounts) {
+      fetchAccountCosts();
+    }
+  }, [awsAccounts, gcpAccounts, azureAccounts, ncpAccounts]);
 
   useEffect(() => {
     const shouldOpen = searchParams.get('addCloudAccount') === '1';
@@ -262,13 +344,19 @@ export function CloudAccountConnection() {
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-xs md:text-sm text-gray-600">마지막 동기화</p>
-                        <p className={`${MOBILE_RESPONSIVE_TEXT} font-medium text-gray-900 break-all`}>{account.lastSync}</p>
+                        <p className="text-xs md:text-sm text-gray-600">등록시간</p>
+                        <p className={`${MOBILE_RESPONSIVE_TEXT} font-medium text-gray-900 break-all`}>
+                          {new Date(account.lastSync).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                          })}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs md:text-sm text-gray-600">이번 달 비용</p>
                         <p className={`${MOBILE_RESPONSIVE_TEXT} font-medium text-gray-900`}>
-                          ${account.monthlyCost.toLocaleString()}
+                          ₩{account.monthlyCost.toLocaleString()}
                         </p>
                       </div>
                     </div>
