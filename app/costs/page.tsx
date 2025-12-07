@@ -41,9 +41,9 @@ export default function CostsPage() {
     <MainLayout>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* 페이지 헤더 */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">비용 관리</h1>
-          <p className="text-gray-600 text-base">클라우드 비용을 분석하고 최적화하세요</p>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">비용 관리</h2>
+          <p className="text-gray-600 mt-2">클라우드 비용을 분석하고 최적화하세요</p>
         </div>
 
         {/* 추천 액션 카드 */}
