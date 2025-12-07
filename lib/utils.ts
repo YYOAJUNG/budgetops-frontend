@@ -97,14 +97,33 @@ export function formatDateKST(dateString: string): string {
  */
 export function formatDateTimeKST(dateString: string | null): string {
   if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  
+  try {
+    const date = new Date(dateString);
+    
+    // Intl.DateTimeFormat을 사용하여 KST로 변환
+    const formatter = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false, // 24시간 형식
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    const hour = parts.find(p => p.type === 'hour')?.value;
+    const minute = parts.find(p => p.type === 'minute')?.value;
+    
+    return `${year}.${month}.${day} ${hour}:${minute}`;
+  } catch (error) {
+    console.error('날짜 포맷팅 오류:', error);
+    return '-';
+  }
 }
 
 /**
