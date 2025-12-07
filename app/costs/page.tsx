@@ -20,14 +20,12 @@ export default function CostsPage() {
     queryFn: getAllGcpResources,
   });
 
-  // TODO: GCP 리소스도 추천 액션 카드에 포함시키기
-  // const awsResourceIds = ec2Instances?.map(instance => instance.instanceId) || [];
-  // const gcpResourceIds = gcpAccountResources?.flatMap(accountResources =>
-  //   accountResources.resources.map(resource => resource.resourceId)
-  // ) || [];
-  // const resourceIds = [...awsResourceIds, ...gcpResourceIds];
-
-  const resourceIds = ec2Instances?.map(instance => instance.instanceId) || [];
+  // AWS EC2 + GCP 리소스 ID 통합
+  const awsResourceIds = ec2Instances?.map(instance => instance.instanceId) || [];
+  const gcpResourceIds = gcpAccountResources?.flatMap(accountResources =>
+    accountResources.resources.map(resource => resource.resourceId)
+  ) || [];
+  const resourceIds = [...awsResourceIds, ...gcpResourceIds];
 
   
 
