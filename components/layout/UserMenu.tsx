@@ -79,15 +79,10 @@ export function UserMenu({ user, adminMode = false }: UserMenuProps) {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-semibold leading-none text-gray-900">{user.name}</p>
                   <p className="text-xs leading-none text-gray-500 mt-1">{user.email}</p>
-                  {adminMode ? (
+                  {adminMode && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
                       <p className="text-xs text-gray-600">권한</p>
                       <p className="text-sm font-medium text-blue-600 mt-1">관리자 모드</p>
-                    </div>
-                  ) : (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-600">요금제</p>
-                      <p className="text-sm font-medium text-blue-600 mt-1">프리미엄 플랜</p>
                     </div>
                   )}
                 </div>
