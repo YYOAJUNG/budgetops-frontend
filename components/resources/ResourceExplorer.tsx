@@ -205,10 +205,6 @@ export function ResourceExplorer() {
     instanceName: string;
     region?: string;
   } | null>(null);
-<<<<<<< HEAD
-  const [showAzureMetricsDialog, setShowAzureMetricsDialog] = useState(false);
-=======
->>>>>>> origin/main
   const [selectedAzureVm, setSelectedAzureVm] = useState<{
     accountId: number;
     vmName: string;
@@ -216,15 +212,12 @@ export function ResourceExplorer() {
     region?: string;
     displayName: string;
   } | null>(null);
-<<<<<<< HEAD
-=======
   const [selectedNcpInstance, setSelectedNcpInstance] = useState<{
     instanceNo: string;
     instanceName: string;
     accountId: number;
     region?: string;
   } | null>(null);
->>>>>>> origin/main
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
   const [operatingAzureVmId, setOperatingAzureVmId] = useState<string | null>(null);
 
@@ -380,8 +373,6 @@ export function ResourceExplorer() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleAzureDelete = async (resource: ResourceItem) => {
     if (
       resource.provider !== 'Azure' ||
@@ -467,7 +458,6 @@ export function ResourceExplorer() {
     }
   };
 
->>>>>>> origin/main
   const handleShowAzureMetrics = (resource: ResourceItem) => {
     if (
       resource.provider !== 'Azure' ||
@@ -478,12 +468,6 @@ export function ResourceExplorer() {
       alert('Azure VM 정보를 찾을 수 없습니다.');
       return;
     }
-<<<<<<< HEAD
-    setSelectedAzureVm({
-      accountId: resource.accountId,
-      vmName: resource.name,
-      resourceGroup: resource.details.resourceGroup,
-=======
     if (!resource.details.resourceGroup || resource.details.resourceGroup.trim() === '') {
       alert('Azure VM의 리소스 그룹 정보가 없습니다. VM 정보를 새로고침해주세요.');
       console.error('Azure VM resourceGroup is missing:', {
@@ -497,7 +481,6 @@ export function ResourceExplorer() {
       accountId: resource.accountId,
       vmName: resource.name,
       resourceGroup: resource.details.resourceGroup.trim(),
->>>>>>> origin/main
       region: resource.region,
       displayName: resource.name,
     });
@@ -762,22 +745,16 @@ export function ResourceExplorer() {
                     const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
-<<<<<<< HEAD
-=======
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
->>>>>>> origin/main
                     const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
                     const azureDetails =
                       resource.provider === 'Azure' && resource.details?.provider === 'Azure'
                         ? resource.details
                         : undefined;
                     const isAzureOperating = operatingAzureVmId === resource.id;
-<<<<<<< HEAD
-=======
                     // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
                     const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
                     const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
->>>>>>> origin/main
                     
                     return (
                       <tr
@@ -923,8 +900,6 @@ export function ResourceExplorer() {
                                       <Play className="h-4 w-4" />
                                     </Button>
                                   )}
-<<<<<<< HEAD
-=======
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -988,7 +963,6 @@ export function ResourceExplorer() {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
->>>>>>> origin/main
                               </>
                             ) : isGcpInstance && gcpResource ? (
                               <Button
@@ -1025,23 +999,6 @@ export function ResourceExplorer() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredResources.map((resource) => {
             // EC2 리소스인 경우 상세 정보 찾기
-<<<<<<< HEAD
-                  const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
-                  let accountId: number | null = null;
-                  if (ec2Instance && awsAccounts && awsAccounts.length > 0) {
-                    const activeAccount = awsAccounts.find(acc => acc.active);
-                    if (activeAccount) {
-                      accountId = activeAccount.id;
-                    }
-                  }
-                  const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
-                  const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
-                  const azureDetails =
-                    resource.provider === 'Azure' && resource.details?.provider === 'Azure'
-                      ? resource.details
-                      : undefined;
-                  const isAzureOperating = operatingAzureVmId === resource.id;
-=======
             const ec2Instance = ec2Data?.find((ec2) => ec2.instanceId === resource.id);
             // EC2 인스턴스의 accountId 찾기
             // 실제로는 백엔드에서 인스턴스 조회 시 accountId를 포함하도록 수정하는 것이 가장 좋지만,
@@ -1064,7 +1021,6 @@ export function ResourceExplorer() {
             // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
             const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
             const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
->>>>>>> origin/main
             
             return (
               <ResourceCard
@@ -1139,8 +1095,6 @@ export function ResourceExplorer() {
           region={selectedAzureVm.region}
         />
       )}
-<<<<<<< HEAD
-=======
       {selectedNcpInstance && (
         <NcpServerMetricsDialog
           open={showNcpMetricsDialog}
@@ -1160,7 +1114,6 @@ export function ResourceExplorer() {
           regionCode={selectedNcpRegion}
         />
       )}
->>>>>>> origin/main
     </div>
   );
 }
@@ -1414,11 +1367,7 @@ function ResourceCard({
             )}
           </>
         )}
-<<<<<<< HEAD
-        {((isEc2 && accountId) || isGcpInstance || canShowAzureMetrics) && (
-=======
         {((isEc2 && accountId) || isGcpInstance || canShowAzureMetrics || isNcpServer) && (
->>>>>>> origin/main
           <div className="pt-3 border-t border-slate-200">
             <Button
               variant="outline"
@@ -1431,11 +1380,8 @@ function ResourceCard({
                   setShowGcpMetrics(true);
                 } else if (canShowAzureMetrics) {
                   setShowAzureMetrics(true);
-<<<<<<< HEAD
-=======
                 } else if (isNcpServer && onNcpMetricsClick) {
                   onNcpMetricsClick();
->>>>>>> origin/main
                 }
               }}
             >
