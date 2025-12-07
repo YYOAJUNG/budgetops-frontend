@@ -35,11 +35,11 @@ type AwsFreeTierSummary = {
 };
 
 type AzureFreeTierSummary = {
-  totalUsageHours: number;
-  totalLimitHours: number;
-  remainingHours: number;
+  usedAmount: number;
+  creditLimitAmount: number;
+  remainingAmount: number;
   percentage: number;
-  eligibleVmCount: number;
+  currency: string;
 };
 
 type GcpFreeTierSummary = {
@@ -146,22 +146,24 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   // Azure 비용
   const azureAccounts = await getAzureAccounts().catch(() => []);
   const activeAzureAccounts = azureAccounts.filter((acc) => acc.active);
+  // 크레딧 토글이 켜져 있는 Azure 계정만 프리티어 계산에 포함 (기본값: hasCredit가 명시적으로 false가 아니면 포함)
+  const azureCreditAccounts = activeAzureAccounts.filter((acc) => acc.hasCredit !== false);
   let azureAccountTotals: AzureAccountCost[] = [];
   if (activeAzureAccounts.length > 0) {
     azureAccountTotals = await getAllAzureAccountsCosts(from, to).catch(() => []);
   }
 
-  // Azure 프리티어 (VM B1s 기준) 사용량/한도 집계
-  let azureFreeTierTotalUsageHours = 0;
-  let azureFreeTierTotalLimitHours = 0;
-  let azureFreeTierEligibleVmCount = 0;
-  if (activeAzureAccounts.length > 0) {
-    for (const account of activeAzureAccounts) {
+  // Azure 프리티어 (크레딧 기준) 사용량/한도 집계
+  let azureFreeTierUsedAmount = 0;
+  let azureFreeTierLimitAmount = 0;
+  let azureFreeTierCurrency = 'USD';
+  if (azureCreditAccounts.length > 0) {
+    for (const account of azureCreditAccounts) {
       try {
         const usage = await getAzureAccountFreeTierUsage(account.id, from, to);
-        azureFreeTierTotalUsageHours += usage.totalUsageHours;
-        azureFreeTierTotalLimitHours += usage.freeTierLimitHours;
-        azureFreeTierEligibleVmCount += usage.eligibleVmCount;
+        azureFreeTierUsedAmount += usage.usedAmount;
+        azureFreeTierLimitAmount += usage.creditLimitAmount;
+        azureFreeTierCurrency = usage.currency || azureFreeTierCurrency;
       } catch (error) {
         console.error(`Failed to fetch Azure free tier usage for account ${account.id}:`, error);
       }
@@ -170,6 +172,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
 
   // GCP 계정 조회 및 비용 조회
   const gcpAccounts = await getGcpAccounts().catch(() => []);
+  // 크레딧 토글이 켜져 있는 GCP 계정만 프리티어 계산에 포함 (기본값: hasCredit가 명시적으로 false가 아니면 포함)
+  const gcpCreditAccounts = gcpAccounts.filter((acc: any) => acc.hasCredit !== false);
   let gcpTotalCost = 0;
   let previousGcpTotalCost = 0;
   const gcpAccountCostsMap: Record<number, number> = {}; // 계정별 비용 저장
@@ -213,12 +217,13 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     console.error('Failed to fetch previous GCP costs:', error);
   }
 
-  // GCP 프리티어/크레딧 사용량 집계 (300달러 한도 기준 근사치)
+
+  // GCP 프리티어/크레딧 사용량 집계
   let gcpFreeTierUsedAmount = 0;
   let gcpFreeTierLimitAmount = 0;
   let gcpFreeTierCurrency = 'USD';
-  if (gcpAccounts.length > 0) {
-    for (const account of gcpAccounts) {
+  if (gcpCreditAccounts.length > 0) {
+    for (const account of gcpCreditAccounts) {
       try {
         const usage = await getGcpAccountFreeTierUsage(account.id, from, to);
         gcpFreeTierUsedAmount += usage.usedAmount;
@@ -287,13 +292,13 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
       : undefined;
 
   const azureFreeTier: AzureFreeTierSummary | undefined =
-    azureFreeTierTotalLimitHours > 0
+    azureFreeTierLimitAmount > 0
       ? {
-          totalUsageHours: azureFreeTierTotalUsageHours,
-          totalLimitHours: azureFreeTierTotalLimitHours,
-          remainingHours: Math.max(0, azureFreeTierTotalLimitHours - azureFreeTierTotalUsageHours),
-          percentage: Math.min(100, (azureFreeTierTotalUsageHours / azureFreeTierTotalLimitHours) * 100),
-          eligibleVmCount: azureFreeTierEligibleVmCount,
+          usedAmount: azureFreeTierUsedAmount,
+          creditLimitAmount: azureFreeTierLimitAmount,
+          remainingAmount: Math.max(0, azureFreeTierLimitAmount - azureFreeTierUsedAmount),
+          percentage: Math.min(100, (azureFreeTierUsedAmount / azureFreeTierLimitAmount) * 100),
+          currency: azureFreeTierCurrency,
         }
       : undefined;
 
@@ -600,10 +605,10 @@ export function CostsSummary() {
         `AWS 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`
       );
     }
-    if (azureFreeTier && azureFreeTier.totalLimitHours > 0) {
+    if (azureFreeTier && azureFreeTier.creditLimitAmount > 0) {
       const remainingPercent = 100 - azureFreeTier.percentage;
       captions.push(
-        `Azure 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingHours.toFixed(0)}/${azureFreeTier.totalLimitHours.toFixed(0)})`
+        `Azure 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingAmount.toFixed(1)}/${azureFreeTier.creditLimitAmount.toFixed(1)} ${azureFreeTier.currency})`
       );
     }
     if (gcpFreeTier && gcpFreeTier.freeTierLimitAmount > 0) {
@@ -902,7 +907,7 @@ export function CostsSummary() {
             </CardContent>
           </Card>
 
-          {/* 서비스별 비용 Top 대신 CSP 프리티어 잔여량 (AWS + Azure) */}
+          {/* 서비스별 비용 Top 대신 CSP 프리티어 잔여량 (AWS + Azure + GCP + NCP) */}
           <Card className="border border-gray-200 shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -910,7 +915,7 @@ export function CostsSummary() {
                   CSP 프리티어 잔여량
                 </CardTitle>
                 <div className="text-xs text-gray-500">
-                  AWS EC2, Azure VM(B1s), GCP 크레딧/프리티어, NCP 할인 기준 (근사치)
+                  AWS EC2 프리티어, Azure 크레딧, GCP 크레딧/프리티어, NCP 할인 기준 (근사치)
                 </div>
               </div>
               {serviceCaption && (
@@ -920,8 +925,8 @@ export function CostsSummary() {
             <CardContent>
               {!awsFreeTier && !azureFreeTier ? (
                 <div className="text-sm text-gray-600">
-                  프리티어 대상 AWS/Azure 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 또는 Azure B1s VM을
-                  사용하면 프리티어 사용 현황이 표시됩니다.
+                  프리티어/크레딧 대상 AWS/Azure 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 또는 Azure를
+                  사용하면 프리티어/크레딧 사용 현황이 표시됩니다.
                 </div>
               ) : (
                 <div className="grid gap-6 md:grid-cols-4 max-w-6xl">
@@ -981,30 +986,30 @@ export function CostsSummary() {
                     </div>
                   )}
 
-                  {azureFreeTier && azureFreeTier.totalLimitHours > 0 && (
+                  {azureFreeTier && azureFreeTier.creditLimitAmount > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-gray-900">Azure VM 프리티어</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">Azure 크레딧</h3>
                       <div className="flex items-baseline justify-between">
                         <div>
-                          <p className="text-xs text-gray-600">총 프리티어 한도</p>
+                          <p className="text-xs text-gray-600">총 크레딧 한도 (기준값)</p>
                           <p className="text-xl font-bold text-gray-900">
-                            {azureFreeTier.totalLimitHours.toFixed(0)} 시간
+                            {azureFreeTier.creditLimitAmount.toFixed(1)} {azureFreeTier.currency}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-gray-600">사용량</p>
+                          <p className="text-xs text-gray-600">사용된 크레딧</p>
                           <p className="text-sm font-semibold text-gray-900">
-                            {azureFreeTier.totalUsageHours.toFixed(0)} 시간
+                            {azureFreeTier.usedAmount.toFixed(1)} {azureFreeTier.currency}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            잔여 {azureFreeTier.remainingHours.toFixed(0)} 시간
+                            잔여 {azureFreeTier.remainingAmount.toFixed(1)} {azureFreeTier.currency}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">
-                            프리티어 사용률 (대상 VM {azureFreeTier.eligibleVmCount}대 기준)
+                            크레딧 사용률 (기본 200 {azureFreeTier.currency} 또는 설정한 한도 기준)
                           </span>
                           <span
                             className={`font-semibold ${
@@ -1031,8 +1036,8 @@ export function CostsSummary() {
                           />
                         </div>
                         <p className="text-[11px] text-gray-500">
-                          Azure VM 프리티어(Standard_B1s, 월 750시간 기준)를 대상으로, 선택한 기간 동안의 사용량을
-                          근사 계산한 값입니다.
+                          Azure Cost Management API 기준, 선택한 기간 동안의 Azure 비용 합계를
+                          설정된 크레딧 한도 대비 근사 계산한 값입니다.
                         </p>
                       </div>
                     </div>

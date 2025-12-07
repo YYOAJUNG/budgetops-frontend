@@ -6,6 +6,11 @@ export interface GcpAccount {
   serviceAccountName: string;
   projectId: string;
   createdAt: string;
+  hasCredit?: boolean;
+  creditLimitAmount?: number;
+  creditCurrency?: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 export interface TestIntegrationRequest {

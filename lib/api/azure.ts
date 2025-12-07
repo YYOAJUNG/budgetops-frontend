@@ -8,6 +8,11 @@ export interface AzureAccount {
   clientId: string;
   clientSecretLast4: string;
   active: boolean;
+  hasCredit?: boolean;
+  creditLimitAmount?: number;
+  creditCurrency?: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 export interface CreateAzureAccountRequest {
@@ -70,11 +75,13 @@ export interface AzureAccountCost {
 }
 
 export interface AzureFreeTierUsage {
-  totalUsageHours: number;
-  freeTierLimitHours: number;
-  remainingHours: number;
+  usedAmount: number;
+  creditLimitAmount: number;
+  remainingAmount: number;
   percentage: number;
-  eligibleVmCount: number;
+  currency: string;
+  creditStartDate: string;
+  creditEndDate: string;
 }
 
 export async function getAzureAccounts(): Promise<AzureAccount[]> {
