@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard } from 'lucide-react';
+import { Loader2, Plus, ChevronLeft, ChevronRight, Search, X, CreditCard, Filter, Users, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDateKST, formatDateTimeKST } from '@/lib/utils';
 import { useMemo } from 'react';
@@ -135,11 +135,14 @@ function GrantTokensDialog({
   );
 }
 
+type BillingPlanFilter = 'ALL' | 'FREE' | 'PRO';
+
 function UsersTable() {
   const router = useRouter();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [billingPlanFilter, setBillingPlanFilter] = useState<BillingPlanFilter>('ALL');
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [showGrantDialog, setShowGrantDialog] = useState(false);
   const queryClient = useQueryClient();
@@ -150,14 +153,50 @@ function UsersTable() {
     queryFn: () => getAdminUsers(page, pageSize, search || undefined),
   });
 
-  // ID 오름차순으로 정렬된 데이터
+  // 전체 사용자 데이터 가져오기 (통계 계산용)
+  const { data: allUsersData } = useQuery({
+    queryKey: ['adminUsers', 'all'],
+    queryFn: () => getAdminUsers(0, 10000), // 충분히 큰 size로 전체 데이터 가져오기
+  });
+
+  // 활성 사용자수 계산 (최근 30일 이내 접속)
+  const activeUsersCount = useMemo(() => {
+    if (!allUsersData) return 0;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return allUsersData.content.filter((user) => {
+      if (!user.lastLoginAt) return false;
+      const lastLogin = new Date(user.lastLoginAt);
+      return lastLogin >= thirtyDaysAgo;
+    }).length;
+  }, [allUsersData]);
+
+  // PRO 사용자수 계산
+  const proUsersCount = useMemo(() => {
+    if (!allUsersData) return 0;
+    return allUsersData.content.filter((user) => user.billingPlan === 'PRO').length;
+  }, [allUsersData]);
+
+  // ID 오름차순으로 정렬 및 멤버십 필터 적용
   const sortedData = useMemo(() => {
     if (!data) return undefined;
+    let filtered = [...data.content];
+    
+    // 멤버십 필터 적용
+    if (billingPlanFilter !== 'ALL') {
+      filtered = filtered.filter((user) => user.billingPlan === billingPlanFilter);
+    }
+    
+    // ID 오름차순 정렬
+    filtered.sort((a, b) => a.id - b.id);
+    
     return {
       ...data,
-      content: [...data.content].sort((a, b) => a.id - b.id),
+      content: filtered,
+      totalElements: filtered.length, // 필터링된 총 개수로 업데이트
     };
-  }, [data]);
+  }, [data, billingPlanFilter]);
 
   const handleSearch = () => {
     setSearch(searchInput);
@@ -217,41 +256,115 @@ function UsersTable() {
 
   return (
     <>
-      {/* 검색 영역 */}
-      <div className="mb-4 flex items-center gap-2">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="사용자 이름 또는 이메일로 검색"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="pl-10 pr-10"
-          />
-          {searchInput && (
-            <button
-              onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      {/* 통계 위젯 */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
+        {/* 활성 사용자수 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">활성 사용자</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Users className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {activeUsersCount}명
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  최근 30일 이내 접속 기준
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* PRO 사용자수 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">PRO 사용자</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Crown className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {proUsersCount}명
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  PRO 멤버십 보유 기준
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 검색 및 필터 */}
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-gray-200 mb-4">
+        {/* 검색 영역 */}
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="사용자 이름 또는 이메일로 검색"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="pl-10 pr-10"
+            />
+            {searchInput && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Button onClick={handleSearch} variant="outline">
+            검색
+          </Button>
+          {search && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>검색어: "{search}"</span>
+              <button
+                onClick={handleClearSearch}
+                className="text-blue-600 hover:text-blue-700 underline"
+              >
+                초기화
+              </button>
+            </div>
           )}
         </div>
-        <Button onClick={handleSearch} variant="outline">
-          검색
-        </Button>
-        {search && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>검색어: "{search}"</span>
-            <button
-              onClick={handleClearSearch}
-              className="text-blue-600 hover:text-blue-700 underline"
-            >
-              초기화
-            </button>
+
+        {/* 필터 - 우측 배치 */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700">필터:</span>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <label htmlFor="billing-plan-filter" className="text-sm text-gray-600">멤버십</label>
+            <select
+              id="billing-plan-filter"
+              value={billingPlanFilter}
+              onChange={(e) => setBillingPlanFilter(e.target.value as BillingPlanFilter)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="ALL">전체</option>
+              <option value="FREE">FREE</option>
+              <option value="PRO">PRO</option>
+            </select>
+          </div>
+          <div className="text-sm text-gray-600">
+            총 {sortedData?.totalElements || 0}명
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -261,10 +374,10 @@ function UsersTable() {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">ID</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">이메일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">이름</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">가입일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">멤버십</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">토큰</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">클라우드 계정</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">가입일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">최근 접속일</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">액션</th>
             </tr>
@@ -275,7 +388,6 @@ function UsersTable() {
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateKST(user.createdAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -291,6 +403,7 @@ function UsersTable() {
                   {user.currentTokens.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{formatCloudAccounts(user)}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateKST(user.createdAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDateTimeKST(user.lastLoginAt)}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
