@@ -8,6 +8,7 @@ export interface AdminUser {
   email: string;
   name: string;
   createdAt: string;
+  lastLoginAt: string | null;
   billingPlan: 'FREE' | 'PRO';
   currentTokens: number;
   cloudAccountCount: number;
@@ -35,6 +36,7 @@ export interface PaymentHistory {
   impUid: string | null;
   amount: number | null;
   status: 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
+  paidAt: string | null;
   createdAt: string;
   lastVerifiedAt: string | null;
 }
@@ -61,6 +63,7 @@ export async function getAdminUsers(
         email: 'user1@example.com',
         name: '홍길동',
         createdAt: '2024-01-15T10:00:00',
+        lastLoginAt: '2024-12-15T09:30:00',
         billingPlan: 'PRO',
         currentTokens: 25000,
         cloudAccountCount: 3,
@@ -74,6 +77,7 @@ export async function getAdminUsers(
         email: 'user2@example.com',
         name: '김철수',
         createdAt: '2024-02-01T14:30:00',
+        lastLoginAt: '2024-12-14T15:20:00',
         billingPlan: 'FREE',
         currentTokens: 5000,
         cloudAccountCount: 1,
@@ -87,6 +91,7 @@ export async function getAdminUsers(
         email: 'user3@example.com',
         name: '이영희',
         createdAt: '2024-02-15T09:20:00',
+        lastLoginAt: '2024-12-15T10:15:00',
         billingPlan: 'PRO',
         currentTokens: 18000,
         cloudAccountCount: 4,
@@ -100,6 +105,7 @@ export async function getAdminUsers(
         email: 'user4@example.com',
         name: '박민수',
         createdAt: '2024-03-01T16:45:00',
+        lastLoginAt: null, // 로그인한 적이 없는 경우
         billingPlan: 'FREE',
         currentTokens: 3000,
         cloudAccountCount: 2,
@@ -113,6 +119,7 @@ export async function getAdminUsers(
         email: 'user5@example.com',
         name: '정수진',
         createdAt: '2024-03-10T11:15:00',
+        lastLoginAt: '2024-12-13T08:45:00',
         billingPlan: 'PRO',
         currentTokens: 32000,
         cloudAccountCount: 5,
@@ -126,6 +133,7 @@ export async function getAdminUsers(
         email: 'user6@example.com',
         name: '최도현',
         createdAt: '2024-03-20T13:30:00',
+        lastLoginAt: '2024-12-10T14:20:00',
         billingPlan: 'FREE',
         currentTokens: 8000,
         cloudAccountCount: 1,
@@ -146,6 +154,9 @@ export async function getAdminUsers(
           user.email.toLowerCase().includes(searchLower)
       );
     }
+
+    // ID 오름차순으로 정렬
+    filteredUsers = filteredUsers.sort((a, b) => a.id - b.id);
 
     const startIndex = page * size;
     const endIndex = startIndex + size;
@@ -187,6 +198,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_1234567890',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-01-15T10:31:00',
         createdAt: '2024-01-15T10:30:00',
         lastVerifiedAt: '2024-01-15T10:31:00',
       },
@@ -199,6 +211,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_0987654321',
         amount: 10000,
         status: 'PAID',
+        paidAt: '2024-02-15T14:21:00',
         createdAt: '2024-02-15T14:20:00',
         lastVerifiedAt: '2024-02-15T14:21:00',
       },
@@ -211,6 +224,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_1122334455',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-03-10T11:46:00',
         createdAt: '2024-03-10T11:45:00',
         lastVerifiedAt: '2024-03-10T11:46:00',
       },
@@ -223,6 +237,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_2233445566',
         amount: 5000,
         status: 'PENDING',
+        paidAt: null,
         createdAt: '2024-03-25T09:00:00',
         lastVerifiedAt: '2024-03-25T09:00:00',
       },
@@ -235,6 +250,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_3344556677',
         amount: 20000,
         status: 'PAID',
+        paidAt: '2024-03-28T16:31:00',
         createdAt: '2024-03-28T16:30:00',
         lastVerifiedAt: '2024-03-28T16:31:00',
       },
@@ -247,6 +263,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_4455667788',
         amount: null, // MEMBERSHIP의 경우 amount는 null일 수 있음
         status: 'FAILED',
+        paidAt: null,
         createdAt: '2024-04-01T10:00:00',
         lastVerifiedAt: '2024-04-01T10:05:00',
       },
@@ -259,6 +276,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: null, // impUid가 null일 수 있음
         amount: null, // MEMBERSHIP의 경우 amount는 null
         status: 'IDLE',
+        paidAt: null,
         createdAt: '2024-04-10T12:00:00',
         lastVerifiedAt: null,
       },
@@ -271,6 +289,7 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         impUid: 'imp_5566778899',
         amount: 4900,
         status: 'PAID',
+        paidAt: '2024-04-05T13:16:00',
         createdAt: '2024-04-05T13:15:00',
         lastVerifiedAt: '2024-04-05T13:16:00',
       },
@@ -283,10 +302,20 @@ export async function getAdminPayments(search?: string): Promise<PaymentHistory[
         (payment) =>
           payment.userName.toLowerCase().includes(searchLower) ||
           payment.userEmail.toLowerCase().includes(searchLower)
-      );
+      ).sort((a, b) => {
+        // 결제일(paidAt) 기준 최신순 정렬
+        const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (a.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return dateB - dateA; // 최신순 (내림차순)
+      });
     }
 
-    return mockPayments;
+    // 결제일(paidAt) 기준 최신순 정렬
+    return mockPayments.sort((a, b) => {
+      const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return dateB - dateA; // 최신순 (내림차순)
+    });
   }
 
   const params: { search?: string } = {};

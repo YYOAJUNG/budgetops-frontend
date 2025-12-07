@@ -6,9 +6,10 @@ import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { getAdminPayments, type PaymentHistory } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Filter, Search, X } from 'lucide-react';
+import { Loader2, Filter, Search, X, DollarSign, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { formatDateTimeKST } from '@/lib/utils';
 
 type PaymentTypeFilter = 'ALL' | 'MEMBERSHIP' | 'TOKEN_PURCHASE';
 type PaymentStatusFilter = 'ALL' | 'PAID' | 'PENDING' | 'FAILED' | 'IDLE';
@@ -36,12 +37,54 @@ function PaymentsTableContent() {
 
   const filteredData = useMemo(() => {
     if (!data) return [];
-    return data.filter((payment) => {
+    const filtered = data.filter((payment) => {
       if (typeFilter !== 'ALL' && payment.paymentType !== typeFilter) return false;
       if (statusFilter !== 'ALL' && payment.status !== statusFilter) return false;
       return true;
     });
+    
+    // 결제일(paidAt) 기준 최신순 정렬
+    return filtered.sort((a, b) => {
+      const dateA = a.paidAt ? new Date(a.paidAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.paidAt ? new Date(b.paidAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return dateB - dateA; // 최신순 (내림차순)
+    });
   }, [data, typeFilter, statusFilter]);
+
+  // 최근 30일간 매출 계산
+  const recent30DaysRevenue = useMemo(() => {
+    if (!data) return 0;
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return data
+      .filter((payment) => {
+        // paidAt이 있고, 최근 30일 이내인지 확인
+        if (!payment.paidAt) return false;
+        const paidDate = new Date(payment.paidAt);
+        return paidDate >= thirtyDaysAgo;
+      })
+      .filter((payment) => {
+        // amount가 null이 아니고, PAID 상태만 포함
+        return payment.amount !== null && payment.status === 'PAID';
+      })
+      .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  }, [data]);
+
+  // 최근 7일간 비정상 결제건 계산
+  const recent7DaysFailedPayments = useMemo(() => {
+    if (!data) return 0;
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    return data.filter((payment) => {
+      // paidAt 또는 createdAt 기준으로 최근 7일 이내인지 확인
+      const paymentDate = payment.paidAt ? new Date(payment.paidAt) : new Date(payment.createdAt);
+      return paymentDate >= sevenDaysAgo && payment.status === 'FAILED';
+    }).length;
+  }, [data]);
 
   const handleSearch = () => {
     setSearch(searchInput);
@@ -58,15 +101,6 @@ function PaymentsTableContent() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getStatusBadge = (status: PaymentHistory['status']) => {
     const statusConfig = {
@@ -106,6 +140,53 @@ function PaymentsTableContent() {
 
   return (
     <div className="space-y-4">
+      {/* 최근 통계 위젯 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* 최근 30일간 매출 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">최근 30일간 매출</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <DollarSign className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {recent30DaysRevenue.toLocaleString()}원
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  결제 완료된 내역 기준
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 최근 7일간 비정상 결제건 위젯 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">최근 7일간 비정상 결제</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900">
+                  {recent7DaysFailedPayments}건
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  결제 실패 상태 기준
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* 검색 및 필터 */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-gray-200">
         {/* 검색 영역 */}
@@ -201,7 +282,6 @@ function PaymentsTableContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">금액</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">상태</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">결제일</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">검증일</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">결제 UID</th>
               </tr>
             </thead>
@@ -225,10 +305,7 @@ function PaymentsTableContent() {
                     {getStatusBadge(payment.status)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {formatDate(payment.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                    {payment.lastVerifiedAt ? formatDate(payment.lastVerifiedAt) : '-'}
+                    {payment.paidAt ? formatDateTimeKST(payment.paidAt) : '-'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 font-mono">
                     {payment.impUid || '-'}
@@ -263,6 +340,9 @@ export default function AdminPaymentsPage() {
           <h1 className="text-2xl font-bold text-gray-900">결제 내역</h1>
           <p className="text-gray-600 mt-1">전체 사용자의 결제 내역을 확인할 수 있습니다.</p>
         </div>
+        
+        {/* 최근 30일간 매출 위젯 - PaymentsTableContent에서 데이터 가져와야 함 */}
+        
         <Card>
           <CardHeader>
             <CardTitle>결제 내역 목록</CardTitle>

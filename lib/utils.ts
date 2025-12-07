@@ -77,6 +77,37 @@ export function formatPercent(value: number): string {
 }
 
 /**
+ * 날짜를 KST(한국 표준시)로 변환하여 날짜만 표시
+ * @param dateString ISO 8601 형식의 날짜 문자열
+ * @returns "YYYY.MM.DD" 형식의 문자열
+ */
+export function formatDateKST(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
+
+/**
+ * 날짜를 KST(한국 표준시)로 변환하여 날짜와 시간 표시
+ * @param dateString ISO 8601 형식의 날짜 문자열 또는 null
+ * @returns "YYYY.MM.DD HH:mm" 형식의 문자열 또는 "-"
+ */
+export function formatDateTimeKST(dateString: string | null): string {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
  * 간단한 형태의 통화 포맷팅 (예: "1.2M원", "500K원")
  */
 export function formatCurrencyCompact(amount: number, currency: 'KRW' | 'USD' = 'KRW'): string {
