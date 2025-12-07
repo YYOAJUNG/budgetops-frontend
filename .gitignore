@@ -110,3 +110,10 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+# Certificates
+certificates/
+*.pem
+
+# Backup files
+*\ 2.*
