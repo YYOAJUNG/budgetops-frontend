@@ -359,7 +359,7 @@ export function Dashboard() {
   }, [awsAccountDetailedCosts]);
   
   // 전체 프리티어 사용 현황 계산 (모든 AWS 계정의 퍼센테이지 평균)
-  const freeTierUsage = useMemo(() => {
+  const awsFreeTierUsageSummary = useMemo(() => {
     if (!awsAccounts || awsAccounts.length === 0) {
       return { totalUsage: 0, totalLimit: 0, percentage: 0, isActive: false };
     }
@@ -406,6 +406,118 @@ export function Dashboard() {
       isActive: accountFreeTierUsage.length > 0 || (awsAccountCosts?.some(acc => acc.totalCost > 0) ?? false),
     };
   }, [accountFreeTierUsage, awsAccounts, awsAccountCosts]);
+
+  // Azure 프리티어/크레딧 사용률 요약 (모든 Azure 계정 기준)
+  const { data: azureFreeTierUsageSummary } = useQuery({
+    queryKey: ['azureFreeTierUsageSummary', startDate, endDate],
+    enabled: (azureAccounts?.length ?? 0) > 0,
+    queryFn: async () => {
+      if (!azureAccounts || azureAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      const { getAzureAccountFreeTierUsage } = await import('@/lib/api/azure');
+      const creditAccounts = azureAccounts.filter(
+        (acc) => acc.active && acc.hasCredit !== false
+      );
+      if (creditAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      let used = 0;
+      let limit = 0;
+      for (const account of creditAccounts) {
+        try {
+          const usage = await getAzureAccountFreeTierUsage(account.id, startDate, endDate);
+          used += usage.usedAmount;
+          limit += usage.creditLimitAmount;
+        } catch (error) {
+          console.error('Azure free tier usage fetch failed for account', account.id, error);
+        }
+      }
+      const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+      return { used, limit, percentage, isActive: limit > 0 };
+    },
+  });
+
+  // GCP 프리티어/크레딧 사용률 요약 (모든 GCP 계정 기준)
+  const { data: gcpFreeTierUsageSummary } = useQuery({
+    queryKey: ['gcpFreeTierUsageSummary', startDate, endDate],
+    enabled: (gcpAccounts?.length ?? 0) > 0,
+    queryFn: async () => {
+      if (!gcpAccounts || gcpAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      const { getGcpAccountFreeTierUsage } = await import('@/lib/api/gcp');
+      const creditAccounts = gcpAccounts.filter((acc) => acc.hasCredit !== false);
+      if (creditAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      let used = 0;
+      let limit = 0;
+      for (const account of creditAccounts) {
+        try {
+          const usage = await getGcpAccountFreeTierUsage(account.id, startDate, endDate);
+          used += usage.usedAmount;
+          limit += usage.freeTierLimitAmount;
+        } catch (error) {
+          console.error('GCP free tier usage fetch failed for account', account.id, error);
+        }
+      }
+      const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+      return { used, limit, percentage, isActive: limit > 0 };
+    },
+  });
+
+  // NCP 프리티어/할인 사용률 요약 (모든 NCP 계정 기준)
+  const { data: ncpFreeTierUsageSummary } = useQuery({
+    queryKey: ['ncpFreeTierUsageSummary', currentMonth],
+    enabled: (ncpAccounts?.length ?? 0) > 0,
+    queryFn: async () => {
+      if (!ncpAccounts || ncpAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      const { getNcpAccountFreeTierUsage } = await import('@/lib/api/ncp');
+      const activeAccounts = ncpAccounts.filter((acc) => acc.active);
+      if (activeAccounts.length === 0) {
+        return { used: 0, limit: 0, percentage: 0, isActive: false };
+      }
+      let used = 0;
+      let limit = 0;
+      for (const account of activeAccounts) {
+        try {
+          const usage = await getNcpAccountFreeTierUsage(account.id, currentMonth);
+          used += usage.usedAmount;
+          limit += usage.freeTierLimitAmount;
+        } catch (error) {
+          console.error('NCP free tier usage fetch failed for account', account.id, error);
+        }
+      }
+      const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
+      return { used, limit, percentage, isActive: limit > 0 };
+    },
+  });
+
+  // 전체 CSP 프리티어 사용률 (AWS + Azure + GCP + NCP 평균)
+  const totalFreeTierUsage = useMemo(() => {
+    const providerPercentages: number[] = [];
+    if (awsFreeTierUsageSummary.isActive) {
+      providerPercentages.push(awsFreeTierUsageSummary.percentage);
+    }
+    if (azureFreeTierUsageSummary?.isActive) {
+      providerPercentages.push(azureFreeTierUsageSummary.percentage);
+    }
+    if (gcpFreeTierUsageSummary?.isActive) {
+      providerPercentages.push(gcpFreeTierUsageSummary.percentage);
+    }
+    if (ncpFreeTierUsageSummary?.isActive) {
+      providerPercentages.push(ncpFreeTierUsageSummary.percentage);
+    }
+    if (providerPercentages.length === 0) {
+      return { percentage: 0, hasAny: false };
+    }
+    const avg =
+      providerPercentages.reduce((sum, pct) => sum + pct, 0) / providerPercentages.length;
+    return { percentage: Math.min(avg, 100), hasAny: true };
+  }, [awsFreeTierUsageSummary, azureFreeTierUsageSummary, gcpFreeTierUsageSummary, ncpFreeTierUsageSummary]);
 
   const currentMonthCost = costSeries.at(-1)?.amount ?? 0;
   const previousMonthCost = costSeries.at(-2)?.amount ?? 0;
@@ -495,7 +607,11 @@ export function Dashboard() {
         />
         <StatCard
           title="프리티어 사용률"
-          value={freeTierUsage.isActive ? `${freeTierUsage.percentage.toFixed(1)}%` : '0%'}
+          value={
+            totalFreeTierUsage.hasAny
+              ? `${totalFreeTierUsage.percentage.toFixed(1)}%`
+              : '0%'
+          }
           icon={<Gift className="h-4 w-4" />}
         />
         <StatCard
@@ -595,7 +711,7 @@ export function Dashboard() {
                     <div className="text-right">
                       <p className="text-sm text-gray-600 mb-1">총 비용</p>
                       <p className="text-2xl font-bold text-orange-600">
-                              {freeTierUsage.isActive && totalAwsCostUsd === 0 ? (
+                              {awsFreeTierUsageSummary.isActive && totalAwsCostUsd === 0 ? (
                                 <span className="flex items-center gap-2 justify-end">
                                   <Gift className="h-5 w-5 text-green-600" />
                                   <span className="text-green-600">프리티어 사용 중</span>
@@ -688,7 +804,7 @@ export function Dashboard() {
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-orange-600">
-                              {freeTierUsage.isActive ? (
+                              {awsFreeTierUsageSummary.isActive ? (
                                 <span className="flex items-center gap-2">
                                   <Gift className="h-5 w-5 text-green-600" />
                                   <span className="text-green-600">프리티어 사용 중</span>
@@ -699,14 +815,14 @@ export function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        {freeTierUsage.isActive ? (
+                        {awsFreeTierUsageSummary.isActive ? (
                           <div className="mt-3 space-y-2">
                             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                               <p className="text-xs text-green-800 font-medium mb-1">
                                 프리티어 범위 내 사용 중
                               </p>
                               <p className="text-xs text-green-700">
-                                사용률: {freeTierUsage.percentage.toFixed(1)}% ({freeTierUsage.totalUsage.toFixed(0)}/{freeTierUsage.totalLimit.toFixed(0)})
+                                사용률: {awsFreeTierUsageSummary.percentage.toFixed(1)}% ({awsFreeTierUsageSummary.totalUsage.toFixed(0)}/{awsFreeTierUsageSummary.totalLimit.toFixed(0)})
                               </p>
                             </div>
                             <Button
@@ -1076,22 +1192,22 @@ export function Dashboard() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-green-900">전체 사용률</span>
                     <span className="text-2xl font-bold text-green-700">
-                      {freeTierUsage.percentage.toFixed(1)}%
+                      {awsFreeTierUsageSummary.percentage.toFixed(1)}%
                     </span>
                   </div>
                   <div className="mt-3">
                     <div className="w-full bg-green-200 rounded-full h-3 shadow-inner">
                       <div
                         className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all shadow-sm"
-                        style={{ width: `${Math.min(freeTierUsage.percentage, 100)}%` }}
+                        style={{ width: `${Math.min(awsFreeTierUsageSummary.percentage, 100)}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-xs text-green-700 font-medium">
-                        {freeTierUsage.totalUsage.toFixed(0)} / {freeTierUsage.totalLimit.toFixed(0)} 사용
+                        {awsFreeTierUsageSummary.totalUsage.toFixed(0)} / {awsFreeTierUsageSummary.totalLimit.toFixed(0)} 사용
                       </p>
                       <p className="text-xs text-green-600">
-                        잔여: {(freeTierUsage.totalLimit - freeTierUsage.totalUsage).toFixed(0)}
+                        잔여: {(awsFreeTierUsageSummary.totalLimit - awsFreeTierUsageSummary.totalUsage).toFixed(0)}
                       </p>
                     </div>
                   </div>
