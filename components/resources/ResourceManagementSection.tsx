@@ -346,15 +346,15 @@ export function ResourceManagementSection() {
     setShowGcpMetricsDialog(true);
   };
 
-  const handleGcpStart = async (resource: ResourceItem) => {
-    const accountId = gcpResourceToAccountMap.get(resource.id);
+  const handleGcpStart = async (resource: ResourceItem, gcpResource: GcpResource) => {
+    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
     }
     setOperatingGcpInstanceId(resource.id);
     try {
-      await startGcpInstance(accountId, resource.id);
+      await startGcpInstance(accountId, gcpResource.resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
@@ -367,8 +367,8 @@ export function ResourceManagementSection() {
     }
   };
 
-  const handleGcpStop = async (resource: ResourceItem) => {
-    const accountId = gcpResourceToAccountMap.get(resource.id);
+  const handleGcpStop = async (resource: ResourceItem, gcpResource: GcpResource) => {
+    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
@@ -378,7 +378,7 @@ export function ResourceManagementSection() {
     }
     setOperatingGcpInstanceId(resource.id);
     try {
-      await stopGcpInstance(accountId, resource.id);
+      await stopGcpInstance(accountId, gcpResource.resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
@@ -391,8 +391,8 @@ export function ResourceManagementSection() {
     }
   };
 
-  const handleGcpDelete = async (resource: ResourceItem) => {
-    const accountId = gcpResourceToAccountMap.get(resource.id);
+  const handleGcpDelete = async (resource: ResourceItem, gcpResource: GcpResource) => {
+    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
@@ -404,7 +404,7 @@ export function ResourceManagementSection() {
 
     setOperatingGcpInstanceId(resource.id);
     try {
-      await deleteGcpInstance(accountId, resource.id);
+      await deleteGcpInstance(accountId, gcpResource.resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
@@ -697,7 +697,7 @@ export function ResourceManagementSection() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleGcpStop(resource)}
+                                    onClick={() => handleGcpStop(resource, gcpResource)}
                                     disabled={isGcpOperating}
                                     className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                                     title="정지"
@@ -708,7 +708,7 @@ export function ResourceManagementSection() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleGcpStart(resource)}
+                                    onClick={() => handleGcpStart(resource, gcpResource)}
                                     disabled={isGcpOperating}
                                     className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
                                     title="시작"
@@ -719,7 +719,7 @@ export function ResourceManagementSection() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleGcpDelete(resource)}
+                                  onClick={() => handleGcpDelete(resource, gcpResource)}
                                   disabled={isGcpOperating}
                                   className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                                   title="삭제"
