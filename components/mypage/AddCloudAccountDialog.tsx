@@ -48,6 +48,8 @@ interface CredentialForm {
   clientSecret?: string;
   hasAzureCredit?: boolean;
   azureCreditLimit?: string;
+   azureCreditStartDate?: string;
+   azureCreditEndDate?: string;
   // NCP
   accessKey?: string;
   secretKey?: string;
@@ -178,6 +180,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
           clientSecret: credentials.clientSecret || '',
           hasCredit: credentials.hasAzureCredit ?? true,
           creditLimitAmount: undefined as number | undefined,
+          creditStartDate: credentials.azureCreditStartDate || undefined,
+          creditEndDate: credentials.azureCreditEndDate || undefined,
         };
 
         if (credentials.azureCreditLimit) {
@@ -660,6 +664,40 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                     })
                   }
                 />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="azureCreditStartDate" className="text-xs text-gray-600">
+                    크레딧 시작일 (선택)
+                  </Label>
+                  <Input
+                    id="azureCreditStartDate"
+                    type="date"
+                    value={credentials.azureCreditStartDate ?? ''}
+                    onChange={(e) =>
+                      setCredentials({
+                        ...credentials,
+                        azureCreditStartDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="azureCreditEndDate" className="text-xs text-gray-600">
+                    크레딧 종료일 (선택)
+                  </Label>
+                  <Input
+                    id="azureCreditEndDate"
+                    type="date"
+                    value={credentials.azureCreditEndDate ?? ''}
+                    onChange={(e) =>
+                      setCredentials({
+                        ...credentials,
+                        azureCreditEndDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>
