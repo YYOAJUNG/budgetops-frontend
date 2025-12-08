@@ -170,53 +170,10 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     }
   }
 
-  // GCP 계정 조회 및 비용 조회
+  // GCP 비용 (미구현)
   const gcpAccounts = await getGcpAccounts().catch(() => []);
-  // 크레딧 토글이 켜져 있는 GCP 계정만 프리티어 계산에 포함 (기본값: hasCredit가 명시적으로 false가 아니면 포함)
-  const gcpCreditAccounts = gcpAccounts.filter((acc: any) => acc.hasCredit !== false);
-  let gcpTotalCost = 0;
-  let previousGcpTotalCost = 0;
-  const gcpAccountCostsMap: Record<number, number> = {}; // 계정별 비용 저장
-  
-  // GCP 비용 조회 (현재 기간)
-  try {
-    const gcpCostsData = await getAllGcpAccountsCosts(from, to).catch(() => null);
-    if (gcpCostsData?.summary) {
-      const responseCurrency = (gcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
-      // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
-      gcpTotalCost = responseCurrency === 'KRW'
-        ? gcpCostsData.summary.totalDisplayNetCost
-        : convertCurrency(gcpCostsData.summary.totalDisplayNetCost, 'USD', currency);
-      
-      // 계정별 비용 저장
-      if (gcpCostsData.accounts) {
-        for (const account of gcpCostsData.accounts) {
-          const accountCurrency = (account.currency || 'KRW') as 'KRW' | 'USD';
-          // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
-          gcpAccountCostsMap[account.accountId] = accountCurrency === 'KRW'
-            ? account.totalDisplayNetCost
-            : convertCurrency(account.totalDisplayNetCost, 'USD', currency);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to fetch GCP costs:', error);
-  }
-  
-  // GCP 비용 조회 (전월 기간)
-  try {
-    const previousGcpCostsData = await getAllGcpAccountsCosts(previousFrom, previousTo).catch(() => null);
-    if (previousGcpCostsData?.summary) {
-      const responseCurrency = (previousGcpCostsData.summary.currency || 'KRW') as 'KRW' | 'USD';
-      // KRW이면 그대로 사용, USD이면 선택된 통화로 변환
-      previousGcpTotalCost = responseCurrency === 'KRW'
-        ? previousGcpCostsData.summary.totalDisplayNetCost
-        : convertCurrency(previousGcpCostsData.summary.totalDisplayNetCost, 'USD', currency);
-    }
-  } catch (error) {
-    console.error('Failed to fetch previous GCP costs:', error);
-  }
-
+  const gcpTotalCost = 0;
+  const previousGcpTotalCost = 0;
 
   // GCP 프리티어/크레딧 사용량 집계
   let gcpFreeTierUsedAmount = 0;
@@ -989,11 +946,26 @@ export function CostsSummary() {
                   {azureFreeTier && azureFreeTier.creditLimitAmount > 0 && (
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-gray-900">Azure 크레딧</h3>
+                      {(() => {
+                        // Azure 크레딧 한도를 USD와 KRW로 동시에 표시 (기준: limit은 비용 통화 기준 값)
+                        const limitInCurrency = azureFreeTier.creditLimitAmount;
+                        const limitInUsd =
+                          azureFreeTier.currency === 'USD'
+                            ? azureFreeTier.creditLimitAmount
+                            : convertCurrency(azureFreeTier.creditLimitAmount, 'KRW', 'USD');
+                        const limitInKrw =
+                          azureFreeTier.currency === 'KRW'
+                            ? azureFreeTier.creditLimitAmount
+                            : convertCurrency(azureFreeTier.creditLimitAmount, 'USD', 'KRW');
+                        return (
                       <div className="flex items-baseline justify-between">
                         <div>
                           <p className="text-xs text-gray-600">총 크레딧 한도 (기준값)</p>
                           <p className="text-xl font-bold text-gray-900">
-                            {azureFreeTier.creditLimitAmount.toFixed(1)} {azureFreeTier.currency}
+                            {limitInUsd.toFixed(1)} USD
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            (≈ {formatCurrency(limitInKrw, 'KRW')})
                           </p>
                         </div>
                         <div className="text-right">
@@ -1006,6 +978,8 @@ export function CostsSummary() {
                           </p>
                         </div>
                       </div>
+                        );
+                      })()}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">
