@@ -41,6 +41,8 @@ interface CredentialForm {
   billingAccountId?: string;
   hasGcpCredit?: boolean;
   gcpCreditLimit?: string;
+  gcpCreditStartDate?: string;
+  gcpCreditEndDate?: string;
   // Azure
   subscriptionId?: string;
   tenantId?: string;
@@ -227,6 +229,8 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
             credentials.gcpCreditLimit && !Number.isNaN(parseFloat(credentials.gcpCreditLimit))
               ? parseFloat(credentials.gcpCreditLimit)
               : undefined,
+          creditStartDate: credentials.gcpCreditStartDate || undefined,
+          creditEndDate: credentials.gcpCreditEndDate || undefined,
         });
 
         if (saveResult.ok) {
@@ -907,6 +911,40 @@ export function AddCloudAccountDialog({ open, onOpenChange, userName = '사용�
                     })
                   }
                 />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="gcpCreditStartDate" className="text-xs text-gray-600">
+                    크레딧 시작일 (선택)
+                  </Label>
+                  <Input
+                    id="gcpCreditStartDate"
+                    type="date"
+                    value={credentials.gcpCreditStartDate ?? ''}
+                    onChange={(e) =>
+                      setCredentials({
+                        ...credentials,
+                        gcpCreditStartDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="gcpCreditEndDate" className="text-xs text-gray-600">
+                    크레딧 종료일 (선택)
+                  </Label>
+                  <Input
+                    id="gcpCreditEndDate"
+                    type="date"
+                    value={credentials.gcpCreditEndDate ?? ''}
+                    onChange={(e) =>
+                      setCredentials({
+                        ...credentials,
+                        gcpCreditEndDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>

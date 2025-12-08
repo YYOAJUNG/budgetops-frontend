@@ -32,6 +32,9 @@ type AwsFreeTierSummary = {
   totalLimit: number;
   remaining: number;
   percentage: number;
+  /** 이 화면에서 계산한 프리티어 기준 기간 (예: 청구 기간) */
+  periodStart?: string;
+  periodEnd?: string;
 };
 
 type AzureFreeTierSummary = {
@@ -40,6 +43,8 @@ type AzureFreeTierSummary = {
   remainingAmount: number;
   percentage: number;
   currency: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 };
 
 type GcpFreeTierSummary = {
@@ -48,6 +53,8 @@ type GcpFreeTierSummary = {
   remainingAmount: number;
   percentage: number;
   currency: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 };
 
 type NcpFreeTierSummary = {
@@ -57,6 +64,8 @@ type NcpFreeTierSummary = {
   percentage: number;
   currency: string;
 };
+
+const AWS_EC2_FREE_TIER_MONTHLY_HOURS = 750; // t2.micro / t3.micro / t4g.micro 기준 월 750시간
 
 type CostsResponse = {
   total: number;
@@ -157,6 +166,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let azureFreeTierUsedAmount = 0;
   let azureFreeTierLimitAmount = 0;
   let azureFreeTierCurrency = 'USD';
+  let azureCreditStartDate: string | undefined;
+  let azureCreditEndDate: string | undefined;
   if (azureCreditAccounts.length > 0) {
     for (const account of azureCreditAccounts) {
       try {
@@ -164,6 +175,16 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
         azureFreeTierUsedAmount += usage.usedAmount;
         azureFreeTierLimitAmount += usage.creditLimitAmount;
         azureFreeTierCurrency = usage.currency || azureFreeTierCurrency;
+        if (usage.creditStartDate) {
+          if (!azureCreditStartDate || usage.creditStartDate < azureCreditStartDate) {
+            azureCreditStartDate = usage.creditStartDate;
+          }
+        }
+        if (usage.creditEndDate) {
+          if (!azureCreditEndDate || usage.creditEndDate > azureCreditEndDate) {
+            azureCreditEndDate = usage.creditEndDate;
+          }
+        }
       } catch (error) {
         console.error(`Failed to fetch Azure free tier usage for account ${account.id}:`, error);
       }
@@ -183,6 +204,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
   let gcpFreeTierUsedAmount = 0;
   let gcpFreeTierLimitAmount = 0;
   let gcpFreeTierCurrency = 'USD';
+  let gcpCreditStartDate: string | undefined;
+  let gcpCreditEndDate: string | undefined;
   if (gcpCreditAccounts.length > 0) {
     for (const account of gcpCreditAccounts) {
       try {
@@ -190,6 +213,16 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
         gcpFreeTierUsedAmount += usage.usedAmount;
         gcpFreeTierLimitAmount += usage.freeTierLimitAmount;
         gcpFreeTierCurrency = usage.currency || gcpFreeTierCurrency;
+        if (usage.creditStartDate) {
+          if (!gcpCreditStartDate || usage.creditStartDate < gcpCreditStartDate) {
+            gcpCreditStartDate = usage.creditStartDate;
+          }
+        }
+        if (usage.creditEndDate) {
+          if (!gcpCreditEndDate || usage.creditEndDate > gcpCreditEndDate) {
+            gcpCreditEndDate = usage.creditEndDate;
+          }
+        }
       } catch (error) {
         console.error(`Failed to fetch GCP free tier usage for account ${account.id}:`, error);
       }
@@ -243,13 +276,22 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     .sort((a, b) => b.amount - a.amount);
 
   const awsFreeTier: AwsFreeTierSummary | undefined =
-    awsFreeTierTotalLimit > 0
-      ? {
-          totalUsage: awsFreeTierTotalUsage,
-          totalLimit: awsFreeTierTotalLimit,
-          remaining: Math.max(0, awsFreeTierTotalLimit - awsFreeTierTotalUsage),
-          percentage: Math.min(100, (awsFreeTierTotalUsage / awsFreeTierTotalLimit) * 100),
-        }
+    awsFreeTierTotalLimit > 0 || activeAwsAccounts.length > 0
+      ? (() => {
+          const totalLimit =
+            awsFreeTierTotalLimit > 0 ? awsFreeTierTotalLimit : AWS_EC2_FREE_TIER_MONTHLY_HOURS;
+          const clampedUsage = Math.max(0, awsFreeTierTotalUsage);
+          const remaining = Math.max(0, totalLimit - clampedUsage);
+          const percentage = totalLimit > 0 ? Math.min(100, (clampedUsage / totalLimit) * 100) : 0;
+          return {
+            totalUsage: clampedUsage,
+            totalLimit,
+            remaining,
+            percentage,
+            periodStart: from,
+            periodEnd: to,
+          };
+        })()
       : undefined;
 
   const azureFreeTier: AzureFreeTierSummary | undefined =
@@ -260,6 +302,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
           remainingAmount: Math.max(0, azureFreeTierLimitAmount - azureFreeTierUsedAmount),
           percentage: Math.min(100, (azureFreeTierUsedAmount / azureFreeTierLimitAmount) * 100),
           currency: azureFreeTierCurrency,
+          creditStartDate: azureCreditStartDate,
+          creditEndDate: azureCreditEndDate,
         }
       : undefined;
 
@@ -271,6 +315,8 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
           remainingAmount: Math.max(0, gcpFreeTierLimitAmount - gcpFreeTierUsedAmount),
           percentage: Math.min(100, (gcpFreeTierUsedAmount / gcpFreeTierLimitAmount) * 100),
           currency: gcpFreeTierCurrency,
+          creditStartDate: gcpCreditStartDate,
+          creditEndDate: gcpCreditEndDate,
         }
       : undefined;
 
@@ -563,19 +609,29 @@ export function CostsSummary() {
     if (awsFreeTier && awsFreeTier.totalLimit > 0) {
       const remainingPercent = 100 - awsFreeTier.percentage;
       captions.push(
-        `AWS 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(0)})`
+        `AWS 잔여 ${remainingPercent.toFixed(1)}% (${awsFreeTier.remaining.toFixed(0)}/${awsFreeTier.totalLimit.toFixed(
+          0
+        )}, 기간 ${awsFreeTier.periodStart ?? '-'} ~ ${awsFreeTier.periodEnd ?? '-'})`
       );
     }
     if (azureFreeTier && azureFreeTier.creditLimitAmount > 0) {
       const remainingPercent = 100 - azureFreeTier.percentage;
       captions.push(
-        `Azure 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingAmount.toFixed(1)}/${azureFreeTier.creditLimitAmount.toFixed(1)} ${azureFreeTier.currency})`
+        `Azure 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${azureFreeTier.remainingAmount.toFixed(
+          1
+        )}/${azureFreeTier.creditLimitAmount.toFixed(1)} ${azureFreeTier.currency}, 만료 ${
+          azureFreeTier.creditEndDate ?? '-'
+        })`
       );
     }
     if (gcpFreeTier && gcpFreeTier.freeTierLimitAmount > 0) {
       const remainingPercent = 100 - gcpFreeTier.percentage;
       captions.push(
-        `GCP 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${gcpFreeTier.remainingAmount.toFixed(1)}/${gcpFreeTier.freeTierLimitAmount.toFixed(1)} ${gcpFreeTier.currency})`
+        `GCP 크레딧 잔여 ${remainingPercent.toFixed(1)}% (${gcpFreeTier.remainingAmount.toFixed(
+          1
+        )}/${gcpFreeTier.freeTierLimitAmount.toFixed(1)} ${gcpFreeTier.currency}, 만료 ${
+          gcpFreeTier.creditEndDate ?? '-'
+        })`
       );
     }
     if (ncpFreeTier && ncpFreeTier.freeTierLimitAmount > 0) {
@@ -585,7 +641,7 @@ export function CostsSummary() {
       );
     }
     return captions.join(' · ');
-  }, [awsFreeTier, azureFreeTier]);
+  }, [awsFreeTier, azureFreeTier, gcpFreeTier, ncpFreeTier]);
 
   return (
     <div className="space-y-6">
@@ -1018,6 +1074,11 @@ export function CostsSummary() {
                           Azure Cost Management API 기준, 선택한 기간 동안의 Azure 비용 합계를
                           설정된 크레딧 한도 대비 근사 계산한 값입니다.
                         </p>
+                        {azureFreeTier.creditStartDate && azureFreeTier.creditEndDate && (
+                          <p className="text-[11px] text-gray-500">
+                            크레딧 유효 기간: {azureFreeTier.creditStartDate} ~ {azureFreeTier.creditEndDate} (만료일 기준)
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1035,26 +1096,26 @@ export function CostsSummary() {
                             ? gcpFreeTier.freeTierLimitAmount
                             : convertCurrency(gcpFreeTier.freeTierLimitAmount, 'USD', 'KRW');
                         return (
-                          <div className="flex items-baseline justify-between">
-                            <div>
-                              <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
-                              <p className="text-xl font-bold text-gray-900">
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
+                          <p className="text-xl font-bold text-gray-900">
                                 {limitInUsd.toFixed(1)} USD
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 (≈ {formatCurrency(limitInKrw, 'KRW')})
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
-                              <p className="text-sm font-semibold text-gray-900">
-                                {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
-                              </p>
-                            </div>
-                          </div>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                        </div>
+                      </div>
                         );
                       })()}
                       <div className="space-y-1.5">
@@ -1088,6 +1149,11 @@ export function CostsSummary() {
                           GCP Billing Export 기준, 크레딧/프리티어로 상쇄된 금액(credits)을 합산하여 300 {gcpFreeTier.currency}{' '}
                           한도 대비 사용률을 근사 계산한 값입니다.
                         </p>
+                        {gcpFreeTier.creditStartDate && gcpFreeTier.creditEndDate && (
+                          <p className="text-[11px] text-gray-500">
+                            크레딧 유효 기간: {gcpFreeTier.creditStartDate} ~ {gcpFreeTier.creditEndDate} (만료일 기준)
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
