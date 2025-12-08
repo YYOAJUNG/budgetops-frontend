@@ -1024,23 +1024,38 @@ export function CostsSummary() {
                   {gcpFreeTier && gcpFreeTier.freeTierLimitAmount > 0 && (
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-gray-900">GCP 크레딧/프리티어</h3>
-                      <div className="flex items-baseline justify-between">
-                        <div>
-                          <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
-                          <p className="text-xl font-bold text-gray-900">
-                            {gcpFreeTier.freeTierLimitAmount.toFixed(1)} {gcpFreeTier.currency}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
-                          <p className="text-sm font-semibold text-gray-900">
-                            {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
-                          </p>
-                        </div>
-                      </div>
+                      {(() => {
+                        const limitInUsd =
+                          gcpFreeTier.currency === 'USD'
+                            ? gcpFreeTier.freeTierLimitAmount
+                            : convertCurrency(gcpFreeTier.freeTierLimitAmount, 'KRW', 'USD');
+                        const limitInKrw =
+                          gcpFreeTier.currency === 'KRW'
+                            ? gcpFreeTier.freeTierLimitAmount
+                            : convertCurrency(gcpFreeTier.freeTierLimitAmount, 'USD', 'KRW');
+                        return (
+                          <div className="flex items-baseline justify-between">
+                            <div>
+                              <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {limitInUsd.toFixed(1)} USD
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                (≈ {formatCurrency(limitInKrw, 'KRW')})
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">크레딧/프리티어 사용률 (300 {gcpFreeTier.currency} 기준)</span>
