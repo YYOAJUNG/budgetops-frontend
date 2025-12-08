@@ -199,6 +199,48 @@ export async function getGcpInstanceMetrics(
 }
 
 /**
+ * GCP VM 인스턴스 시작
+ * @param accountId GCP 계정 ID
+ * @param resourceId GCP 리소스 ID (인스턴스 ID)
+ */
+export async function startGcpInstance(
+  accountId: number,
+  resourceId: string
+): Promise<void> {
+  await api.post(
+    `/gcp/accounts/${accountId}/resources/${encodeURIComponent(resourceId)}/start`
+  );
+}
+
+/**
+ * GCP VM 인스턴스 중지
+ * @param accountId GCP 계정 ID
+ * @param resourceId GCP 리소스 ID (인스턴스 ID)
+ */
+export async function stopGcpInstance(
+  accountId: number,
+  resourceId: string
+): Promise<void> {
+  await api.post(
+    `/gcp/accounts/${accountId}/resources/${encodeURIComponent(resourceId)}/stop`
+  );
+}
+
+/**
+ * GCP VM 인스턴스 삭제
+ * @param accountId GCP 계정 ID
+ * @param resourceId GCP 리소스 ID (인스턴스 ID)
+ */
+export async function deleteGcpInstance(
+  accountId: number,
+  resourceId: string
+): Promise<void> {
+  await api.delete(
+    `/gcp/accounts/${accountId}/resources/${encodeURIComponent(resourceId)}`
+  );
+}
+
+/**
  * GCP 알림 인터페이스
  */
 export interface GcpAlert {

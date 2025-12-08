@@ -30,7 +30,7 @@ import {
   terminateEc2Instance,
 } from '@/lib/api/aws';
 
-import { getAllGcpResources, GcpResource, getGcpAccounts } from '@/lib/api/gcp';
+import { getAllGcpResources, GcpResource, getGcpAccounts, startGcpInstance, stopGcpInstance, deleteGcpInstance } from '@/lib/api/gcp';
 import { getAzureAccounts, startAzureVirtualMachine, stopAzureVirtualMachine, deleteAzureVirtualMachine } from '@/lib/api/azure';
 import { getNcpAccounts, getAllServerInstances, NcpServerInstance, stopServerInstances, startServerInstances, terminateServerInstances } from '@/lib/api/ncp';
 import { Ec2MetricsDialog } from './Ec2MetricsDialog';
@@ -159,6 +159,19 @@ export function ResourceExplorer() {
     return map;
   }, [gcpAccountResources]);
 
+  // GCP 리소스의 resourceId로 accountId를 찾는 Map
+  const gcpResourceToAccountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (gcpAccountResources) {
+      for (const accountResources of gcpAccountResources) {
+        for (const resource of accountResources.resources) {
+          map.set(resource.resourceId, accountResources.accountId);
+        }
+      }
+    }
+    return map;
+  }, [gcpAccountResources]);
+
   // NCP 서버 인스턴스 조회
   const { data: ncpServerInstances } = useQuery({
     queryKey: ['ncp-server-instances'],
@@ -220,6 +233,7 @@ export function ResourceExplorer() {
   } | null>(null);
   const [operatingInstanceId, setOperatingInstanceId] = useState<string | null>(null);
   const [operatingAzureVmId, setOperatingAzureVmId] = useState<string | null>(null);
+  const [operatingGcpInstanceId, setOperatingGcpInstanceId] = useState<string | null>(null);
 
   const providers = useMemo(() => {
     return Array.from(new Set((data ?? []).map((item) => item.provider))).sort();
@@ -455,6 +469,77 @@ export function ResourceExplorer() {
       alert(error?.response?.data?.message || error?.message || '서버 삭제 중 오류가 발생했습니다.');
     } finally {
       setOperatingInstanceId(null);
+    }
+  };
+
+  const handleGcpStart = async (resource: ResourceItem) => {
+    const accountId = gcpResourceToAccountMap.get(resource.id);
+    if (!accountId) {
+      alert('GCP 계정 정보를 찾을 수 없습니다.');
+      return;
+    }
+    setOperatingGcpInstanceId(resource.id);
+    try {
+      await startGcpInstance(accountId, resource.id);
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchGcp();
+    } catch (error: any) {
+      console.error('GCP VM 시작 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'GCP VM 시작 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingGcpInstanceId(null);
+    }
+  };
+
+  const handleGcpStop = async (resource: ResourceItem) => {
+    const accountId = gcpResourceToAccountMap.get(resource.id);
+    if (!accountId) {
+      alert('GCP 계정 정보를 찾을 수 없습니다.');
+      return;
+    }
+    if (!confirm(`${resource.name} VM을 정지하시겠습니까?`)) {
+      return;
+    }
+    setOperatingGcpInstanceId(resource.id);
+    try {
+      await stopGcpInstance(accountId, resource.id);
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchGcp();
+    } catch (error: any) {
+      console.error('GCP VM 정지 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'GCP VM 정지 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingGcpInstanceId(null);
+    }
+  };
+
+  const handleGcpDelete = async (resource: ResourceItem) => {
+    const accountId = gcpResourceToAccountMap.get(resource.id);
+    if (!accountId) {
+      alert('GCP 계정 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!confirm(`${resource.name} VM을 삭제하시겠습니까?\n\n삭제된 VM은 복구할 수 없습니다.`)) {
+      return;
+    }
+
+    setOperatingGcpInstanceId(resource.id);
+    try {
+      await deleteGcpInstance(accountId, resource.id);
+      queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      refetch();
+      refetchGcp();
+    } catch (error: any) {
+      console.error('GCP VM 삭제 오류:', error);
+      alert(error?.response?.data?.message || error?.message || 'GCP VM 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setOperatingGcpInstanceId(null);
     }
   };
 
@@ -745,6 +830,7 @@ export function ResourceExplorer() {
                     const gcpResource = resource.provider === 'GCP' ? gcpResourceMap.get(resource.id) : undefined;
                     const isEc2 = resource.service === 'EC2' && ec2Instance;
                     const isGcpInstance = resource.provider === 'GCP' && resource.service === 'Instance' && gcpResource;
+                    const gcpAccountId = isGcpInstance ? gcpResourceToAccountMap.get(resource.id) : undefined;
                     const isNcpServer = resource.provider === 'NCP' && resource.service === 'Server';
                     const isAzureVm = resource.provider === 'Azure' && resource.service === 'Virtual Machines';
                     const azureDetails =
@@ -752,6 +838,7 @@ export function ResourceExplorer() {
                         ? resource.details
                         : undefined;
                     const isAzureOperating = operatingAzureVmId === resource.id;
+                    const isGcpOperating = operatingGcpInstanceId === resource.id;
                     // NCP 서버의 경우 첫 번째 활성 계정 사용 (실제로는 백엔드에서 accountId를 포함하도록 수정하는 것이 좋음)
                     const ncpAccountId = isNcpServer && activeNcpAccounts.length > 0 ? activeNcpAccounts[0].id : null;
                     const isNcpSelected = isNcpServer ? selectedNcpInstanceNos.includes(resource.id) : false;
@@ -964,23 +1051,58 @@ export function ResourceExplorer() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
-                            ) : isGcpInstance && gcpResource ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedGcpResource({
-                                    resourceId: gcpResource.resourceId,
-                                    instanceName: gcpResource.resourceName || gcpResource.resourceId,
-                                    region: resource.region
-                                  });
-                                  setShowGcpMetricsDialog(true);
-                                }}
-                                className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                title="메트릭 보기"
-                              >
-                                <Activity className="h-4 w-4" />
-                              </Button>
+                            ) : isGcpInstance && gcpResource && gcpAccountId ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedGcpResource({
+                                      resourceId: gcpResource.resourceId,
+                                      instanceName: gcpResource.resourceName || gcpResource.resourceId,
+                                      region: resource.region
+                                    });
+                                    setShowGcpMetricsDialog(true);
+                                  }}
+                                  className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  title="메트릭 보기"
+                                >
+                                  <Activity className="h-4 w-4" />
+                                </Button>
+                                {resource.status === 'running' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleGcpStop(resource)}
+                                    disabled={isGcpOperating}
+                                    className="h-8 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    title="정지"
+                                  >
+                                    <Square className="h-4 w-4" />
+                                  </Button>
+                                ) : resource.status === 'stopped' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleGcpStart(resource)}
+                                    disabled={isGcpOperating}
+                                    className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    title="시작"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleGcpDelete(resource)}
+                                  disabled={isGcpOperating}
+                                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="삭제"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
                             ) : (
                               <span className="text-xs text-slate-400">관리 불가</span>
                             )}
