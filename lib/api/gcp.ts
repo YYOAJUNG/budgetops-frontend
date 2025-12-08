@@ -228,6 +228,28 @@ export interface GcpAlert {
 }
 
 /**
+ * GCP 계정의 월별 비용 조회
+ * 백엔드: GET /gcp/accounts/{accountId}/costs/monthly
+ */
+export interface GcpMonthlyCost {
+  year: number;
+  month: number;
+  totalCost: number;
+}
+
+export async function getGcpAccountMonthlyCost(
+  accountId: number,
+  year: number,
+  month: number
+): Promise<GcpMonthlyCost> {
+  const { data } = await api.get<GcpMonthlyCost>(
+    `/gcp/accounts/${accountId}/costs/monthly`,
+    { params: { year, month } }
+  );
+  return data;
+}
+
+/**
  * 모든 GCP 계정의 알림 점검 실행
  * 백엔드: POST /gcp/alerts/check
  */
