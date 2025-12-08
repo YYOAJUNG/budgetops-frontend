@@ -23,6 +23,8 @@ export interface CreateAzureAccountRequest {
   clientSecret: string;
   hasCredit?: boolean;
   creditLimitAmount?: number;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 export interface AzureVirtualMachine {
