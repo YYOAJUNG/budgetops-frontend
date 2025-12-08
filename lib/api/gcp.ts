@@ -49,6 +49,8 @@ export interface SaveIntegrationRequest {
   billingAccountId?: string;
   hasCredit?: boolean;
   creditLimitAmount?: number;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 export interface SaveIntegrationResponse {
@@ -65,6 +67,8 @@ export interface GcpFreeTierUsage {
   remainingAmount: number;
   percentage: number;
   currency: string;
+  creditStartDate?: string;
+  creditEndDate?: string;
 }
 
 /**
