@@ -711,7 +711,7 @@ export function Dashboard() {
                     <div className="text-right">
                       <p className="text-sm text-gray-600 mb-1">총 비용</p>
                       <p className="text-2xl font-bold text-orange-600">
-                              {freeTierUsage.isActive && totalAwsCostUsd === 0 ? (
+                              {awsFreeTierUsageSummary.isActive && totalAwsCostUsd === 0 ? (
                                 <span className="flex items-center gap-2 justify-end">
                                   <Gift className="h-5 w-5 text-green-600" />
                                   <span className="text-green-600">프리티어 사용 중</span>
@@ -804,7 +804,7 @@ export function Dashboard() {
                           <div className="text-right">
                             <p className="text-sm text-gray-600 mb-1">총 비용</p>
                             <p className="text-2xl font-bold text-orange-600">
-                              {freeTierUsage.isActive ? (
+                              {awsFreeTierUsageSummary.isActive ? (
                                 <span className="flex items-center gap-2">
                                   <Gift className="h-5 w-5 text-green-600" />
                                   <span className="text-green-600">프리티어 사용 중</span>
@@ -815,14 +815,14 @@ export function Dashboard() {
                             </p>
                           </div>
                         </div>
-                        {freeTierUsage.isActive ? (
+                        {awsFreeTierUsageSummary.isActive ? (
                           <div className="mt-3 space-y-2">
                             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                               <p className="text-xs text-green-800 font-medium mb-1">
                                 프리티어 범위 내 사용 중
                               </p>
                               <p className="text-xs text-green-700">
-                                사용률: {freeTierUsage.percentage.toFixed(1)}% ({freeTierUsage.totalUsage.toFixed(0)}/{freeTierUsage.totalLimit.toFixed(0)})
+                                사용률: {awsFreeTierUsageSummary.percentage.toFixed(1)}% ({awsFreeTierUsageSummary.totalUsage.toFixed(0)}/{awsFreeTierUsageSummary.totalLimit.toFixed(0)})
                               </p>
                             </div>
                             <Button
@@ -1192,22 +1192,22 @@ export function Dashboard() {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-green-900">전체 사용률</span>
                     <span className="text-2xl font-bold text-green-700">
-                      {freeTierUsage.percentage.toFixed(1)}%
+                      {awsFreeTierUsageSummary.percentage.toFixed(1)}%
                     </span>
                   </div>
                   <div className="mt-3">
                     <div className="w-full bg-green-200 rounded-full h-3 shadow-inner">
                       <div
                         className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all shadow-sm"
-                        style={{ width: `${Math.min(freeTierUsage.percentage, 100)}%` }}
+                        style={{ width: `${Math.min(awsFreeTierUsageSummary.percentage, 100)}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-xs text-green-700 font-medium">
-                        {freeTierUsage.totalUsage.toFixed(0)} / {freeTierUsage.totalLimit.toFixed(0)} 사용
+                        {awsFreeTierUsageSummary.totalUsage.toFixed(0)} / {awsFreeTierUsageSummary.totalLimit.toFixed(0)} 사용
                       </p>
                       <p className="text-xs text-green-600">
-                        잔여: {(freeTierUsage.totalLimit - freeTierUsage.totalUsage).toFixed(0)}
+                        잔여: {(awsFreeTierUsageSummary.totalLimit - awsFreeTierUsageSummary.totalUsage).toFixed(0)}
                       </p>
                     </div>
                   </div>
