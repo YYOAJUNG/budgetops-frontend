@@ -58,6 +58,8 @@ type NcpFreeTierSummary = {
   currency: string;
 };
 
+const AWS_EC2_FREE_TIER_MONTHLY_HOURS = 750; // t2.micro / t3.micro / t4g.micro 기준 월 750시간
+
 type CostsResponse = {
   total: number;
   providers: ProviderCost[];
@@ -243,13 +245,20 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
     .sort((a, b) => b.amount - a.amount);
 
   const awsFreeTier: AwsFreeTierSummary | undefined =
-    awsFreeTierTotalLimit > 0
-      ? {
-          totalUsage: awsFreeTierTotalUsage,
-          totalLimit: awsFreeTierTotalLimit,
-          remaining: Math.max(0, awsFreeTierTotalLimit - awsFreeTierTotalUsage),
-          percentage: Math.min(100, (awsFreeTierTotalUsage / awsFreeTierTotalLimit) * 100),
-        }
+    awsFreeTierTotalLimit > 0 || activeAwsAccounts.length > 0
+      ? (() => {
+          const totalLimit =
+            awsFreeTierTotalLimit > 0 ? awsFreeTierTotalLimit : AWS_EC2_FREE_TIER_MONTHLY_HOURS;
+          const clampedUsage = Math.max(0, awsFreeTierTotalUsage);
+          const remaining = Math.max(0, totalLimit - clampedUsage);
+          const percentage = totalLimit > 0 ? Math.min(100, (clampedUsage / totalLimit) * 100) : 0;
+          return {
+            totalUsage: clampedUsage,
+            totalLimit,
+            remaining,
+            percentage,
+          };
+        })()
       : undefined;
 
   const azureFreeTier: AzureFreeTierSummary | undefined =
@@ -1035,26 +1044,26 @@ export function CostsSummary() {
                             ? gcpFreeTier.freeTierLimitAmount
                             : convertCurrency(gcpFreeTier.freeTierLimitAmount, 'USD', 'KRW');
                         return (
-                          <div className="flex items-baseline justify-between">
-                            <div>
-                              <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
-                              <p className="text-xl font-bold text-gray-900">
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <p className="text-xs text-gray-600">총 크레딧/프리티어 한도 (기준값)</p>
+                          <p className="text-xl font-bold text-gray-900">
                                 {limitInUsd.toFixed(1)} USD
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 (≈ {formatCurrency(limitInKrw, 'KRW')})
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
-                              <p className="text-sm font-semibold text-gray-900">
-                                {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
-                              </p>
-                            </div>
-                          </div>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">사용된 크레딧/프리티어</p>
+                          <p className="text-sm font-semibold text-gray-900">
+                            {gcpFreeTier.usedAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            잔여 {gcpFreeTier.remainingAmount.toFixed(1)} {gcpFreeTier.currency}
+                          </p>
+                        </div>
+                      </div>
                         );
                       })()}
                       <div className="space-y-1.5">
