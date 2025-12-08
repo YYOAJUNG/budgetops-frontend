@@ -172,8 +172,12 @@ async function fetchCosts(from: string, to: string, currency: 'KRW' | 'USD'): Pr
 
   // GCP 비용 (미구현)
   const gcpAccounts = await getGcpAccounts().catch(() => []);
+  // 크레딧 토글이 켜져 있는 GCP 계정만 프리티어 계산에 포함 (기본값: hasCredit가 명시적으로 false가 아니면 포함)
+  const gcpCreditAccounts = gcpAccounts.filter((acc: any) => acc.hasCredit !== false);
   const gcpTotalCost = 0;
   const previousGcpTotalCost = 0;
+  // TODO: getAllGcpAccountsCosts와 연동하여 계정별 비용을 채우는 로직 추가 예정
+  const gcpAccountCostsMap: Record<number, number> = {};
 
   // GCP 프리티어/크레딧 사용량 집계
   let gcpFreeTierUsedAmount = 0;
