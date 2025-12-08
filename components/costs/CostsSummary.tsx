@@ -884,10 +884,11 @@ export function CostsSummary() {
               )}
             </CardHeader>
             <CardContent>
-              {!awsFreeTier && !azureFreeTier ? (
+              {!awsFreeTier && !azureFreeTier && !gcpFreeTier && !ncpFreeTier ? (
                 <div className="text-sm text-gray-600">
-                  프리티어/크레딧 대상 AWS/Azure 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro 또는 Azure를
-                  사용하면 프리티어/크레딧 사용 현황이 표시됩니다.
+                  프리티어/크레딧/할인 대상 AWS·Azure·GCP·NCP 사용량 데이터가 없습니다. EC2 t2/t3/t4g.micro,
+                  Azure 크레딧 계정, GCP 크레딧/프리티어 계정 또는 NCP 할인 적용 리소스를 사용하면
+                  프리티어/크레딧/할인 사용 현황이 표시됩니다.
                 </div>
               ) : (
                 <div className="grid gap-6 md:grid-cols-4 max-w-6xl">
