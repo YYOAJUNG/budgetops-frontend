@@ -95,7 +95,7 @@
 import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useCostSeries, useBudgets, useAnomalies, useRecommendations } from '@/lib/api/queries';
+import { useCostSeries, useBudgets, useAnomalies } from '@/lib/api/queries';
 import { useContextStore } from '@/store/context';
 import { useUIStore } from '@/store/ui';
 import { formatCurrency, convertCurrency, cn } from '@/lib/utils';
@@ -106,6 +106,7 @@ import { getGcpAccounts, getAllGcpAccountsCosts } from '@/lib/api/gcp';
 import { getAzureAccounts, getAllAzureAccountsCosts, type AzureAccountCost } from '@/lib/api/azure';
 import { getNcpAccounts, getAllNcpAccountsCostsSummary } from '@/lib/api/ncp';
 import { getBudgetUsage } from '@/lib/api/budget';
+import { getRecommendations, type RecommendationResponse } from '@/lib/api/simulator';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -113,7 +114,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 /** 최소한의 로컬 타입 (API 타입이 있으면 그걸 import 해도 됨) */
 type CostPoint = { amount: number };
 type Budget = { amount: number; spendToDate?: number };
-type Recommendation = { saving: number };
 
 export function Dashboard() {
   const { tenantId, from, to, currency } = useContextStore();
@@ -123,7 +123,13 @@ export function Dashboard() {
 
   const { data: costSeriesRaw } = useCostSeries({ tenantId, from, to });
   const { data: budgetsRaw } = useBudgets(tenantId);
-  const { data: recommendationsRaw } = useRecommendations(tenantId);
+  
+  // 추천 액션 조회 (실제 API 사용)
+  const { data: recommendationsRaw } = useQuery({
+    queryKey: ['recommendations'],
+    queryFn: getRecommendations,
+    staleTime: 5 * 60 * 1000, // 5분
+  });
   const { data: budgetUsage } = useQuery({
     queryKey: ['budgetUsage'],
     queryFn: getBudgetUsage,
@@ -269,7 +275,7 @@ export function Dashboard() {
   // 안전한 기본값 + 좁은 타입 보장
   const costSeries = (costSeriesRaw ?? []) as CostPoint[];
   const budgets = (budgetsRaw ?? []) as Budget[];
-  const recommendations = (recommendationsRaw ?? []) as Recommendation[];
+  const recommendations = (recommendationsRaw ?? []) as RecommendationResponse[];
   
   // AWS 계정별 상세 비용 조회 (프리티어 정보 포함)
   const { data: awsAccountDetailedCosts } = useQuery({
@@ -554,7 +560,7 @@ export function Dashboard() {
   const budgetUtilization = budgetUsage?.usagePercentage ?? fallbackBudgetUtilization;
 
   const totalSavings = recommendations.reduce(
-    (sum: number, r: Recommendation) => sum + (r.saving ?? 0),
+    (sum: number, r: RecommendationResponse) => sum + (r.estimatedSavings ?? 0),
     0
   );
 
