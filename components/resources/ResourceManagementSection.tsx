@@ -347,14 +347,28 @@ export function ResourceManagementSection() {
   };
 
   const handleGcpStart = async (resource: ResourceItem, gcpResource: GcpResource) => {
-    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
+    if (!gcpResource || !gcpResource.resourceId) {
+      console.error('GCP 리소스 정보가 없습니다.', { resource, gcpResource });
+      alert('GCP 리소스 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    // resourceId가 올바른 형식인지 확인 (GCP 전체 경로 문자열이어야 함)
+    const resourceId = gcpResource.resourceId;
+    if (typeof resourceId !== 'string' || !resourceId.includes('//compute.googleapis.com')) {
+      console.error('잘못된 resourceId 형식:', { resourceId, type: typeof resourceId, gcpResource });
+      alert(`잘못된 리소스 ID 형식입니다. 백엔드 응답을 확인해주세요.\nresourceId: ${resourceId}`);
+      return;
+    }
+
+    const accountId = gcpResourceToAccountMap.get(resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
     }
     setOperatingGcpInstanceId(resource.id);
     try {
-      await startGcpInstance(accountId, gcpResource.resourceId);
+      await startGcpInstance(accountId, resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
@@ -368,7 +382,21 @@ export function ResourceManagementSection() {
   };
 
   const handleGcpStop = async (resource: ResourceItem, gcpResource: GcpResource) => {
-    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
+    if (!gcpResource || !gcpResource.resourceId) {
+      console.error('GCP 리소스 정보가 없습니다.', { resource, gcpResource });
+      alert('GCP 리소스 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    // resourceId가 올바른 형식인지 확인 (GCP 전체 경로 문자열이어야 함)
+    const resourceId = gcpResource.resourceId;
+    if (typeof resourceId !== 'string' || !resourceId.includes('//compute.googleapis.com')) {
+      console.error('잘못된 resourceId 형식:', { resourceId, type: typeof resourceId, gcpResource });
+      alert(`잘못된 리소스 ID 형식입니다. 백엔드 응답을 확인해주세요.\nresourceId: ${resourceId}`);
+      return;
+    }
+
+    const accountId = gcpResourceToAccountMap.get(resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
@@ -378,7 +406,7 @@ export function ResourceManagementSection() {
     }
     setOperatingGcpInstanceId(resource.id);
     try {
-      await stopGcpInstance(accountId, gcpResource.resourceId);
+      await stopGcpInstance(accountId, resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
@@ -392,7 +420,21 @@ export function ResourceManagementSection() {
   };
 
   const handleGcpDelete = async (resource: ResourceItem, gcpResource: GcpResource) => {
-    const accountId = gcpResourceToAccountMap.get(gcpResource.resourceId);
+    if (!gcpResource || !gcpResource.resourceId) {
+      console.error('GCP 리소스 정보가 없습니다.', { resource, gcpResource });
+      alert('GCP 리소스 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    // resourceId가 올바른 형식인지 확인 (GCP 전체 경로 문자열이어야 함)
+    const resourceId = gcpResource.resourceId;
+    if (typeof resourceId !== 'string' || !resourceId.includes('//compute.googleapis.com')) {
+      console.error('잘못된 resourceId 형식:', { resourceId, type: typeof resourceId, gcpResource });
+      alert(`잘못된 리소스 ID 형식입니다. 백엔드 응답을 확인해주세요.\nresourceId: ${resourceId}`);
+      return;
+    }
+
+    const accountId = gcpResourceToAccountMap.get(resourceId);
     if (!accountId) {
       alert('GCP 계정 정보를 찾을 수 없습니다.');
       return;
@@ -404,7 +446,7 @@ export function ResourceManagementSection() {
 
     setOperatingGcpInstanceId(resource.id);
     try {
-      await deleteGcpInstance(accountId, gcpResource.resourceId);
+      await deleteGcpInstance(accountId, resourceId);
       queryClient.invalidateQueries({ queryKey: ['gcp-resources'] });
       queryClient.invalidateQueries({ queryKey: ['resources'] });
       refetch();
